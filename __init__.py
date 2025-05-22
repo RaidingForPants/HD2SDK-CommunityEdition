@@ -1122,7 +1122,6 @@ class StreamToc:
                     if Entry.TypeID == Type.TypeID:
                         Entry.Serialize(self.TocFile, Index)
                         Index += 1
-
         return True
 
     def UpdateTypes(self):
@@ -1154,14 +1153,7 @@ class StreamToc:
             if os.path.isfile(path+".stream"):
                 with open(path+".stream", 'r+b') as f:
                     self.StreamFile = MemoryStream(f.read())
-
-        result = self.Serialize(SerializeData)
-
-        self.TocFile = None
-        self.GpuFile = None
-        self.StreamFile = None
-
-        return result
+        return self.Serialize(SerializeData)
 
     def ToFile(self, path=None):
         self.TocFile = MemoryStream(IOMode = "write")
@@ -1176,10 +1168,6 @@ class StreamToc:
             f.write(bytes(self.GpuFile.Data))
         with open(path+".stream", 'w+b') as f:
             f.write(bytes(self.StreamFile.Data))
-
-        self.TocFile = None
-        self.GpuFile = None
-        self.StreamFile = None
 
     def GetFileData(self, FileID, TypeID):
         for FileEntry in self.TocEntries:
