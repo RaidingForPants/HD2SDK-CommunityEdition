@@ -1037,6 +1037,8 @@ class SearchToc:
         self.LocalName = ""
 
     def HasEntry(self, file_id, type_id):
+        file_id = int(file_id)
+        type_id = int(type_id)
         try:
             return file_id in self.TocEntries[type_id]
         except KeyError:
