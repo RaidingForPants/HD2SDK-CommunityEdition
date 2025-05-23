@@ -1283,8 +1283,8 @@ class TocManager():
 
         return toc
     
-    def LoadArchiveByEntry(self, entry: TocEntry):
-        self.GetEntry(entry.FileID, entry.TypeID, SearchAll=True, IgnorePatch=True)
+    def GetEntryByLoadArchive(self, FileID: int, TypeID: int):
+        return self.GetEntry(FileID, TypeID, SearchAll=True, IgnorePatch=True)
     
     def ArchiveNotEmpty(self, toc):
         hasMaterials = False
@@ -4368,7 +4368,7 @@ class SaveStingrayMeshOperator(Operator):
             return{'CANCELLED'}
         model = GetObjectsMeshData(objects)
         BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
-        Entry = Global_TocManager.GetEntry(int(ID), MeshID)
+        Entry = Global_TocManager.GetEntryByLoadArchive(int(ID), MeshID)
         if Entry is None:
             self.report({'ERROR'},
                 f"Archive for entry being saved is not loaded. Could not find custom property object at ID: {ID}")
@@ -4450,7 +4450,7 @@ class BatchSaveStingrayMeshOperator(Operator):
         BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
         num_meshes = len(objects)
         for ID in IDs:
-            Entry = Global_TocManager.GetEntry(int(ID), MeshID)
+            Entry = Global_TocManager.GetEntryByLoadArchive(int(ID), MeshID)
             if Entry is None:
                 self.report({'ERROR'},
                             f"Archive for entry being saved is not loaded. Could not find custom property object at ID: {ID}")
@@ -5291,7 +5291,7 @@ def RepatchMeshes(self, path):
                 PrettyPrint(f"Skipping {entry.FileID} as it is not a mesh entry")
                 continue
             PrettyPrint(f"Repatching {entry.FileID}")
-            Global_TocManager.LoadArchiveByEntry(entry)
+            Global_TocManager.GetEntryByLoadArchive(entry.FileID, entry.TypeID)
             settings.AutoLods = True
             settings.ImportStatic = False
             numMeshesRepatched += 1
