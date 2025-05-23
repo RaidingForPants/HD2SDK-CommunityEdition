@@ -511,10 +511,11 @@ def GetMeshData(og_object):
         PrettyPrint(f"Current object: {object}")
     return NewMesh
 
-def GetObjectsMeshData(blender_objects):
+def GetObjectsMeshData():
+    objects = bpy.context.selected_objects
     bpy.ops.object.select_all(action='DESELECT')
     data = {}
-    for object in blender_objects:
+    for object in objects:
         ID = object["Z_ObjectID"]
         MeshData = GetMeshData(object)
         try:
@@ -3415,58 +3416,22 @@ def PatchesNotLoaded(self):
     else:
         return False
 
-def DuplicateIDsInScene(self):
-    CustomObjects = []
-    for obj in bpy.context.selected_objects:
-        if len(obj.keys()) > 1: 
-            for key in obj.keys():
-                if key == "Z_ObjectID":
-                    indexKey = "MeshInfoIndex"
-                    PrettyPrint(f"obj: {obj.name} id: {obj[key]} index: {obj[indexKey]}")
-                    for otherObject in CustomObjects:
-                        if obj[key] == otherObject[0] and obj[indexKey] == otherObject[1]:
-                            PrettyPrint(f"found {obj}")
-                            self.report({'ERROR'}, f"Multiple objects with the same HD2 properties are in the scene! Please delete one and try again.\nObjects:{otherObject[2]}, {obj.name}")
-                            return True
-                    CustomObjects.append([obj[key], obj[indexKey], obj.name])
-    return False
-
-def IncorrectVertexGroupNaming(self):
-    for obj in bpy.context.selected_objects:
-        incorrectGroups = 0
-        try:
-            ID = obj["Z_ObjectID"]
-            InfoIndex = obj["MeshInfoIndex"]
-        except:
-            self.report({'ERROR'}, f"Couldn't find HD2 Properties in {obj.name}")
-            return True
-        if len(obj.vertex_groups) <= 0:
-            self.report({'ERROR'}, f"No Vertex Groups Found for Object: {obj.name}")
-            return True
-        for group in obj.vertex_groups:
-            if "_" not in group.name:
-                incorrectGroups += 1
-        if incorrectGroups > 0:
-            self.report({'ERROR'}, f"Found {incorrectGroups} Incorrect Vertex Group Name Scheming for Object: {obj.name}")
-            return True
-    return False
-
-def ObjectHasModifiers(self):
-    for obj in bpy.context.selected_objects:
+def ObjectHasModifiers(self, objects):
+    for obj in objects:
         if obj.modifiers:
             self.report({'ERROR'}, f"Object: {obj.name} has {len(obj.modifiers)} unapplied modifiers")
             return True
     return False
 
-def ObjectHasShapeKeys(self):
-    for obj in bpy.context.selected_objects:
+def ObjectHasShapeKeys(self, objects):
+    for obj in objects:
         if hasattr(obj.data.shape_keys, 'key_blocks'):
             self.report({'ERROR'}, f"Object: {obj.name} has {len(obj.data.shape_keys.key_blocks)} unapplied shape keys")
             return True
     return False
 
-def MaterialsNumberNames(self):
-    mesh_objs = [ob for ob in bpy.context.selected_objects if ob.type == 'MESH']
+def MaterialsNumberNames(self, objects):
+    mesh_objs = [ob for ob in objects if ob.type == 'MESH']
     for mesh in mesh_objs:
         invalidMaterials = 0
         if len(mesh.material_slots) == 0:
@@ -3484,8 +3449,8 @@ def MaterialsNumberNames(self):
             return True
     return False
 
-def HasZeroVerticies(self):
-    mesh_objs = [ob for ob in bpy.context.selected_objects if ob.type == 'MESH']
+def HasZeroVerticies(self, objects):
+    mesh_objs = [ob for ob in objects if ob.type == 'MESH']
     for mesh in mesh_objs:
         verts = len(mesh.data.vertices)
         PrettyPrint(f"Object: {mesh.name} Verticies: {verts}")
@@ -3495,34 +3460,33 @@ def HasZeroVerticies(self):
     return False
 
 def MeshNotValidToSave(self):
-    return PatchesNotLoaded(self) or DuplicateIDsInScene(self) or IncorrectVertexGroupNaming(self) or ObjectHasModifiers(self) or MaterialsNumberNames(self) or HasZeroVerticies(self) or ObjectHasShapeKeys(self)
+    objects = bpy.context.selected_objects
+    return (PatchesNotLoaded(self) or 
+            CheckDuplicateIDsInScene(self, objects) or 
+            CheckVertexGroups(self, objects) or 
+            ObjectHasModifiers(self, objects) or 
+            MaterialsNumberNames(self, objects) or 
+            HasZeroVerticies(self, objects) or 
+            ObjectHasShapeKeys(self, objects) or 
+            CheckHaveHD2Properties(self, objects)
+            )
 
-
-def CheckPatchLoaded(reporter):
-    if len(Global_TocManager.Patches) <= 0:
-        reporter.report({'ERROR'}, "No Patches Currently Loaded")
-        return False
-    else:
-        return True
-
-
-def CheckHaveHD2Properties(reporter, blender_objects):
-    list_copy = list(blender_objects)
+def CheckHaveHD2Properties(self, objects):
+    list_copy = list(objects)
     for obj in list_copy:
         try:
             _ = obj["Z_ObjectID"]
             _ = obj["MeshInfoIndex"]
             _ = obj["BoneInfoIndex"]
         except KeyError:
-            reporter.report({'ERROR'},
-                            f"Object {obj.name} is missing HD2 properties")
-            blender_objects.remove(obj)
-    return blender_objects
+            self.report({'ERROR'}, f"Object {obj.name} is missing HD2 properties")
+            return True
+    return False
 
 
-def CheckDuplicateIDsInScene(reporter, blender_objects):
+def CheckDuplicateIDsInScene(self, objects):
     custom_objects = {}
-    for obj in blender_objects:
+    for obj in objects:
         obj_id = obj.get("Z_ObjectID")
         mesh_index = obj.get("MeshInfoIndex")
         bone_index = obj.get("BoneInfoIndex")
@@ -3534,104 +3498,33 @@ def CheckDuplicateIDsInScene(reporter, blender_objects):
                 custom_objects[obj_tuple] = [obj]
     for item in custom_objects.values():
         if len(item) > 1:
-            reporter.report({'ERROR'},
-                            f"Multiple objects with the same HD2 properties are in the scene! Please delete one and try again.\nObjects: {', '.join([obj.name for obj in item])}")
-            for obj in item:
-                blender_objects.remove(obj)
-    return blender_objects
+            self.report({'ERROR'}, f"Multiple objects with the same HD2 properties are in the scene! Please delete one and try again.\nObjects: {', '.join([obj.name for obj in item])}")
+            return True
+    return False
 
 
-def CheckVertexGroups(reporter, blender_objects):
-    list_copy = list(blender_objects)
+def CheckVertexGroups(self, objects):
+    list_copy = list(objects)
     for obj in list_copy:
         incorrectGroups = 0
         try:
             BoneIndex = obj["BoneInfoIndex"]
         except KeyError:
-            reporter.report({'ERROR'}, f"Couldn't find HD2 Properties in {obj.name}")
-            blender_objects.remove(obj)
-            continue
+            self.report({'ERROR'}, f"Couldn't find HD2 Properties in {obj.name}")
+            return True
         if len(obj.vertex_groups) <= 0 and BoneIndex != -1:
-            reporter.report({'ERROR'}, f"No Vertex Groups Found for non-static mesh: {obj.name}")
-            blender_objects.remove(obj)
-            continue
+            self.report({'ERROR'}, f"No Vertex Groups Found for non-static mesh: {obj.name}")
+            return True
         if len(obj.vertex_groups) > 0 and BoneIndex == -1:
-            reporter.report({'ERROR'}, f"Vertex Groups Found for static mesh: {obj.name}. Please remove vertex groups.")
-            blender_objects.remove(obj)
-            continue
+            self.report({'ERROR'}, f"Vertex Groups Found for static mesh: {obj.name}. Please remove vertex groups.")
+            return True
         for group in obj.vertex_groups:
             if "_" not in group.name:
                 incorrectGroups += 1
         if incorrectGroups > 0:
-            reporter.report({'ERROR'},
-                            f"Found {incorrectGroups} Incorrect Vertex Group Name Scheming for Object: {obj.name}")
-            blender_objects.remove(obj)
-    return blender_objects
-
-
-def CheckModifiers(reporter, blender_objects):
-    list_copy = list(blender_objects)
-    for obj in list_copy:
-        if obj.modifiers:
-            reporter.report({'ERROR'}, f"Object: {obj.name} has {len(obj.modifiers)} unapplied modifiers")
-            blender_objects.remove(obj)
-    return blender_objects
-
-
-def CheckMaterials(reporter, blender_objects):
-    mesh_objs = [ob for ob in blender_objects if ob.type == 'MESH']
-    for mesh in mesh_objs:
-        invalidMaterials = 0
-        if len(mesh.material_slots) == 0:
-            reporter.report({'ERROR'}, f"Object: {mesh.name} has no material slots")
-            blender_objects.remove(mesh)
-            continue
-        for slot in mesh.material_slots:
-            if slot.material:
-                materialName = slot.material.name
-                if not materialName.isnumeric() and materialName != "StingrayDefaultMaterial":
-                    invalidMaterials += 1
-            else:
-                invalidMaterials += 1
-        if invalidMaterials > 0:
-            reporter.report({'ERROR'}, f"Object: {mesh.name} has {invalidMaterials} non Helldivers 2 Materials")
-            blender_objects.remove(mesh)
-    return blender_objects
-
-
-def CheckVertices(reporter, blender_objects):
-    mesh_objs = [ob for ob in blender_objects if ob.type == 'MESH']
-    for mesh in mesh_objs:
-        verts = len(mesh.data.vertices)
-        PrettyPrint(f"Object: {mesh.name} Vertices: {verts}")
-        if verts <= 0:
-            reporter.report({'ERROR'}, f"Object: {mesh.name} has no zero vertices")
-            blender_objects.remove(mesh)
-    return blender_objects
-
-
-def CheckShapeKeys(reporter, blender_objects):
-    list_copy = list(blender_objects)
-    for obj in list_copy:
-        if hasattr(obj.data.shape_keys, 'key_blocks'):
-            reporter.report({'ERROR'},
-                            f"Object: {obj.name} has {len(obj.data.shape_keys.key_blocks)} unapplied shape keys")
-            blender_objects.remove(obj)
-    return blender_objects
-
-
-def CheckMeshesValid(reporter, blender_objects):
-    if not CheckPatchLoaded(reporter):
-        blender_objects.clear()
-        return blender_objects
-    CheckHaveHD2Properties(reporter, blender_objects)
-    CheckDuplicateIDsInScene(reporter, blender_objects)
-    CheckVertexGroups(reporter, blender_objects)
-    CheckModifiers(reporter, blender_objects)
-    CheckMaterials(reporter, blender_objects)
-    CheckVertices(reporter, blender_objects)
-    CheckShapeKeys(reporter, blender_objects)
-    return blender_objects
+            self.report({'ERROR'}, f"Found {incorrectGroups} Incorrect Vertex Group Name Scheming for Object: {obj.name}")
+            return True
+    return False
 
 def CopyToClipboard(txt):
     cmd='echo '+txt.strip()+'|clip'
@@ -4357,16 +4250,14 @@ class SaveStingrayMeshOperator(Operator):
         if mode != 'OBJECT':
             self.report({'ERROR'}, f"You are Not in OBJECT Mode. Current Mode: {mode}")
             return {'CANCELLED'}
+        if MeshNotValidToSave(self):
+            return {'CANCELLED'}
         try:
             ID = bpy.context.selected_objects[0]["Z_ObjectID"]
         except:
             self.report({'ERROR'}, f"{bpy.context.selected_objects[0].name} has no HD2 custom properties")
             return{'CANCELLED'}
-        objects = CheckMeshesValid(self, bpy.context.selected_objects)
-        if len(objects) == 0:
-            self.report({'ERROR'}, "No valid objects selected")
-            return{'CANCELLED'}
-        model = GetObjectsMeshData(objects)
+        model = GetObjectsMeshData()
         BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
         Entry = Global_TocManager.GetEntryByLoadArchive(int(ID), MeshID)
         if Entry is None:
@@ -4414,21 +4305,14 @@ class BatchSaveStingrayMeshOperator(Operator):
     def execute(self, context):
         start = time.time()
         errors = False
+        if MeshNotValidToSave(self):
+            return {'CANCELLED'}
 
         objects = bpy.context.selected_objects
         num_initially_selected = len(objects)
 
         if len(objects) == 0:
             self.report({'WARNING'}, "No Objects Selected")
-            return {'CANCELLED'}
-
-        objects = CheckMeshesValid(self, objects)
-
-        if len(objects) != num_initially_selected:
-            errors = True
-
-        if len(objects) == 0:
-            self.report({'WARNING'}, "No valid objects selected")
             return {'CANCELLED'}
 
         IDs = []
@@ -4446,14 +4330,13 @@ class BatchSaveStingrayMeshOperator(Operator):
                 objects_by_id[obj["Z_ObjectID"]][obj["MeshInfoIndex"]] = obj
             except KeyError:
                 objects_by_id[obj["Z_ObjectID"]] = {obj["MeshInfoIndex"]: obj}
-        MeshData = GetObjectsMeshData(objects)
+        MeshData = GetObjectsMeshData()
         BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
         num_meshes = len(objects)
         for ID in IDs:
             Entry = Global_TocManager.GetEntryByLoadArchive(int(ID), MeshID)
             if Entry is None:
-                self.report({'ERROR'},
-                            f"Archive for entry being saved is not loaded. Could not find custom property object at ID: {ID}")
+                self.report({'ERROR'}, f"Archive for entry being saved is not loaded. Could not find custom property object at ID: {ID}")
                 errors = True
                 num_meshes -= len(MeshData[ID])
                 continue
@@ -4463,8 +4346,7 @@ class BatchSaveStingrayMeshOperator(Operator):
                 try:
                     Entry.LoadedData.RawMeshes[mesh_index] = mesh
                 except IndexError:
-                    self.report({'ERROR'},
-                                f"MeshInfoIndex of {mesh_index} for {objects_by_id[ID][mesh_index].name} exceeds the number of meshes")
+                    self.report({'ERROR'},f"MeshInfoIndex of {mesh_index} for {objects_by_id[ID][mesh_index].name} exceeds the number of meshes")
                     errors = True
                     num_meshes -= 1
             wasSaved = Entry.Save(BlenderOpts=BlenderOpts)
@@ -4955,8 +4837,6 @@ class SaveStingrayParticleOperator(Operator):
         mode = context.mode
         if mode != 'OBJECT':
             self.report({'ERROR'}, f"You are Not in OBJECT Mode. Current Mode: {mode}")
-            return {'CANCELLED'}
-        if MeshNotValidToSave(self):
             return {'CANCELLED'}
         wasSaved = Global_TocManager.Save(int(self.object_id), ParticleID)
 
