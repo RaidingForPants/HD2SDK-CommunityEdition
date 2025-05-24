@@ -1033,6 +1033,7 @@ class TocFileType:
 class SearchToc:
     def __init__(self):
         self.TocEntries = {}
+        self.fileIDs = []
         self.Path = ""
         self.Name = ""
 
@@ -1059,6 +1060,7 @@ class SearchToc:
         file.close()
         for _ in range(numFiles):
             file_id, type_id = struct.unpack_from("<QQ", bin_data, offset=offset)
+            self.fileIDs.append(int(file_id))
             try:
                 self.TocEntries[type_id].append(file_id)
             except KeyError:
@@ -3545,82 +3547,6 @@ def hex_to_decimal(hex_string):
     except ValueError:
         print(f"Invalid hexadecimal string: {hex_string}")
 
-def SearchByEntryID(self, file):
-    if Global_searchpath == "":
-        self.report({'ERROR'}, "Change Search Path!")
-        return{'CANCELLED'}
-    toc = StreamToc()
-    found = []
-    start_time = time.time()
-    findme = open(file, "r")
-    fileIDs = findme.read().splitlines()
-    findme.close()
-
-    forceSearch = bpy.context.scene.Hd2ToolPanelSettings.ForceSearchAll
-
-    directorys = os.listdir(Global_gamepath)
-    searched = 0
-    foundIDs = 0
-    totalIDs = len(fileIDs)
-    PrettyPrint(f"Searching for {len(fileIDs)} IDs in {len(directorys)} files\n\n")
-    for filename in directorys:
-        searched += 1
-        PrettyPrint(f"Searching: {filename}    File: {searched}/{len(directorys)}\r")
-        f = os.path.join(Global_gamepath, filename)
-        if not os.path.splitext(f)[1]:
-            if os.path.isfile(f):
-                toc.FromFile(f)
-                for entry in toc.TocEntries:
-                    for fileID in fileIDs:
-                        ID = fileID.split()[0]
-                        if ID.upper() != ID.lower():
-                            ID = str(hex_to_decimal(ID))
-                        if str(entry.FileID) == ID:
-                            try:
-                                name = fileID.split(" ", 1)[1]
-                            except:
-                                name = "No Name"
-                            PrettyPrint("")
-                            PrettyPrint(f"Archive: {filename} Entry ID: {ID} Name: {name}")
-                            totaltime = time.time() - start_time
-                            hours = round(totaltime / 3600)
-                            minutes = round(totaltime / 60)
-                            seconds = round(totaltime % 60)
-                            PrettyPrint(f"Overall Time: {hours} hrs {minutes} min {seconds} sec")
-
-                            foundItem = f"{filename} {name}"
-                            if foundItem not in found:
-                                found.append(foundItem)
-                            if not forceSearch:
-                                fileIDs.remove(fileID)
-                                foundIDs += 1
-                                PrettyPrint(f"Found {foundIDs}/{totalIDs} IDs\n")
-                            else:
-                                PrettyPrint(f"Found {foundIDs} total occurrences of any IDs\n")
-                            if len(fileIDs) == 0:
-                                PrettyPrint(f"Finished Searching {searched}/{len(directorys)} files")
-                                curenttime = str(datetime.datetime.now()).replace(":", "-").replace(".", "_")
-                                outputfile = f"{Global_searchpath}output_{curenttime}.txt"
-                                output = open(outputfile, "w")
-                                for item in found:
-                                    output.write(item + "\n")
-                                output.close()
-                                PrettyPrint(f"Created Output file at {outputfile}")
-                                return{'FINISHED'}
-    if forceSearch:
-        PrettyPrint(f"Finished Force Searching {searched} files")
-    else:
-        PrettyPrint(fileIDs)
-        PrettyPrint(f"Could not find {len(fileIDs)} IDs", "ERROR")
-    curenttime = str(datetime.datetime.now()).replace(":", "-").replace(".", "_")
-    outputfile = f"{Global_searchpath}output_{curenttime}.txt"
-    output = open(outputfile, "w")
-    for item in found:
-        output.write(item + "\n")
-    output.close()
-    PrettyPrint(f"Created Output file at {outputfile}")
-    return{'FINISHED'}
-
 class ChangeFilepathOperator(Operator, ImportHelper):
     bl_label = "Change Filepath"
     bl_idname = "helldiver2.change_filepath"
@@ -3777,7 +3703,40 @@ class SearchByEntryIDOperator(Operator, ImportHelper):
     filter_glob: StringProperty(options={'HIDDEN'}, default='*.txt')
 
     def execute(self, context):
-        return SearchByEntryID(self, self.filepath)
+        baseArchivePath = Global_gamepath + BaseArchiveHexID
+        Global_TocManager.LoadArchive(baseArchivePath)
+        
+        findme = open(self.filepath, "r")
+        fileIDs = findme.read().splitlines()
+        findme.close()
+
+        forceSearch = bpy.context.scene.Hd2ToolPanelSettings.ForceSearchAll
+        archives = []
+        PrettyPrint(f"Searching for {len(fileIDs)} IDs")
+        for fileID in fileIDs:
+            ID = fileID.split()[0]
+            name = fileID.split()[1]
+            if ID.upper() != ID.lower():
+                ID = hex_to_decimal(ID)
+            ID = int(ID)
+            PrettyPrint(f"Searching for ID: {ID}")
+            for Archive in Global_TocManager.SearchArchives:
+                PrettyPrint(f"Searching Archive: {Archive.Name}")
+                if ID in Archive.fileIDs:
+                    PrettyPrint(f"Found ID: {ID} in Archive: {Archive.Name}")
+                    item = f"{Archive.Name} {ID} {name}"
+                    archives.append(item)
+        curenttime = str(datetime.datetime.now()).replace(":", "-").replace(".", "_")
+        outputfile = f"{Global_searchpath}output_{curenttime}.txt"
+        PrettyPrint(f"Found {len(archives)} archives")
+        output = open(outputfile, "w")
+        for item in archives:
+            PrettyPrint(item)
+            output.write(item + "\n")
+        output.close()
+        self.report({'INFO'}, f"Found {len(archives)} archives with matching IDs.")
+        PrettyPrint(f"Output file created at: {outputfile}")
+        return {'FINISHED'}
 
 class CreatePatchFromActiveOperator(Operator):
     bl_label = "Create Patch"
