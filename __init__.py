@@ -4276,6 +4276,9 @@ class SaveStingrayMeshOperator(Operator):
         SwapID = ""
         try:
             SwapID = object["Z_SwapID"]
+            if not SwapID.isnumeric():
+                self.report({"ERROR"}, f"Object: {object.name} has an incorrect Swap ID. Assure that the ID is a proper integer entry ID.")
+                return {'CANCELLED'}
         except:
             self.report({'INFO'}, f"{object.name} has no HD2 Swap ID. Skipping Swap.")
         model = GetObjectsMeshData()
@@ -4349,6 +4352,9 @@ class BatchSaveStingrayMeshOperator(Operator):
                     SwapID = object["Z_SwapID"]
                     IDswaps[SwapID] = ID
                     PrettyPrint(f"Found Swap of ID: {ID} Swap: {SwapID}")
+                    if not SwapID.isnumeric():
+                        self.report({"ERROR"}, f"Object: {object.name} has an incorrect Swap ID. Assure that the ID is a proper integer entry ID.")
+                        return {'CANCELLED'}
                 except:
                     self.report({'INFO'}, f"{object.name} has no HD2 Swap ID. Skipping Swap.")
                 IDitem = [ID, SwapID]
