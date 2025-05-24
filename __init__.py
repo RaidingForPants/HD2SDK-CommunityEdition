@@ -4317,6 +4317,7 @@ class SaveStingrayMeshOperator(Operator):
         self.report({'INFO'}, f"Saved Mesh Object ID: {self.object_id}")
         if SwapID != "" and SwapID.isnumeric():
                 self.report({'INFO'}, f"Swapping Entry ID: {Entry.FileID} to: {SwapID}")
+                Global_TocManager.RemoveEntryFromPatch(int(SwapID), MeshID)
                 Entry.FileID = int(SwapID)
         return{'FINISHED'}
 
@@ -4404,6 +4405,7 @@ class BatchSaveStingrayMeshOperator(Operator):
 
                 if SwapID != "" and SwapID.isnumeric():
                     self.report({'INFO'}, f"Swapping Entry ID: {Entry.FileID} to: {SwapID}")
+                    Global_TocManager.RemoveEntryFromPatch(int(SwapID), MeshID)
                     Entry.FileID = int(SwapID)
             else:
                 self.report({"ERROR"}, f"Failed to save mesh with ID {ID}.")
