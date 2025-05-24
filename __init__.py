@@ -1875,6 +1875,15 @@ def GenerateMaterialTextures(Entry):
                 if image.packed_file:
                     raise Exception(f"Image: {image.name} is packed. Please unpack your image.")
                 path = bpy.path.abspath(image.filepath)
+                PrettyPrint(f"Getting image path at: {path}")
+                ID = image.name.split(".")[0]
+                if not os.path.exists(path) and ID.isnumeric():
+                    PrettyPrint(f"Image not found. Attempting to use ID to load image: {ID}", 'WARN')
+                    Global_TocManager.Load(int(ID), TexID, Reload=True, SearchAll=True)
+                if not os.path.exists(path):
+                    PrettyPrint(f"Image not found. Attempting to find image: {ID} in temp folder.", 'WARN')
+                    tempdir = tempfile.gettempdir()
+                    path = f"{tempdir}\\{ID}.dds"
                 filepaths.append(path)
 
                 # enforce proper colorspace for abnormal stingray textures
