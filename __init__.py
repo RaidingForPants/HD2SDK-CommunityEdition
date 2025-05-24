@@ -1878,12 +1878,9 @@ def GenerateMaterialTextures(Entry):
                 PrettyPrint(f"Getting image path at: {path}")
                 ID = image.name.split(".")[0]
                 if not os.path.exists(path) and ID.isnumeric():
-                    PrettyPrint(f"Image not found. Attempting to use ID to load image: {ID}", 'WARN')
-                    Global_TocManager.Load(int(ID), TexID, Reload=True, SearchAll=True)
-                if not os.path.exists(path):
                     PrettyPrint(f"Image not found. Attempting to find image: {ID} in temp folder.", 'WARN')
                     tempdir = tempfile.gettempdir()
-                    path = f"{tempdir}\\{ID}.dds"
+                    path = f"{tempdir}\\{ID}.png"
                 filepaths.append(path)
 
                 # enforce proper colorspace for abnormal stingray textures
@@ -4276,7 +4273,7 @@ class SaveStingrayMeshOperator(Operator):
         SwapID = ""
         try:
             SwapID = object["Z_SwapID"]
-            if not SwapID.isnumeric():
+            if SwapID != "" and not SwapID.isnumeric():
                 self.report({"ERROR"}, f"Object: {object.name} has an incorrect Swap ID. Assure that the ID is a proper integer entry ID.")
                 return {'CANCELLED'}
         except:
@@ -4352,7 +4349,7 @@ class BatchSaveStingrayMeshOperator(Operator):
                     SwapID = object["Z_SwapID"]
                     IDswaps[SwapID] = ID
                     PrettyPrint(f"Found Swap of ID: {ID} Swap: {SwapID}")
-                    if not SwapID.isnumeric():
+                    if SwapID != "" and not SwapID.isnumeric():
                         self.report({"ERROR"}, f"Object: {object.name} has an incorrect Swap ID. Assure that the ID is a proper integer entry ID.")
                         return {'CANCELLED'}
                 except:
