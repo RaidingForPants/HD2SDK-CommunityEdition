@@ -56,6 +56,7 @@ Global_ShaderVariables = {}
 Global_defaultgamepath   = "C:\Program Files (x86)\Steam\steamapps\common\Helldivers 2\data\ "
 Global_defaultgamepath   = Global_defaultgamepath[:len(Global_defaultgamepath) - 1]
 Global_gamepath          = ""
+Global_gamepathIsValid   = False
 Global_searchpath        = ""
 Global_configpath        = f"{AddonPath}.ini"
 Global_backslash         = "\-".replace("-", "")
@@ -868,7 +869,7 @@ def GetEntryParentMaterialID(entry):
 #region Configuration
 
 def InitializeConfig():
-    global Global_gamepath, Global_searchpath, Global_configpath
+    global Global_gamepath, Global_searchpath, Global_configpath, Global_gamepathIsValid
     if os.path.exists(Global_configpath):
         config = configparser.ConfigParser()
         config.read(Global_configpath, encoding='utf-8')
@@ -877,7 +878,12 @@ def InitializeConfig():
             Global_searchpath = config['DEFAULT']['searchpath']
         except:
             UpdateConfig()
-        PrettyPrint(f"Loaded Data Folder: {Global_gamepath}")
+        if os.path.exists(Global_gamepath):
+            PrettyPrint(f"Loaded Data Folder: {Global_gamepath}")
+            Global_gamepathIsValid = True
+        else:
+            PrettyPrint(f"Game path: {Global_gamepath} is not a valid directory", 'ERROR')
+            Global_gamepathIsValid = False
 
     else:
         UpdateConfig()
@@ -3562,6 +3568,7 @@ class ChangeFilepathOperator(Operator, ImportHelper):
         
     def execute(self, context):
         global Global_gamepath
+        global Global_gamepathIsValid
         filepath = self.filepath
         steamapps = "steamapps"
         if steamapps in filepath:
@@ -3572,6 +3579,7 @@ class ChangeFilepathOperator(Operator, ImportHelper):
         Global_gamepath = filepath
         UpdateConfig()
         PrettyPrint(f"Changed Game File Path: {Global_gamepath}")
+        Global_gamepathIsValid = True
         return{'FINISHED'}
     
 class ChangeSearchpathOperator(Operator, ImportHelper):
@@ -5660,6 +5668,14 @@ class HellDivers2ToolsPanel(Panel):
             row.label(text=Global_gamepath)
             row.operator("helldiver2.change_filepath", icon='FILEBROWSER')
             mainbox.separator()
+
+        global Global_gamepathIsValid
+        if not Global_gamepathIsValid:
+            row = layout.row()
+            row.label(text="Current Selected game filepath is not valid!")
+            row = layout.row()
+            row.label(text="Please select your game directory in the settings!")
+            return
 
         # Draw Archive Import/Export Buttons
         row = layout.row(); row = layout.row()
