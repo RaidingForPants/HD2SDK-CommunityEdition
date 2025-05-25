@@ -3710,7 +3710,6 @@ class SearchByEntryIDOperator(Operator, ImportHelper):
         fileIDs = findme.read().splitlines()
         findme.close()
 
-        forceSearch = bpy.context.scene.Hd2ToolPanelSettings.ForceSearchAll
         archives = []
         PrettyPrint(f"Searching for {len(fileIDs)} IDs")
         for fileID in fileIDs:
@@ -5478,7 +5477,6 @@ class Hd2ToolPanelSettings(PropertyGroup):
     EnableTools           : BoolProperty(name="Special Tools", description = "Enable advanced SDK Tools", default = False)
     UnloadEmptyArchives   : BoolProperty(name="Unload Empty Archives", description="Unload Archives that do not Contain any Textures, Materials, or Meshes", default = True)
     DeleteOnLoadArchive   : BoolProperty(name="Nuke Files on Archive Load", description="Delete all Textures, Materials, and Meshes in project when selecting a new archive", default = False)
-    ForceSearchAll        : BoolProperty(name="Force Search All Files", description="Searches for all IDs in every file instead of ending early")
     UnloadPatches         : BoolProperty(name="Unload Previous Patches", description="Unload Previous Patches when bulk loading")
 
     AutoSaveMeshMaterials : BoolProperty(name="Autosave Mesh Materials", description="Save unsaved material entries applied to meshes when the mesh is saved", default = True)
@@ -5646,7 +5644,6 @@ class HellDivers2ToolsPanel(Panel):
                 #row.label()
                 row.label(text="WARNING! Developer Tools, Please Know What You Are Doing!")
                 row.prop(scene.Hd2ToolPanelSettings, "UnloadEmptyArchives")
-                row.prop(scene.Hd2ToolPanelSettings, "ForceSearchAll")
                 row.prop(scene.Hd2ToolPanelSettings, "UnloadPatches")
                 #row.prop(scene.Hd2ToolPanelSettings, "DeleteOnLoadArchive")
                 col = box.grid_flow(columns=2)
