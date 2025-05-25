@@ -4171,7 +4171,12 @@ class ImportDumpByIDOperator(Operator, ImportHelper):
                 self.report({'ERROR'}, f"File: {file.name} has no proper file extension for typing")
                 return {'CANCELLED'}
             
-            PrettyPrint(f"Found file: {filepath}")
+            if os.path.exists(filepath):
+                PrettyPrint(f"Found file: {filepath}")
+            else:
+                self.report({'ERROR'}, f"Filepath for selected file: {filepath} was not found")
+                return {'CANCELLED'}
+
             entry = Global_TocManager.GetEntryByLoadArchive(int(fileID), int(typeID))
             if entry == None:
                 self.report({'ERROR'}, f"Entry for fileID: {fileID} typeID: {typeID} can not be found. Make sure the fileID of your file is correct.")
