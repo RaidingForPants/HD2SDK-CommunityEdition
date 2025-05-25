@@ -26,7 +26,7 @@ import concurrent.futures
 import bpy, bmesh, mathutils
 from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy.props import StringProperty, BoolProperty, IntProperty, EnumProperty, PointerProperty, CollectionProperty
-from bpy.types import Panel, Operator, PropertyGroup, Scene, Menu
+from bpy.types import Panel, Operator, PropertyGroup, Scene, Menu, OperatorFileListElement
 
 # Local
 # NOTE: Not bothering to do importlib reloading shit because these modules are unlikely to be modified frequently enough to warrant testing without Blender restarts
@@ -4145,33 +4145,70 @@ class ImportDumpOperator(Operator, ImportHelper):
 
         Entries = EntriesFromStrings(self.object_id, self.object_typeid)
         for Entry in Entries:
-            if Entry != None:
-                if not Entry.IsLoaded: Entry.Load(False, False)
-                path = self.filepath
-                GpuResourchesPath = f"{path}.gpu"
-                StreamPath = f"{path}.stream"
+            ImportDump(self, Entry, self.filepath)
 
-                with open(path, 'r+b') as f:
-                    Entry.TocData = f.read()
-
-                if os.path.isfile(GpuResourchesPath):
-                    with open(GpuResourchesPath, 'r+b') as f:
-                        Entry.GpuData = f.read()
-                else:
-                    Entry.GpuData = b""
-
-                if os.path.isfile(StreamPath):
-                    with open(StreamPath, 'r+b') as f:
-                        Entry.StreamData = f.read()
-                else:
-                    Entry.StreamData = b""
-
-                Entry.IsModified = True
-                if not Global_TocManager.IsInPatch(Entry):
-                    Global_TocManager.AddEntryToPatch(Entry.FileID, Entry.TypeID)
-                    
-                self.report({'INFO'}, f"Imported Raw Dump: {path}")
         return{'FINISHED'}
+
+class ImportDumpByIDOperator(Operator, ImportHelper):
+    bl_label = "Import Dump by Entry ID"
+    bl_idname = "helldiver2.archive_object_dump_import_by_id"
+    bl_description = "Loads Raw Dump over matching entry IDs"
+
+    directory: StringProperty(subtype='FILE_PATH', options={'SKIP_SAVE', 'HIDDEN'})
+    files: CollectionProperty(type=OperatorFileListElement, options={'SKIP_SAVE', 'HIDDEN'})
+
+    def execute(self, context):
+        if PatchesNotLoaded(self):
+            return {'CANCELLED'}
+
+        for file in self.files:
+            filepath = self.directory + file.name
+            fileID = file.name.split('.')[0]
+            typeString = file.name.split('.')[1]
+            typeID = GetIDFromTypeName(typeString)
+
+            if typeID == None:
+                self.report({'ERROR'}, f"File: {file.name} has no proper file extension for typing")
+                return {'CANCELLED'}
+            
+            PrettyPrint(f"Found file: {filepath}")
+            entry = Global_TocManager.GetEntryByLoadArchive(int(fileID), int(typeID))
+            if entry == None:
+                self.report({'ERROR'}, f"Entry for fileID: {fileID} typeID: {typeID} can not be found. Make sure the fileID of your file is correct.")
+                return {'CANCELLED'}
+            
+            ImportDump(self, entry, filepath)
+            
+        return{'FINISHED'}
+
+def ImportDump(self: Operator, Entry: TocEntry, filepath: str):
+    if Entry != None:
+        if not Entry.IsLoaded: Entry.Load(False, False)
+        path = filepath
+        GpuResourchesPath = f"{path}.gpu"
+        StreamPath = f"{path}.stream"
+
+        with open(path, 'r+b') as f:
+            Entry.TocData = f.read()
+
+        if os.path.isfile(GpuResourchesPath):
+            with open(GpuResourchesPath, 'r+b') as f:
+                Entry.GpuData = f.read()
+        else:
+            Entry.GpuData = b""
+
+        if os.path.isfile(StreamPath):
+            with open(StreamPath, 'r+b') as f:
+                Entry.StreamData = f.read()
+        else:
+            Entry.StreamData = b""
+
+        Entry.IsModified = True
+        if not Global_TocManager.IsInPatch(Entry):
+            Global_TocManager.AddEntryToPatch(Entry.FileID, Entry.TypeID)
+            
+        self.report({'INFO'}, f"Imported Raw Dump: {path}")
+    
 
 #endregion
 
@@ -5677,6 +5714,8 @@ class HellDivers2ToolsPanel(Panel):
             icon_only=True, emboss=False, text=title)
         row.prop(scene.Hd2ToolPanelSettings, "PatchOnly", text="")
         row.operator("helldiver2.copy_archive_id", icon='COPY_ID', text="")
+        row.operator("helldiver2.archive_object_dump_import_by_id", icon='PACKAGE', text="")
+
 
         # Get Display Data
         DisplayData = GetDisplayData()
@@ -6058,6 +6097,7 @@ classes = (
     MeshFixOperator,
     ImportStingrayParticleOperator,
     SaveStingrayParticleOperator,
+    ImportDumpByIDOperator,
 )
 
 Global_TocManager = TocManager()
