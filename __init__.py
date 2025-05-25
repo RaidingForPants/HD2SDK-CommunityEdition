@@ -3743,8 +3743,6 @@ class CreatePatchFromActiveOperator(Operator):
     bl_description = "Creates Patch from Current Active Archive"
 
     def execute(self, context):
-        if ArchivesNotLoaded(self):
-            return{'CANCELLED'}
         
         if bpy.context.scene.Hd2ToolPanelSettings.PatchBaseArchiveOnly:
             baseArchivePath = Global_gamepath + BaseArchiveHexID
@@ -3752,6 +3750,9 @@ class CreatePatchFromActiveOperator(Operator):
             Global_TocManager.SetActiveByName(BaseArchiveHexID)
         else:
             self.report({'WARNING'}, f"Patch Created Was Not From Base Archive.")
+        
+        if ArchivesNotLoaded(self):
+            return{'CANCELLED'}
         
         Global_TocManager.CreatePatchFromActive()
 
