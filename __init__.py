@@ -3722,7 +3722,10 @@ class SearchByEntryIDOperator(Operator, ImportHelper):
         PrettyPrint(f"Searching for {len(fileIDs)} IDs")
         for fileID in fileIDs:
             ID = fileID.split()[0]
-            name = fileID.split()[1]
+            try:
+                name = fileID.split(" ", 1)[1]
+            except:
+                name = None
             if ID.upper() != ID.lower():
                 ID = hex_to_decimal(ID)
             ID = int(ID)
