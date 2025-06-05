@@ -4342,6 +4342,7 @@ class BatchSaveStingrayMeshOperator(Operator):
     def execute(self, context):
         start = time.time()
         errors = False
+
         if MeshNotValidToSave(self):
             return {'CANCELLED'}
 
@@ -4403,6 +4404,7 @@ class BatchSaveStingrayMeshOperator(Operator):
                 continue
             if not Entry.IsLoaded: Entry.Load(True, False)
             MeshList = MeshData[ID]
+
             for mesh_index, mesh in MeshList.items():
                 try:
                     Entry.LoadedData.RawMeshes[mesh_index] = mesh
@@ -4410,11 +4412,10 @@ class BatchSaveStingrayMeshOperator(Operator):
                     self.report({'ERROR'},f"MeshInfoIndex of {mesh_index} for {object.name} exceeds the number of meshes")
                     errors = True
                     num_meshes -= 1
+            if not Global_TocManager.IsInPatch(Entry):
+                Entry = Global_TocManager.AddEntryToPatch(int(ID), MeshID)
             wasSaved = Entry.Save(BlenderOpts=BlenderOpts)
             if wasSaved:
-                if not Global_TocManager.IsInPatch(Entry):
-                    Entry = Global_TocManager.AddEntryToPatch(int(ID), MeshID)
-
                 if SwapID != "" and SwapID.isnumeric():
                     self.report({'INFO'}, f"Swapping Entry ID: {Entry.FileID} to: {SwapID}")
                     Global_TocManager.RemoveEntryFromPatch(int(SwapID), MeshID)
