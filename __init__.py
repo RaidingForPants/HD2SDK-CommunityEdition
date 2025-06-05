@@ -4342,7 +4342,6 @@ class BatchSaveStingrayMeshOperator(Operator):
     def execute(self, context):
         start = time.time()
         errors = False
-
         if MeshNotValidToSave(self):
             return {'CANCELLED'}
 
@@ -4404,7 +4403,6 @@ class BatchSaveStingrayMeshOperator(Operator):
                 continue
             if not Entry.IsLoaded: Entry.Load(True, False)
             MeshList = MeshData[ID]
-
             for mesh_index, mesh in MeshList.items():
                 try:
                     Entry.LoadedData.RawMeshes[mesh_index] = mesh
