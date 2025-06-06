@@ -4410,11 +4410,11 @@ class BatchSaveStingrayMeshOperator(Operator):
                     self.report({'ERROR'},f"MeshInfoIndex of {mesh_index} for {object.name} exceeds the number of meshes")
                     errors = True
                     num_meshes -= 1
+            if Global_TocManager.IsInPatch(Entry):
+                Global_TocManager.RemoveEntryFromPatch(int(ID), MeshID)
+            Entry = Global_TocManager.AddEntryToPatch(int(ID), MeshID)
             wasSaved = Entry.Save(BlenderOpts=BlenderOpts)
             if wasSaved:
-                if not Global_TocManager.IsInPatch(Entry):
-                    Entry = Global_TocManager.AddEntryToPatch(int(ID), MeshID)
-
                 if SwapID != "" and SwapID.isnumeric():
                     self.report({'INFO'}, f"Swapping Entry ID: {Entry.FileID} to: {SwapID}")
                     Global_TocManager.RemoveEntryFromPatch(int(SwapID), MeshID)
