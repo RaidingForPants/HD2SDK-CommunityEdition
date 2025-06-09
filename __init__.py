@@ -3736,6 +3736,9 @@ class SearchByEntryIDOperator(Operator, ImportHelper):
                     PrettyPrint(f"Found ID: {ID} in Archive: {Archive.Name}")
                     item = f"{Archive.Name} {ID} {name}"
                     archives.append(item)
+
+                    if bpy.context.scene.Hd2ToolPanelSettings.LoadFoundArchives:
+                        Global_TocManager.LoadArchive(Archive.Path)
         curenttime = str(datetime.datetime.now()).replace(":", "-").replace(".", "_")
         outputfile = f"{Global_searchpath}output_{curenttime}.txt"
         PrettyPrint(f"Found {len(archives)} archives")
@@ -5490,6 +5493,7 @@ class Hd2ToolPanelSettings(PropertyGroup):
     UnloadEmptyArchives   : BoolProperty(name="Unload Empty Archives", description="Unload Archives that do not Contain any Textures, Materials, or Meshes", default = True)
     DeleteOnLoadArchive   : BoolProperty(name="Nuke Files on Archive Load", description="Delete all Textures, Materials, and Meshes in project when selecting a new archive", default = False)
     UnloadPatches         : BoolProperty(name="Unload Previous Patches", description="Unload Previous Patches when bulk loading")
+    LoadFoundArchives     : BoolProperty(name="Load Found Archives", description="Load the archives found when search by entry ID", default=True)
 
     AutoSaveMeshMaterials : BoolProperty(name="Autosave Mesh Materials", description="Save unsaved material entries applied to meshes when the mesh is saved", default = True)
     SaveNonSDKMaterials   : BoolProperty(name="Save Non-SDK Materials", description="Toggle if non-SDK materials should be autosaved when saving a mesh", default = False)
@@ -5657,6 +5661,7 @@ class HellDivers2ToolsPanel(Panel):
                 row.label(text="WARNING! Developer Tools, Please Know What You Are Doing!")
                 row.prop(scene.Hd2ToolPanelSettings, "UnloadEmptyArchives")
                 row.prop(scene.Hd2ToolPanelSettings, "UnloadPatches")
+                row.prop(scene.Hd2ToolPanelSettings, "LoadFoundArchives")
                 #row.prop(scene.Hd2ToolPanelSettings, "DeleteOnLoadArchive")
                 col = box.grid_flow(columns=2)
                 col.operator("helldiver2.bulk_load", icon= 'IMPORT', text="Bulk Load")
