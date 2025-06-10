@@ -89,7 +89,10 @@
         "14fe2734dcb8d1ed":	"GS-17 Frontier Marshall",
         "39fe1f0308f4514a": "RE-1861 Parade Commander",
         "f50c7fd427839c47": "RE-824 Bearer of the Standard",
-        "d923906f8b815987": "RE-2310 Honorary Guard"
+        "d923906f8b815987": "RE-2310 Honorary Guard",
+        "e4e41c5f9c3848f0": "BP-20 Correct Officer",
+        "1bb362e77179996f": "BP-32 Jackboot",
+        "5fb542484cb2c2a5": "BP-77 Grand Juror"
     },
 
     "Helmet": {
@@ -175,7 +178,10 @@
         "213bbf4edad25223":	"GS-17 Frontier Marshall",
         "2fb07d7a9b9252aa": "RE-1861 Parade Commander",
         "94b8a07a98780017": "RE-824 Bearer of the Standard",
-        "b4d15b145b3f7677": "RE-2310 Honorary Guard"
+        "b4d15b145b3f7677": "RE-2310 Honorary Guard",
+        "44c466a6cf09718b": "BP-20 Correct Officer",
+        "2a7c626239a5d6b4": "BP-32 Jackboot",
+        "3e345b62ed9e3f46": "BP-77 Grand Juror"
     },
 
     "Cape": {
@@ -230,7 +236,10 @@
         "b3a2dc455eda9736": "Veil of the Valorous Vagabond",
         "e70365dfeb8a1178": "Humble Regalia",
         "c1214d1c6238c29a": "Federation's Embrace",
-        "141c4246482cd9de": "Seal of General Consensus"
+        "141c4246482cd9de": "Seal of General Consensus",
+        "6b5a0c1b9914834f": "Mother Eagle's Wings",
+        "7113f81b941cee72": "Miranda's Legacy",
+        "825303ad56357f0b": "Badge of Order"
     },
     "Environment": { 
         "fc5b6bff0db90aab": "Super Destroyer Interior 1" ,
@@ -328,7 +337,8 @@
         "543ff1ff0bd82b44": "G-23 Stun",
         "dfb81f9917285965": "G-123 Thermite",
         "f590569dbbc6fe2d": "G-50 Seeker",
-        "1721eee4581a9c54": "G-142 PyroTech"
+        "1721eee4581a9c54": "G-142 PyroTech",
+        "2cb3f69ab9bc1297": "G-109 Urchin"
     },
     "Standard Throwable": {
         "7580e5ae368440ae": "G-6 Frag",
@@ -380,7 +390,8 @@
         "41ce78fe8f96bebe": "P-72 Crisper",
         "82dcd83d81a385f3": "LAS-7 Dagger, LAS-58 Talon",
         "2844da91583db0f4": "P-11 Stim Pistol",
-        "49fd919a67a5db66": "Flam-66 Torcher"
+        "49fd919a67a5db66": "Flam-66 Torcher",
+        "5d5c93ef05a46880": "P-92 Warrant"
     },
 
     "Submachine Gun": {
@@ -420,7 +431,8 @@
         "902c54afb4ed396f": "MG-206 Heavy Machine Gun",
         "5795e99a988d10b7": "StA-X3 W.A.S.P. Launcher",
         "750605cfc0173701": "TX-41 Sterilizer",
-        "93fa804787551c15": "SH-51 Directional Shield"
+        "93fa804787551c15": "SH-51 Directional Shield",
+        "4fee9cc13c0b4cec": "GL-52 De-escalator"
     },
 
     "Unreleased": {
@@ -442,7 +454,8 @@
         "7b523d4ef1c8f4ee": "PLAS-15 Loyalist Extended",
         "515ddabd01bd0c64": "PLAS-15 Loyalist Standard ",
         "3b2c86dd5b316eb2": "P-2 Peacemaker",
-        "b15cd2256a2e677b": "P-19 Redeemer"
+        "b15cd2256a2e677b": "P-19 Redeemer",
+        "c7c2d638edffd06d": "AR-32 Extended Mag"
     },
 
     "Scope": {
@@ -491,7 +504,8 @@
         "64f56a84b883af7d": "Vertical Foregrip",
         "c5de422eed100414": "Vertical Foregrip W/ Flashlight",
         "75cf73a0819bf767": "Bayonet",
-        "393f7ce48d9515de": "P-4 Senator Barrel"
+        "393f7ce48d9515de": "P-4 Senator Barrel",
+        "1c1678e034c76ca8": "Pacifier Muzzle Break"
     },
 
     "Backpack": {
@@ -508,6 +522,7 @@
         "4bfe33f08f372ad3":	"AX/AR-23 Guard Dog Drone",
         "be6c260fadcb8719": "AX/AR-23 Guard Dog",
         "35f4ca4fa00d380a":	"AX/TX-13 Guard Dog Dog Breath Backpack",
+        "e62ab45bad7f6ca3": "AX/ARC-3 Guard Dog K-9 Backpack",
         "9514b4daa7f4c881":	"Terminid Larva",
         "346d785d6ca13ff4":	"B-100 Portable Hellbomb",
         "1dfe6f7a3c7ebefb":	"LIFT-860 Hover Pack"
