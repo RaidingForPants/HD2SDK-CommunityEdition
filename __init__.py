@@ -3870,21 +3870,15 @@ class StingrayAnimation:
             scale = list(scale)
             initial_bone_data[bone.name] = {'position': position, 'rotation': rotation, 'scale': scale}
             
-        for key, value in initial_bone_data.items():
-            print(f"{key}: {value}")
-            
         for bone_name in bone_names:
             bone = initial_bone_data[bone_name]
             initial_state = AnimationBoneInitialState()
             initial_state.compress_position = 1
-            initial_state.compress_rotation = 1
+            initial_state.compress_rotation = 0
             initial_state.compress_scale = 0
             initial_state.position = bone['position']
             initial_state.rotation = bone['rotation']
             initial_state.scale = bone['scale']
-            if bone_name == "l_thigh":
-                #initial_state.rotation = (0.07158415019512177, 0.9928011298179626, -0.07325667142868042, 0.06208983063697815)
-                initial_state.rotation = (0, 1, 0, 0)
             self.initial_bone_states.append(initial_state)
             
         objects = bpy.data.objects
@@ -3951,9 +3945,6 @@ class StingrayAnimation:
                         new_entry.type = 2
                         new_entry.data2 = value
                         new_entry.time =  int(1000 * frame_num / 30)
-                        print(frame_num)
-                        print(value)
-                        print(new_entry.time)
                         self.entries.append(new_entry)
                     break
             
@@ -3984,9 +3975,6 @@ class StingrayAnimation:
                     new_entry.type = 3
                     new_entry.data2 = list(value)
                     new_entry.time =  int(1000 * frame_num / 30)
-                    print(frame_num)
-                    print(value)
-                    print(new_entry.time)
                     self.entries.append(new_entry)
                 break
                     
