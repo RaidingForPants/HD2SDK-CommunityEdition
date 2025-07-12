@@ -3843,11 +3843,17 @@ class StingrayAnimation:
             return object.scale
         return None
 
-    def load_from_armature(self, context, armature):
+    def load_from_armature(self, context, armature, bones_data):
         self.entries.clear()
         self.initial_bone_states.clear()
         action = armature.animation_data.action
-        bone_names = ['StingrayEntityRoot', 'FbxAxisSystem_ConvertNode', 'boss', 'spine1', 'hips', 'boss_aim', 'spine2', 'chest', 'r_clavicle', 'l_clavicle', 'l_foot', 'l_shoulder', 'r_shoulder', 'r_elbow', 'r_hand', 'l_elbow', 'attach_hand_r', 'l_hand', 'r_foot', 'attach_hand_l', 'r_knee', 'r_thigh', 'climb_ref', 'weapon_aim', 'l_knee', 'l_thigh', 'attach_intelpad', 'root', 'aim_weapon', 'attach_weapon', 'r_ball', 'l_ball', 'neck', 'head_aim', 'head', 'r_hand_twist', 'r_thumb_finger1', 'r_index_finger1', 'r_middle_finger1', 'r_ring_finger1', 'r_pinky_finger1', 'cape2', 'cape3', 'l_middle_finger1', 'attach_knife', 'r_shoulder_twist', 'cape7', 'l_pinky_finger1', 'cape6', 'cape1', 'cape5', 'l_ring_finger1', 'cape4', 'cape8', 'attach_samplepouch', 'backpack', 'l_index_finger1', 'pistol', 'l_thumb_finger1', 'l_pinky_finger2', 'l_thumb_finger2', 'l_shoulder_twist', 'r_thumb_finger2', 'sling', 'r_shoulderarmour', 'l_index_finger2', 'r_thumb_finger3', 'r_index_finger2', 'target_designator', 'r_index_finger3', 'l_shoulderarmour', 'support_mg', 'r_middle_finger2', 'l_middle_finger2', 'l_ring_finger2', 'l_hand_twist', 'r_pinky_finger3', 'r_pinky_finger2', 'r_ring_finger3', 'r_ring_finger2', 'r_middle_finger3', 'support', 'attach_cam_1', 'r_toe', 'l_toe', 'l_thumb_finger3', 'l_pinky_finger3', 'l_ring_finger3', 'l_middle_finger3', 'l_index_finger3']
+        idx = bones_data.index(b"StingrayEntityRoot")
+        temp = bones_data[idx:]
+        splits = temp.split(b"\x00")
+        bone_names = []
+        for item in splits:
+            if item != b'':
+                bone_names.append(item.decode('utf-8'))
         bone_to_index = {bone: bone_names.index(bone) for bone in bone_names}
         index_to_bone = bone_names
         initial_bone_data = {}
@@ -3916,6 +3922,8 @@ class StingrayAnimation:
         length_frames = 0
         # Iterate on the target/curves and generate the proper cast curves.
         for target, curves in curves.items():
+            if target.name not in bone_names:
+                continue
             # We must handle quaternions separately, and key them together.
             if context.scene.Hd2ToolPanelSettings.SaveBonePositions:
                 locations = [x for x in curves if x[1] == "location"]
@@ -4880,14 +4888,22 @@ class SaveStingrayAnimationOperator(Operator):
             self.report({'ERROR'}, "Please select an armature")
             return {'CANCELLED'}
         try:
-            entry_id = object['Z_ObjectID']
+            entry_id = object['AnimationID']
         except Exception as e:
             print(e)
-            self.report({'ERROR'}, f"{object.name} has no HD2 custom properties")
+            self.report({'ERROR'}, f"{object.name} missing AnimationID property")
+            return{'CANCELLED'}
+        try:
+            bones_id = object['BonesID']
+        except Exception as e:
+            print(e)
+            self.report({'ERROR'}, f"{object.name} missing BonesID property")
             return{'CANCELLED'}
         animation_entry = Global_TocManager.GetEntryByLoadArchive(int(entry_id), AnimationID)
         if not animation_entry.IsLoaded: animation_entry.Load(True, False)
-        animation_entry.LoadedData.load_from_armature(context, object)
+        bones_entry = Global_TocManager.GetEntryByLoadArchive(int(bones_id), BoneID)
+        bones_data = bones_entry.TocData
+        animation_entry.LoadedData.load_from_armature(context, object, bones_data)
         wasSaved = animation_entry.Save()
         if wasSaved:
             if not Global_TocManager.IsInPatch(animation_entry):
