@@ -92,7 +92,10 @@
         "d923906f8b815987": "RE-2310 Honorary Guard",
         "e4e41c5f9c3848f0": "BP-20 Correct Officer",
         "1bb362e77179996f": "BP-32 Jackboot",
-        "5fb542484cb2c2a5": "BP-77 Grand Juror"
+        "5fb542484cb2c2a5": "BP-77 Grand Juror",
+        "89395c2f8ce3d8a0": "AD-11 Livewire",
+        "1dafd22cfccc02b8": "AD-26 Bleeding Edge",
+        "74bc9cf98d65b1bf": "AD-49 Apollonian"
     },
 
     "Helmet": {
@@ -181,7 +184,10 @@
         "b4d15b145b3f7677": "RE-2310 Honorary Guard",
         "44c466a6cf09718b": "BP-20 Correct Officer",
         "2a7c626239a5d6b4": "BP-32 Jackboot",
-        "3e345b62ed9e3f46": "BP-77 Grand Juror"
+        "3e345b62ed9e3f46": "BP-77 Grand Juror",
+        "be54826ac0d5f4db": "AD-11 Livewire",
+        "7cfc63f636fa5132": "AD-26 Bleeding Edge",
+        "c5e272869f1386b6": "AD-49 Apollonian"
     },
 
     "Cape": {
@@ -241,7 +247,10 @@
         "7113f81b941cee72": "Miranda's Legacy",
         "825303ad56357f0b": "Badge of Order",
         "8e9a5756930aeedd": "Protector of the Heart",
-        "0c18afd4a45f68fe": "Pillars of Freedom"
+        "0c18afd4a45f68fe": "Pillars of Freedom",
+        "69bb18da9fcee907": "Conductor of Brilliance",
+        "5eecb73e7b1ec91e": "Over Artifice Triumphant",
+        "a597d2b8cee749e4": "Schema Laid Bare"
     },
     "Environment": { 
         "fc5b6bff0db90aab": "Super Destroyer Interior 1" ,
@@ -293,7 +302,8 @@
         "b7aedfc7bff6956c": "Trooper",
         "bb2633ec2b4e2f86": "Trooper",
         "c5f8c8cd5e25dcb1": "Trooper",
-        "f042cba420e65b59": "Trooper"
+        "f042cba420e65b59": "Trooper",
+        "031c90406564341b": "War Strider"
     },
     
     "Terminid": {
@@ -345,7 +355,8 @@
         "dfb81f9917285965": "G-123 Thermite",
         "f590569dbbc6fe2d": "G-50 Seeker",
         "1721eee4581a9c54": "G-142 PyroTech",
-        "2cb3f69ab9bc1297": "G-109 Urchin"
+        "2cb3f69ab9bc1297": "G-109 Urchin",
+        "ddcea5fdd4071767": "G-31 Arc"
     },
     "Standard Throwable": {
         "7580e5ae368440ae": "G-6 Frag",
@@ -399,7 +410,8 @@
         "82dcd83d81a385f3": "LAS-7 Dagger, LAS-58 Talon",
         "2844da91583db0f4": "P-11 Stim Pistol",
         "49fd919a67a5db66": "Flam-66 Torcher",
-        "5d5c93ef05a46880": "P-92 Warrant"
+        "5d5c93ef05a46880": "P-92 Warrant",
+        "9ceed8ae1331d7bf": "VG-70 Variable"
     },
 
     "Submachine Gun": {
@@ -441,7 +453,8 @@
         "5795e99a988d10b7": "StA-X3 W.A.S.P. Launcher",
         "750605cfc0173701": "TX-41 Sterilizer",
         "93fa804787551c15": "SH-51 Directional Shield",
-        "4fee9cc13c0b4cec": "GL-52 De-escalator"
+        "4fee9cc13c0b4cec": "GL-52 De-escalator",
+        "a7b23b55209766ae": "PLAS-45 Epoch"
     },
 
     "Unreleased": {
@@ -534,6 +547,7 @@
         "e62ab45bad7f6ca3": "AX/ARC-3 Guard Dog K-9 Backpack",
         "9514b4daa7f4c881":	"Terminid Larva",
         "346d785d6ca13ff4":	"B-100 Portable Hellbomb",
-        "1dfe6f7a3c7ebefb":	"LIFT-860 Hover Pack"
+        "1dfe6f7a3c7ebefb":	"LIFT-860 Hover Pack",
+        "68f670405a504f68": "LIFT-182 Warp Pack"
     }
 }
