@@ -549,5 +549,17 @@
         "346d785d6ca13ff4":	"B-100 Portable Hellbomb",
         "1dfe6f7a3c7ebefb":	"LIFT-860 Hover Pack",
         "68f670405a504f68": "LIFT-182 Warp Pack"
+    },
+
+    "Turret": {
+        "154bd6143819df7d": "A/MG-43 Machine Gun Sentry",
+        "54dc633a67baa93d": "A/AC-8 Autocannon Sentry",
+        "68e80476c1c602f5": "E/MG-101 HMG Emplacement",
+        "5a0f047f2695b403": "E/AT-12 Anti-Tank Emplacement",
+        "8c5a99a9a40d5b8d": "A/M-12 Mortar Sentry",
+        "992d325d88de5fbf": "A/G-16 Gatling Sentry",
+        "1577e917ad1f287d": "A/40 Flame Sentry",
+        "11bbdf8ce39e5fc5": "A/MLS-4X Rocket Sentry",
+        "36313bf684c1fd79": "A/LAS-98 Laser Sentry"
     }
 }
