@@ -4086,14 +4086,16 @@ class StingrayAnimation:
             location_curves = [StingrayAnimation.utilityGetOrCreateCurve(fcurves, armature.data.edit_bones, bone_name, x) for x in [
                 ("location", 0), ("location", 1), ("location", 2)]]
             location = [p for p in initial_state.position]
-            if bone_name == "boss":
-                StingrayAnimation.utilityAddKeyframe(location_curves[0], 0, 100*location[0], "LINEAR")
-                StingrayAnimation.utilityAddKeyframe(location_curves[1], 0, 100*location[1], "LINEAR")
-                StingrayAnimation.utilityAddKeyframe(location_curves[2], 0, location[2], "LINEAR")
+            if bone.parent is None:
+                translation = bone.matrix.translation
             else:
-                StingrayAnimation.utilityAddKeyframe(location_curves[0], 0, location[0], "LINEAR")
-                StingrayAnimation.utilityAddKeyframe(location_curves[1], 0, location[1], "LINEAR")
-                StingrayAnimation.utilityAddKeyframe(location_curves[2], 0, location[2], "LINEAR")
+                translation = (bone.parent.matrix.inverted() @ bone.matrix).translation
+            translation[0] = 100*location[0] - translation[0]
+            translation[1] = 100*location[1] - translation[1]
+            translation[2] = 100*location[2] - translation[2]
+            StingrayAnimation.utilityAddKeyframe(location_curves[0], 0, translation[0], "LINEAR")
+            StingrayAnimation.utilityAddKeyframe(location_curves[1], 0, translation[1], "LINEAR")
+            StingrayAnimation.utilityAddKeyframe(location_curves[2], 0, translation[2], "LINEAR")
             rotation_curves = [StingrayAnimation.utilityGetOrCreateCurve(fcurves, armature.data.edit_bones, bone_name, x) for x in [
                 ("rotation_quaternion", 0), ("rotation_quaternion", 1), ("rotation_quaternion", 2), ("rotation_quaternion", 3)]]
             rotation = inv_rest_quat @ mathutils.Quaternion([initial_state.rotation[3], initial_state.rotation[0], initial_state.rotation[1], initial_state.rotation[2]])
@@ -4107,26 +4109,24 @@ class StingrayAnimation:
         # sort animation entries by bone:
         location_entries = {index_to_bone[bone]: [entry for entry in self.entries if entry.bone == bone and (entry.type == 2 or entry.subtype == 4)] for bone in range(len(bone_names))}
         rotation_entries = {index_to_bone[bone]: [entry for entry in self.entries if entry.bone == bone and (entry.type == 3 or entry.subtype == 5)] for bone in range(len(bone_names))}
-
         length_frames = 0
         for bone, locations in location_entries.items():
             # create location curves for bone
             b = armature.data.edit_bones[bone]
             if b.parent is None:
-                location = b.matrix.translation
+                translation = b.matrix.translation
             else:
-                location = (b.parent.matrix.inverted() @ b.matrix).translation
+                translation = (b.parent.matrix.inverted() @ b.matrix).translation
             location_curves = [StingrayAnimation.utilityGetOrCreateCurve(fcurves, armature.data.edit_bones, bone, x) for x in [
             ("location", 0), ("location", 1), ("location", 2)]]
+            location = [0, 0, 0]
             for keyframe, location_entry in enumerate(locations):
-                if b.name == "boss":
-                    StingrayAnimation.utilityAddKeyframe(location_curves[0], 30 * location_entry.time / 1000, 100*location_entry.data2[0], "LINEAR")
-                    StingrayAnimation.utilityAddKeyframe(location_curves[1], 30 * location_entry.time / 1000, 100*location_entry.data2[1], "LINEAR")
-                    StingrayAnimation.utilityAddKeyframe(location_curves[2], 30 * location_entry.time / 1000, location_entry.data2[2], "LINEAR")
-                else:
-                    StingrayAnimation.utilityAddKeyframe(location_curves[0], 30 * location_entry.time / 1000, location_entry.data2[0], "LINEAR")
-                    StingrayAnimation.utilityAddKeyframe(location_curves[1], 30 * location_entry.time / 1000, location_entry.data2[1], "LINEAR")
-                    StingrayAnimation.utilityAddKeyframe(location_curves[2], 30 * location_entry.time / 1000, location_entry.data2[2], "LINEAR")
+                location[0] = 100*location_entry.data2[0] - translation[0]
+                location[1] = 100*location_entry.data2[1] - translation[1]
+                location[2] = 100*location_entry.data2[2] - translation[2]
+                StingrayAnimation.utilityAddKeyframe(location_curves[0], 30 * location_entry.time / 1000, location[0], "LINEAR")
+                StingrayAnimation.utilityAddKeyframe(location_curves[1], 30 * location_entry.time / 1000, location[1], "LINEAR")
+                StingrayAnimation.utilityAddKeyframe(location_curves[2], 30 * location_entry.time / 1000, location[2], "LINEAR")
                 length_frames = max([length_frames, int(30*location_entry.time/1000)])
                 
         # interpolate better than Blender's default interpolation:
