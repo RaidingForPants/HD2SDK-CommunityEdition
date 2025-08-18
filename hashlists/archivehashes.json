@@ -269,6 +269,55 @@
         "18235e0c9ec0e636": "Super Destroyer Interior 2"
     },
 
+    "Terminid Props": {
+        "009da023c64d178d": "Bug Props 1",
+        "07d76506917339e0": "Bug Props 2",
+        "6fa8fb795e82246d": "Bug Props 3 - Includes Mutated Egg",
+        "89de9c3d26d2adc1": "Bug Props 4",
+        "fcbae1c64f1d0b81": "Bug Props 5",
+        "21c70d31b2b22d4c": "Bug Hole 1",
+        "26764c554ab2aeac": "Bug Hole 2",
+        "4c54f6993c4b4163": "Bug Hole 3",
+        "6e0670f7ffc32073": "Bug Hole 4",
+        "afe19741643c29a4": "Bug Hole 5",
+        "d5c98e05902f52ad": "Bug Hole 6",
+        "eb620e7a413bdd5c": "Bug Hole 7",
+        "e21e8ea3eba0f494": "Bug Rock",
+        "e0b4b83f5d504da2": "Bug Wall & Skeleton",
+        "abd41c288efe3513": "Bug Webbing",
+        "522b16fd978137da": "Bug webbing & Skeleton",
+        "f664073a0915f747": "Bug webbing & Crystal Sample",
+        "de8eccc7aa419fc2": "Shrieker Nest POI"
+    },
+
+    "Automaton Props": {
+        "9e430d763af434c1": "Bot Props 1 - Includes Confidential Data",
+        "6d4ab1d0aaef275a": "Bot Props 2",
+        "b60853d596b28e3d": "Bot Props 3"
+    },
+
+    "POI Props": {
+        "bcf192174f9a5153": "Crashed Ship POI",
+        "f50d407a0949ff94": "Mine POI",
+        "e8dc60728a302fe6": "Bunker POI",
+        "29b2b22c676c4b34": "SEAF outpost POI 1",
+        "824bb6fe5d4e04a4": "SEAF outpost POI 2"
+    },
+
+    "Mega Cities": {
+        "190e1924b96d3e88": "New Mega City Archive",
+        "2fe1471b603648e2": "Mega City Buildings and Props"
+    },
+
+    "World Props": {
+        "0149ef7d2ee3efca": "Extraction Landing Pad",
+        "715dcc69bf13acb0": "Destroyed Ship, Vehicles, Corpses, & Case Samples",
+        "681275af9e93cb2c": "Hellbomb",
+        "e6cbb56cc2daac09": "Skeleton",
+        "db719d81aa6e13f7": "Farm Related Props 1",
+        "ddce4ccf4d49d8be": "Farm Related Props 2"
+    },
+
     "World Pickups": {
         "fc5da76769aff15d": "Grenade Case",
         "80fea3c0a4b22ffb": "Ammo Box",
