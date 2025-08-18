@@ -180,7 +180,7 @@
 17259437333005147504 content/fac_helldivers/hellpod/turret/gatling_turret
 7532632187257416932 content/env_super_earth/military_base/mechanical_bughole/mechanical_bughole
 5321902713564716286 content/env_super_earth/tutorial/door_01/door_light
-424716889947522210 content/fac_helldivers/equipment/sidearm_weapons/standard_pistol/standard_pistol
+424716889947522210 P-2 Peacemaker
 689263509684636332 content/objectives/obj_common/entities/tut_intro_mission/tut_intro_mission_segment/tut_intro_mission_segment
 16961153421843848802 content/entities/navmeshseedpoint
 10699906417599039617 content/env_super_earth/tutorial/cape_dispenser/cape_dispenser
@@ -1434,15 +1434,15 @@
 2384674375031936646 content/env_shared/assets/props/equipment/helldiver_legs_01
 13465464769351373847 content/env_super_earth/habs/utilities/se_pipeline_straight_3x
 10768610637301609307 MP-98 Knight
-10177381595962512386 content/fac_helldivers/equipment/sidearm_weapons/revolver_pistol/revolver_pistol
+10177381595962512386 P-4 Senator
 9675404802175538082 LAS-16 Sickle
-8864800879179811976 content/fac_helldivers/equipment/sidearm_weapons/laser_pistol/laser_pistol
+8864800879179811976 LAS-7 Dagger
 3310655598553981036 content/fac_helldivers/equipment/primary_weapons/marksman_rifle/marksman_rifle
-3852172782311805734 content/fac_helldivers/equipment/sidearm_weapons/automatic_pistol/automatic_pistol
-12279528435724053588 content/fac_helldivers/equipment/sidearm_weapons/plasma_pistol/plasma_pistol
+3852172782311805734 P-19 Redeemer
+12279528435724053588 PLAS-15 Loyalist
 6912088101323449320 BR-14 Adjudicator
-5972955417680186543 content/fac_helldivers/equipment/sidearm_weapons/grenade_pistol/grenade_pistol
-1892480894983787169 content/fac_helldivers/equipment/sidearm_weapons/magnum_pistol/magnum_pistol
+5972955417680186543 GP-31 Grenade Pistol
+1892480894983787169 P-113 Verdict
 17623191861664038783 CB-9 Exploding Crossbow
 12100643055971655455 content/fac_helldivers/equipment/primary_weapons/assault_rifle_patriot/assault_rifle_patriot
 17283952461205890046 PLAS-101 Purifier
@@ -3844,3 +3844,14 @@
 2980234130573201393 LAS-17 Double-Edge Sickle
 5742363029208942635 Flam-66 Torcher
 17983663411446975103 VG-70 Variable
+3109983482551492476 SG-22 Bushwhacker
+4580928717960105129 P-72 Crisper
+4714430103453754419 LAS-58 Talon
+15470422196992643923 P-11 Stim Pistol
+11435027044679925718 GP-20 Ultimatum
+18219495801425257306 CQC-2 Saber
+8467154841892407376 CQC-5 Combat Hatchet
+16408494556715988068 CQC-19 Stun Lance
+14229469521397221872 CQC-30 Stun Baton
+16743928489815142323 Entrenchment Tool
+14954542309183038509 P-92 Warrant
