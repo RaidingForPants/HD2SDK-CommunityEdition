@@ -119,12 +119,12 @@
 15369542005276747891 content/fac_helldivers/equipment/support_weapons/laser_cannon/laser_cannon
 7223794220521538414 content/env_super_earth/habs/containers/smuggler_cache
 4155583896232633279 content/fac_helldivers/equipment/support_weapons/flamethrower/flamethrower
-13918995818598980231 content/fac_helldivers/equipment/primary_weapons/assault_shotgun_incendiary/assault_shotgun_incendiary
+13918995818598980231 SG-225IE Breaker Incendiary
 10427010750460978344 content/markers/exploration_markers/cache_loot_marker
 2714034314705433838 content/fac_helldivers/equipment/support_weapons/faf_missile_launcher/faf_missile_launcher
 10930013077329100956 Grenade Box
 13027308828300900709 Stim Box
-9927421484392399367 content/fac_helldivers/equipment/support_weapons/sniper_rifle/sniper_rifle
+9927421484392399367 PLAS-39 Accelerator
 5559759717312999507 content/audio/bots_scoutwalker
 2159324961618377890 content/planet_desert_sandy/assets/terrain_materials/textures_packed/sandy_dirt_displacement.tga
 14594002806292477017 content/planet_desert_sandy/assets/terrain_materials/textures_packed/sandy_heavy_pebbles_displacement.tga
@@ -187,7 +187,7 @@
 12628840167151644876 content/env_super_earth/tutorial/weapon_dispenser/weapon_dispenser
 12815336614061458907 content/objectives/obj_common/icbm_silo/icbm_silo
 9796573205647524202 content/fac_super_earth/tutorial/target_turret
-10845250369047350884 content/fac_helldivers/equipment/primary_weapons/assault_rifle/assault_rifle
+10845250369047350884 AR-23 Liberator
 13399733575043728622 content/env_super_earth/habs/props/warning_lamp_01
 2390745754385977850 content/env_super_earth/military_base/utilities/door_01
 15805795754758043311 content/objectives/obj_common/cargo_container/cargo_container
@@ -275,7 +275,7 @@
 14571812785558082826 content/env_super_earth/military_base/super_earth_cache/super_earth_cache_lid
 774288562714145417 content/env_super_earth/military_base/super_earth_cache/super_earth_cache
 16446751170506712804 content/markers/exploration_markers/narrative/poi_text_tablet_seaf_retreat_01
-5910727434981086692 content/fac_super_earth/equipment/support_weapons/shotgun_doublebarrel/shotgun_doublebarrel
+5910727434981086692 SG-88 Break-Action Shotgun
 1706407062147702353 content/audio/obj_extract_civilians
 8994287548953596822 content/audio/foley_npcs
 9607281538809398295 content/audio/Mission_Civilian_Exertions
@@ -324,7 +324,7 @@
 6290687013549728522 content/env_super_earth/military_base/utilities/cache_button
 2412946532637084179 content/env_shared/assets/exploration_rewards/cache_interactable_box
 8783342891467425251 content/fac_helldivers/vehicles/combat_walker/combat_walker
-2877271129141764950 content/fac_helldivers/equipment/primary_weapons/laser_rifle/laser_rifle
+2877271129141764950 LAS-5 Scythe
 15586954129831248040 content/objectives/obj_cyborgs/cyborg_landed_dropship/cyborg_landed_dropship
 14767523449115355633 content/objectives/obj_cyborgs/entities/cy_destroy_airbase/cy_destroy_airbase
 15466420969921261820 content/planet_forest_moor/assets/terrain_materials/textures_packed/moor_field_grass_01_displacement.tga
@@ -382,7 +382,7 @@
 2550304950015172973 content/audio/bots_gunship
 4882226405607636345 content/objectives/obj_cyborgs/entities/cy_kill/cy_kill
 3358853937828503136 content/fac_helldivers/equipment/support_weapons/railgun/railgun
-17196401230144941076 content/fac_helldivers/equipment/primary_weapons/plasma_rifle/plasma_rifle
+17196401230144941076 PLAS-1 Scorcher
 1016693250774512036 content/objectives/obj_illuminate/entities/il_destroy_harvester/il_destroy_harvester
 11881991669617894885 content/objectives/obj_illuminate/il_harvester/il_harvester_weakspot
 13486456492332597201 content/objectives/obj_illuminate/il_harvester/il_harvester
@@ -747,7 +747,7 @@
 15245448357206214806 content/planet_desert_savanna/assets/terrain_materials/textures_packed/savanna_dead_zone_displacement.tga
 15824211042946782180 content/audio/obj_briefcase
 5032345610106526414 content/audio/wep_sg8_punisher
-4749824949454633632 content/fac_helldivers/equipment/primary_weapons/pump_shotgun/pump_shotgun
+4749824949454633632 SG-8 Punisher
 762604621544406901 content/audio/obj_feedback_sounds
 5555529191604247531 content/audio/weapons_superearth
 9002059662857666867 content/audio/samples
@@ -1086,7 +1086,7 @@
 913119522503676205 content/env_super_earth/habs/props/container_03
 3432762169642438488 content/env_super_earth/habs/props/container_06
 5284285530903897663 content/env_super_earth/habs/containers/box_02_2stack
-9291384900638350902 content/fac_helldivers/equipment/primary_weapons/jet_rifle/jet_rifle
+9291384900638350902 JAR-5 Dominator
 689333780952378169 content/env_super_earth/habs/props/se_flag_horizontal_02
 3411403495940440006 content/env_super_earth/habs/props/container_09
 12288232278411403974 content/env_super_earth/habs/props/container_02
@@ -1175,7 +1175,7 @@
 10859499723599640561 content/env_super_earth/habs/props/container_10
 2976556536743111746 Common Sample - Case
 10040057173013756660 content/env_cyborg/props/cy_trash_set_01
-535319041333920260 content/fac_helldivers/equipment/primary_weapons/arc_shotgun/arc_shotgun
+535319041333920260 ARC-12 Blitzer
 2453107319777848703 content/env_shared_arctic/assets/ice/ice_icicle_03
 3406124841849787344 content/env_shared_arctic/assets/ice/ice_structure_02
 6999938328087911373 content/env_shared_arctic/assets/ice/ice_icicle_02
@@ -1433,27 +1433,27 @@
 18217730016436479233 content/env_super_earth/habs/utilities/se_pipeline_straight_4x
 2384674375031936646 content/env_shared/assets/props/equipment/helldiver_legs_01
 13465464769351373847 content/env_super_earth/habs/utilities/se_pipeline_straight_3x
-10768610637301609307 content/fac_helldivers/equipment/primary_weapons/smg_defender/smg_defender
+10768610637301609307 MP-98 Knight
 10177381595962512386 content/fac_helldivers/equipment/sidearm_weapons/revolver_pistol/revolver_pistol
-9675404802175538082 content/fac_helldivers/equipment/primary_weapons/laser_rifle_long/laser_rifle_long
+9675404802175538082 LAS-16 Sickle
 8864800879179811976 content/fac_helldivers/equipment/sidearm_weapons/laser_pistol/laser_pistol
 3310655598553981036 content/fac_helldivers/equipment/primary_weapons/marksman_rifle/marksman_rifle
 3852172782311805734 content/fac_helldivers/equipment/sidearm_weapons/automatic_pistol/automatic_pistol
 12279528435724053588 content/fac_helldivers/equipment/sidearm_weapons/plasma_pistol/plasma_pistol
-6912088101323449320 content/fac_helldivers/equipment/primary_weapons/battle_rifle/battle_rifle
+6912088101323449320 BR-14 Adjudicator
 5972955417680186543 content/fac_helldivers/equipment/sidearm_weapons/grenade_pistol/grenade_pistol
 1892480894983787169 content/fac_helldivers/equipment/sidearm_weapons/magnum_pistol/magnum_pistol
-17623191861664038783 content/fac_helldivers/equipment/primary_weapons/crossbow_greyfax/crossbow_greyfax
+17623191861664038783 CB-9 Exploding Crossbow
 12100643055971655455 content/fac_helldivers/equipment/primary_weapons/assault_rifle_patriot/assault_rifle_patriot
-17283952461205890046 content/fac_helldivers/equipment/primary_weapons/plasma_rifle_charge/plasma_rifle_charge
-5050852199397921576 content/fac_helldivers/equipment/primary_weapons/assault_shotgun/assault_shotgun
-14845617694460717074 content/fac_helldivers/equipment/primary_weapons/assault_rifle_rico/assault_rifle_rico
-10216731484117571310 content/fac_helldivers/equipment/primary_weapons/jet_rifle_phoenix/jet_rifle_phoenix
-421324886246020354 content/fac_helldivers/equipment/primary_weapons/pump_shotgun_plasma/pump_shotgun_plasma
-6047980762772154079 content/fac_helldivers/equipment/primary_weapons/pump_shotgun_slug/pump_shotgun_slug
+17283952461205890046 PLAS-101 Purifier
+5050852199397921576 SG-225 Breaker
+14845617694460717074 AR-61 Tenderizer
+10216731484117571310 R-36 Eruptor
+421324886246020354 SG-8P Punisher Plasma
+6047980762772154079 SG-8S Slugger
 13361269385325929572 content/fac_helldivers/equipment/sidearm_weapons/revolver_pistol/revolver_speedloader
-14840077516977962372 content/fac_helldivers/equipment/primary_weapons/assault_rifle_helghast/assault_rifle_helghast
-5450511615252257986 content/fac_helldivers/equipment/primary_weapons/smg_helghast/smg_helghast
+14840077516977962372 StA-52 Assault Rifle
+5450511615252257986 StA-11 SMG
 8422338628769435505 Warp_Ship
 685817687590585291 roof_solar_panel_5x5_01
 2905571548111627985 abs_ventilation_roof_05
@@ -2029,8 +2029,8 @@
 10633423367086567509 g_sub_clear_bug_nest_01
 16096945016470576184 ter_01/il_teleporter_01
 17094545627505210396 post_easy_checkpoint_01
-281046277510948131 arksman_rifle_vigilance
-7955636554177052997 igilance_counter_sniper
+281046277510948131 R-63 Diligence
+7955636554177052997 R-63CS Diligence Counter Sniper
 11182671710931255056 lance_magazine_standard
 717990104451743814 t/se_wallbig_pillar_top
 2987964038624375438 e_wallbig_wall_top_full
@@ -2484,9 +2484,9 @@
 5480181823593116864 its/cy_sat_debris_8m_01
 12439365467465081873 _plasma_pistol_standard
 16653674489725268507 r_male/cha_fighting_worker_male
-5641428405267160100 personal_defense_weapon
+5641428405267160100 SMG-37 Defender
 13093153068183744956 asings/pistol_12mm_long
-14133186296882294161 l_defense_weapon_pepper
+14133186296882294161 SMG-72 Pummeler
 18044816879460781764 xtended_magazine_pepper
 5690760409550920280 _backpack/ammo_backpack
 5358154537028771113 oration_superuranium_03
@@ -2653,9 +2653,9 @@
 17393510106958049723 /grassland_hero_tree_03
 17712075600110020140 sland_hero_tree_03_gibs
 13338040999929798412 en_sub_siesmic_probe_07
-871864056920437339 ssault_rifle_penetrator
+871864056920437339 AR-23P Liberator Penetrator
 5542218890398374779 G-6 Frag
-12333718053527461656 assault_rifle_explosive
+12333718053527461656 AR-23C Liberator Concussive
 2300568554162195620 y_square_rock_medium_01
 4388628338513997117 loration_utah_ravine_01
 419169158298846199 ss/moor_mossy_pillow_03
@@ -3833,3 +3833,14 @@
 284602740380634958 G-142 Pyrotech
 4587284938949573643 G-109 Urchin
 15821755148612569419 G-31 Arc
+13558475039457634667 AR-32 Pacifier
+8896268509512551590 R-2124 Constitution
+1117846648694268261 R-2 Amendment
+10717884433990741653 SMG-32 Reprimand
+7073132068558755510 SG-225SP Breaker Spray & Pray
+16634382492500136054 R-6 Deadeye
+15214248472323070124 SG-8S Slugger
+1291563472355841634 SG-20 Halt
+2980234130573201393 LAS-17 Double-Edge Sickle
+5742363029208942635 Flam-66 Torcher
+17983663411446975103 VG-70 Variable
