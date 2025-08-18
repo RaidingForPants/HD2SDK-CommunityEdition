@@ -6,7 +6,7 @@
 11202044778487390708 content/objectives/obj_common/oil_pump/objective_oil_pump_terminal
 14538479844987431790 content/markers/exploration_markers/narrative/poi_text_tablet_overseer_01
 4179069540441354011 content/env_super_earth/habs/props/vending_machine_democracy_01
-12508512869271882154 content/env_shared/assets/samples/crystalized_e710_sample_01/crystalized_e710_sample_01
+12508512869271882154 Rare Sample - E-710 Crystal
 7911125090997601213 content/objectives/obj_common/oil_pump/objective_oil_pump_valve
 1279722939363854678 content/fac_helldivers/equipment/support_weapons/machinegun/machinegun
 14195043073648156734 content/objectives/obj_bugs/blocking_chunk/blocking_chunk
@@ -18,10 +18,10 @@
 2325721028474622445 content/env_super_earth/habs/structures/habs_colony_building_ground_01_master
 12525242792979901983 content/env_super_earth/habs/props/habs_barrel_fuel
 13742248433727273223 content/env_super_earth/military_base/utilities/base_light_01_head
-13632525282499700070 content/env_shared/assets/samples/blacksaffron_sample_01/blacksaffron_sample_01
+13632525282499700070 Rare Sample - Black Saffron
 11333649286886241306 content/env_shared/assets/samples/super_uranium/super_uranium_sample_01
 18085197870419332847 content/audio/us/Mission_Civilian_VO
-12943291850073424771 content/env_shared/assets/samples/artifact_sample_01/artifact_sample_01
+12943291850073424771 Common Sample - Illuminate Cuboctahedron
 14173752171115250642 content/art_shared/textures/camera_dirt
 9827746234952595593 content/planet_desert_sandy/assets/terrain_materials/textures_packed/sandy_weathering_nar
 14201419134687365787 content/planet_desert_sandy/assets/terrain_materials/textures_packed/sandy_weathering_mask
@@ -53,7 +53,7 @@
 5801780707595001106 content/audio/vo_illuminate
 5825608113412082114 content/audio/foley_illuminate
 9585963490574707391 content/audio/weapons_illuminate
-16068287307180393021 content/env_shared/assets/samples/legendarium_sample_01/legendarium_sample_01
+16068287307180393021 Rare Sample - Legendarium
 5744599939368375614 content/env_cyborg/gameplay/spawner_factory/cyborg_spawner_factory_conscript_standard
 11292646840963106502 content/audio/obj_carry_flag
 12408737814249412459 content/audio/obj_raise_flag
@@ -200,7 +200,7 @@
 14561226814014948114 content/env_shared_forest/assets/weathering/forest_weathering_nar
 8881182940724313260 content/env_shared_forest/assets/weathering/forest_weathering_mask
 2279509978647120743 content/env_shared_forest/assets/weathering/forest_weathering_albedo_graded
-5771061903247604588 content/env_bugs/assets/samples/bug_sample_01
+5771061903247604588 Common Sample - Alien Bulb
 11432560202897483622 content/objectives/obj_bugs/retrieve_larva/bug_larva_container_backpack
 16147921581624249384 content/level_generation_settings/env_shared/weather_settings/high_altitude_clouds/high_altitude_coverage_map2
 12064036665989730127 content/effects/textures/lens_flares/lens_flare_sun_01
@@ -457,7 +457,7 @@
 3306034378071258267 content/fac_super_earth/tutorial/stab_machine
 4083821917710944045 content/fac_super_earth/tutorial/cha_tutorial_bot_store
 12218137513893139416 content/fac_cyborgs/emplacements/cyborg_emplacement_hmg/cyborg_emplacement_hmg
-7256596000532615782 content/env_shared/assets/samples/bio_sample_01/bio_sample_01
+7256596000532615782 Common Sample - Corpse Worm
 10897067899328555568 content/objectives/obj_cyborgs/cyborg_destroy_communication/objective_destroy_communication_terminal
 10988915095021253731 content/objectives/obj_cyborgs/entities/cy_destroy_communication/cy_destroy_communication
 12008625947668001407 content/fac_helldivers/equipment/primary_weapons/lmg_stalwart/lmg_stalwart
@@ -553,7 +553,7 @@
 13236617319809353751 content/audio/haz_bugcluster
 13837079467154678043 content/audio/env_bugs
 8544792714086142645 content/env_bugs/assets/samples/bug_intel_sample_01
-3124708172057168516 content/env_bugs/assets/samples/bug_egg_super_sample_01
+3124708172057168516 Super Sample - Mutated Egg
 322814213451470685 content/audio/obj_destroy_airbase
 13555939877178383322 content/audio/obj_dropship
 2289067984947815710 content/levels/lighting/desert/desert_day-cubemaps/reflection_probe_specular_bake
@@ -666,8 +666,8 @@
 1107004946896383133 content/audio/obj_destroy_gunship_spawner
 1918907825876909407 content/audio/obj_antiairgun
 16061406947694662020 content/audio/obj_destroy_command_bunker
-13741222368367787890 content/env_cyborg/samples/automaton_sample_01
-14347356236094671771 content/env_cyborg/samples/automaton_super_sample_01
+13741222368367787890 Common Sample - Small Machinery
+14347356236094671771 Super Sample - Confidential Data
 16350010024704713163 content/objectives/obj_cyborgs/cyborg_shutdown_grinder/grinder
 14017838307945042767 content/audio/plas_3_plasma_pistol
 1611415327122055123 content/audio/us/Tutorial_Helldiver_Recruit_VO
@@ -1173,7 +1173,7 @@
 5787948413593898778 content/fac_helldivers/hellpod/ammo_rack/ammo_rack
 16983968416304026806 content/fac_helldivers/vehicles/eagle/weapons/eagle_missile
 10859499723599640561 content/env_super_earth/habs/props/container_10
-2976556536743111746 content/env_super_earth/samples/research_bio_sample_01
+2976556536743111746 Common Sample - Case
 10040057173013756660 content/env_cyborg/props/cy_trash_set_01
 535319041333920260 content/fac_helldivers/equipment/primary_weapons/arc_shotgun/arc_shotgun
 2453107319777848703 content/env_shared_arctic/assets/ice/ice_icicle_03
@@ -1197,7 +1197,7 @@
 16580134850276331245 content/env_super_earth/military_base/utilities/cctv_camera_01
 8665684425948492064 content/env_illuminate/gameplay/il_spawner_01
 12117679636440953731 content/objectives/obj_illuminate/il_raise_building_01/il_raise_building_01
-3494241250398732730 content/env_super_earth/samples/research_sample_01
+3494241250398732730 Common Sample - Case
 3770036446644409843 content/env_super_earth/habs/corpses/habs_corpse_02
 4674540359833765308 content/env_super_earth/habs/corpses/habs_corpse_03
 5361862703485749820 content/env_super_earth/wartorn/wartorn_frv_01
@@ -1368,7 +1368,7 @@
 17362800260994218604 content/env_illuminate/architecture/il_pillar_whole_small
 18352682196819795109 content/env_illuminate/rubble/il_rubble_large_01
 6122440444485611720 content/env_illuminate/architecture/il_wall_straight
-5691626237303103123 content/env_super_earth/samples/research_tech_sample_01
+5691626237303103123 Common Sample - Case
 6571758006760580768 content/env_super_earth/habs/corpses/habs_corpse_arm_01
 7455337918377820636 content/env_super_earth/habs/corpses/habs_corpse_head_01
 10185177229901715431 content/env_super_earth/habs/corpses/habs_corpse_arm_02
@@ -2750,7 +2750,7 @@
 15393204128914489592 form_circle_inverted_6r
 15408860269943245407 ime_interrupt_ritual_02
 4481848084650076030 oliage/bug_web_loose_01
-14923473746413089367 arch_artifact_sample_01
+14923473746413089367 Common Sample - Case
 18439040811980203224 nits/cy_tac_sam_site_02
 11600509534360788456 ration_northern_habs_01
 10676260944347673984 t/units/flies_flying_4m
