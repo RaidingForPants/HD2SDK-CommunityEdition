@@ -262,6 +262,18 @@
         "4c2203529ff1a9c4": "Faction, Stratagem, Objective & Mission Icons",
         "b7af4addc957ce21": "Upgrade, Warbond & Ship Icons"
     },
+
+    "Samples": {
+        "6fbbb2affab096d9": "Common Sample - Case Sample",
+        "bb6ac645c30f0266": "Common Sample - Corpse Worm",
+        "7ca11e54b19cb723": "Common Sample - Illuminate Cuboctahedron",
+        "bc35eebd1ddb6858": "Rare Sample - E-710 Crystal",
+        "b4bc0833706d87e0": "Rare Sample - Legendarium",
+        "8d05fccea5bbbc54": "Rare Sample - Black Saffron",
+        "fb0ebe9bdee158d6": "Super Sample - Super Uranium",
+        "501b113721d6faf0": "Alien Bulb Sample & Case Sample",
+        "f6b59d283df68ad0": "Small Machinery Sample & Case Sample"
+    },
     
     "Illuminate": {
         "046d4441a6dae0a9": "Watcher & Warp Ship & Stingray",
