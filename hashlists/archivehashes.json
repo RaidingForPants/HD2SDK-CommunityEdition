@@ -253,6 +253,7 @@
         "a597d2b8cee749e4": "Schema Laid Bare",
         "fa5a9d6c8b6df7da": "Ingress-81"
     },
+
     "Environment": { 
         "fc5b6bff0db90aab": "Super Destroyer Interior 1" ,
         "18235e0c9ec0e636": "Super Destroyer Interior 2",
@@ -340,30 +341,35 @@
     "NPC": {
         "131fe264b7380717": "SEAF Solider"
     },
+
     "Vehicle": {
         "0bdf199f7ac14f43": "Fast Recon Vehicle (FRV)",
         "22749a294788af66": "EXO-45 Patriot Exosuit",
         "e72d3e9b05c3db0b": "EXO-49 Emancipator Exosuit",
         "9aac8a3a538ce3b7": "Pelican-1"
     },
+
     "Special Throwable": {
         "bd90b4fccb70622c": "G-3 Smoke",
         "25a04f6d9707d2cc": "G-4 Gas",
-        "5df489abbe211839": "G-10 Incendiary",
         "b2d139f78a2e2120": "G-13 Incendiary Impact",
         "21e90918df69eff7": "G-16 Impact",
         "543ff1ff0bd82b44": "G-23 Stun",
-        "dfb81f9917285965": "G-123 Thermite",
         "f590569dbbc6fe2d": "G-50 Seeker",
-        "1721eee4581a9c54": "G-142 PyroTech",
         "2cb3f69ab9bc1297": "G-109 Urchin",
-        "ddcea5fdd4071767": "G-31 Arc"
-    },
-    "Standard Throwable": {
-        "7580e5ae368440ae": "G-6 Frag",
-        "67b87368042c8b99": "G-12 High Explosive",
+        "dfb81f9917285965": "G-123 Thermite",
+        "1721eee4581a9c54": "G-142 PyroTech",
+        "ddcea5fdd4071767": "G-31 Arc",
         "3bf0844097ab595f": "K-2 Throwing Knife"
     },
+
+    "Standard Throwable": {
+        "7580e5ae368440ae": "G-6 Frag",
+        "5df489abbe211839": "G-10 Incendiary",
+        "67b87368042c8b99": "G-12 High Explosive",
+        "3c14455d53db72fe": "TED-63 Dynamite"
+    },
+
     "Assault Rifle": {
         "a14f1a98c80575af": "AR-23 Liberator",
         "dbd9381f9ea9788f": "AR-23P Liberator Penetrator, AR-23C Liberator Concussive",
@@ -373,6 +379,7 @@
         "40f2a2ce5c20418f": "StA-52 Assault Rifle",
         "82751a054bdfd075": "AR-32 Pacifier"
     },
+
     "Energy-Based": {
         "3a49b4448eaa94fe": "LAS-5 Scythe",
         "6db0c562c2bc10b3": "LAS-16 Sickle",
@@ -380,17 +387,20 @@
         "55938279f6ef8664": "ARC-12 Blitzer",
         "7f927f50fa6c50e8": "LAS-17 Double-Edge Sickle"
     },
+
     "Explosive": {
         "e0807831d6f456c8": "R-36 Eruptor",
         "ba40a2814d01bda0": "CB-9 Exploding Crossbow",
         "10a7605527187ef5": "JAR-5 Dominator",
         "b779a2f9d0928e03": "GP-20 Ultimatum"
     },
+
     "Marksman Rifle": {
         "68aa9a343aa4333c": "R-2124 Constitution",
         "e829d44fb5653ec4": "R-2 Amendment",
         "2404fa21fe49c32d": "R-63 Diligence & R-63CS Diligence Counter Sniper"
     },
+
     "Shotgun": {
         "c5a05d09369d0670": "SG-225 Breaker, SG-225SP Breaker Spray & Pray",
         "e566e3aaf90db459": "SG-8 Punisher, SG-8S Slugger, SG-8P Punisher Plasma, R-6 Deadeye",
@@ -399,6 +409,7 @@
         "522be23400cc6086": "SG-20 Halt",
         "31894c33c4ed1e2a": "Double Barrel Shotgun"
     },
+
     "Sniper Rifle": { 
         "ea6967f8565a2d76": "PLAS-39 Accelerator" 
     },
