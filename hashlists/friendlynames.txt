@@ -14,7 +14,7 @@
 11691712792438096287 content/env_illuminate/samples/illuminate_enemy_sample_01
 15262893187433097986 content/env_super_earth/habs/vehicles/habs_forklift_01
 9045610600833071094 content/objectives/landing_zone
-8776671053425669033 content/fac_helldivers/discoverables/ammo_box_discoverable_01/ammo_box_discoverable_01
+8776671053425669033 Ammo Box
 2325721028474622445 content/env_super_earth/habs/structures/habs_colony_building_ground_01_master
 12525242792979901983 content/env_super_earth/habs/props/habs_barrel_fuel
 13742248433727273223 content/env_super_earth/military_base/utilities/base_light_01_head
@@ -122,8 +122,8 @@
 13918995818598980231 content/fac_helldivers/equipment/primary_weapons/assault_shotgun_incendiary/assault_shotgun_incendiary
 10427010750460978344 content/markers/exploration_markers/cache_loot_marker
 2714034314705433838 content/fac_helldivers/equipment/support_weapons/faf_missile_launcher/faf_missile_launcher
-10930013077329100956 content/fac_helldivers/discoverables/grenade_box_discoverable_01/grenade_box_discoverable_01
-13027308828300900709 content/fac_helldivers/discoverables/health_pack_discoverable_01/health_pack_discoverable_01
+10930013077329100956 Grenade Box
+13027308828300900709 Stim Box
 9927421484392399367 content/fac_helldivers/equipment/support_weapons/sniper_rifle/sniper_rifle
 5559759717312999507 content/audio/bots_scoutwalker
 2159324961618377890 content/planet_desert_sandy/assets/terrain_materials/textures_packed/sandy_dirt_displacement.tga
@@ -3824,3 +3824,6 @@
 4916445370003389824 Emblem of Freedom
 13473041482812368650 Overship
 8806287475843878476 SEAF Solider
+13650214626151558605 Super Credits Pile
+15725536894954390575 Requisition Slip
+8591814228145000671 Warbond Medals Case
