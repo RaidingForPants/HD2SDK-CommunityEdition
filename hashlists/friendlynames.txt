@@ -2,13 +2,13 @@
 16537737171020264256 content/objectives/obj_common/oil_field/oil_field_plane
 16927169355845479754 content/objectives/obj_common/oil_pump/oil_pump
 17292442294508204737 content/audio/wep_grenade_launcher
-211331680192206384 content/fac_helldivers/equipment/support_weapons/grenade_launcher/grenade_launcher
+211331680192206384 GL-21 Grenade Launcher
 11202044778487390708 content/objectives/obj_common/oil_pump/objective_oil_pump_terminal
 14538479844987431790 content/markers/exploration_markers/narrative/poi_text_tablet_overseer_01
 4179069540441354011 content/env_super_earth/habs/props/vending_machine_democracy_01
 12508512869271882154 Rare Sample - E-710 Crystal
 7911125090997601213 content/objectives/obj_common/oil_pump/objective_oil_pump_valve
-1279722939363854678 content/fac_helldivers/equipment/support_weapons/machinegun/machinegun
+1279722939363854678 MG-43 Machine Gun
 14195043073648156734 content/objectives/obj_bugs/blocking_chunk/blocking_chunk
 5950303641766825438 content/objectives/obj_common/entities/gen_oilpump/gen_oilpump
 11691712792438096287 content/env_illuminate/samples/illuminate_enemy_sample_01
@@ -116,15 +116,15 @@
 12624110081651840123 content/markers/exploration_markers/narrative/poi_text_tablet_family_01
 6013996337686928124 content/markers/exploration_markers/narrative/poi_text_tablet_mail_01
 18158426597097774052 content/markers/exploration_markers/narrative/poi_text_tablet_permit_01
-15369542005276747891 content/fac_helldivers/equipment/support_weapons/laser_cannon/laser_cannon
+15369542005276747891 LAS-98 Laser Cannon
 7223794220521538414 content/env_super_earth/habs/containers/smuggler_cache
-4155583896232633279 content/fac_helldivers/equipment/support_weapons/flamethrower/flamethrower
+4155583896232633279 FLAM-40 Flamethrower
 13918995818598980231 SG-225IE Breaker Incendiary
 10427010750460978344 content/markers/exploration_markers/cache_loot_marker
-2714034314705433838 content/fac_helldivers/equipment/support_weapons/faf_missile_launcher/faf_missile_launcher
+2714034314705433838 FAF-14 Spear
 10930013077329100956 Grenade Box
 13027308828300900709 Stim Box
-9927421484392399367 PLAS-39 Accelerator
+9927421484392399367 APW-1 Anti-Materiel Rifle
 5559759717312999507 content/audio/bots_scoutwalker
 2159324961618377890 content/planet_desert_sandy/assets/terrain_materials/textures_packed/sandy_dirt_displacement.tga
 14594002806292477017 content/planet_desert_sandy/assets/terrain_materials/textures_packed/sandy_heavy_pebbles_displacement.tga
@@ -281,7 +281,7 @@
 9607281538809398295 content/audio/Mission_Civilian_Exertions
 18015484091265706637 content/audio/obj_communicationrelay
 4021120973472933563 content/fac_helldivers/hellpod/turret_machinegun_gpmg/turret_machinegun_gpmg
-9264801226655597011 content/fac_helldivers/equipment/support_weapons/lat_oneshot/lat_oneshot
+9264801226655597011 EAT-17 Expendable Anti-Tank
 2573049203504281649 content/levels/ship_hub-cubemaps/reflection_probe_specular_bake
 3642146030219634594 content/levels/ship_hub-cubemaps/reflection_probe_radiance_bake
 17675886342563737669 content/levels/ship_hub-cubemaps/reflection_probe_diffuse_bake
@@ -346,7 +346,7 @@
 1645565057553732869 content/audio/bugs_bilespewer
 10102056965302435169 content/env_bugs/assets/gameplay/bug_spawner_warrior
 17421195960715507203 content/objectives/obj_common/sam_site/sam_site_launcher_terminal
-12164217308285983839 content/fac_helldivers/equipment/support_weapons/automatic_cannon/automatic_cannon
+12164217308285983839 AC-8 Autocannon
 13347714344522860215 content/objectives/obj_cyborgs/entities/cy_samsite/cy_samsite
 11654668915819557853 content/objectives/obj_common/sam_site/sam_site
 15890905443268450539 content/objectives/obj_common/sam_site/sam_site_foundation
@@ -375,13 +375,13 @@
 3361379816955777588 content/objectives/obj_common/gen_button
 13803685151943133100 content/objectives/obj_bugs/tcs/tcs_support_damageable
 1201994798374221065 content/objectives/obj_bugs/tcs/tcs_main_tower_02
-10871298989420119782 content/fac_helldivers/equipment/support_weapons/arc_thrower/arc_thrower
+10871298989420119782 ARC-3 Arc Thrower
 1649808155683745294 content/objectives/obj_bugs/tcs/tcs_support_pillar_01_static
 5452892418991605202 content/objectives/obj_bugs/entities/bug_tcs_02/bug_tcs_02
 1073243411930782369 content/env_super_earth/habs/corporation_props/blue_corp_tool_rack_01
 2550304950015172973 content/audio/bots_gunship
 4882226405607636345 content/objectives/obj_cyborgs/entities/cy_kill/cy_kill
-3358853937828503136 content/fac_helldivers/equipment/support_weapons/railgun/railgun
+3358853937828503136 RS-422 Railgun
 17196401230144941076 PLAS-1 Scorcher
 1016693250774512036 content/objectives/obj_illuminate/entities/il_destroy_harvester/il_destroy_harvester
 11881991669617894885 content/objectives/obj_illuminate/il_harvester/il_harvester_weakspot
@@ -460,7 +460,7 @@
 7256596000532615782 Common Sample - Corpse Worm
 10897067899328555568 content/objectives/obj_cyborgs/cyborg_destroy_communication/objective_destroy_communication_terminal
 10988915095021253731 content/objectives/obj_cyborgs/entities/cy_destroy_communication/cy_destroy_communication
-12008625947668001407 content/fac_helldivers/equipment/primary_weapons/lmg_stalwart/lmg_stalwart
+12008625947668001407 M-105 Stalwart
 14704299532448510191 content/fac_helldivers/discoverables/ammo_support_discoverable_box_01/ammo_support_discoverable_box_01
 17350595647090867816 content/objectives/obj_cyborgs/entities/cy_assassinate_devastator/cy_assassinate_devastator
 14709257759554793401 content/fac_helldivers/vehicles/frv/frv
@@ -541,7 +541,7 @@
 7425028294184430542 content/audio/obj_tcs_activate
 14218929801082577703 content/audio/wep_ar19_liberator
 17993939239392893728 content/audio/wep_recoilless_ap
-11493422068836852751 content/fac_helldivers/equipment/support_weapons/recoilless_rifle/recoilless_rifle
+11493422068836852751 GR-8 Recoilless Rifle
 4660092418055292960 content/audio/env_forest
 9724339804752659124 content/env_shared_forest/assets/samples/plant_sample_01
 16836115537327099730 content/audio/wep_sickle
@@ -1212,7 +1212,7 @@
 14235779273505423382 content/objectives/obj_common/civilian_spawn_door/civilian_spawn_door
 16700633104728639089 content/env_super_earth/habs/props/headstone_04
 2505434705847444739 content/objectives/obj_common/seismic_probe/seismic_probe
-4878198249831276603 content/fac_helldivers/equipment/support_weapons/chemgun/chemgun
+4878198249831276603 TX-41 Sterilizer
 1594581125636265101 content/env_super_earth/habs/props/se_flag_horizontal_04
 13682275477419944701 content/env_super_earth/military_base/gate_02/gate_02
 1597300052856195612 content/env_super_earth/habs/utilities/xl_antenna
@@ -1223,7 +1223,7 @@
 307828452247201889 content/planet_forest_swamp/assets/organic/chimney/chimney_01
 4177869555311642659 content/env_super_earth/habs/props/headstone_03
 16606762893554956362 content/env_super_earth/habs/props/headstone_02
-2401215835282261016 content/fac_helldivers/equipment/support_weapons/heavy_mg/heavy_mg
+2401215835282261016 MG-206 Heavy Machine Gun
 830284595714798800 content/objectives/obj_bugs/super_syringe/super_syringe
 18223572581977941174 content/fac_helldivers/vehicles/eagle/weapons/eagle_gunpod
 10154749436797274952 content/env_cyborg/props/cy_robot_arm
@@ -1235,7 +1235,7 @@
 13081660897026904544 content/env_super_earth/habs/props/tire_stack_04
 16776692261271397993 content/env_super_earth/habs/props/tire_stack_02
 14748816422034837943 content/fac_bugs/cha_boomer/cha_boomer_tier_2
-3865797767236207742 content/fac_helldivers/equipment/support_weapons/laser_pulse_cannon/laser_pulse_cannon
+3865797767236207742 LAS-99 Quasar Cannon
 11744930164547489566 content/env_super_earth/military_base/scrap/radar_wagon
 3334154476571242570 content/env_bugs/assets/gameplay/bug_spawner_small_01
 12120743282366334878 content/env_bugs/assets/gameplay/bug_spawner_medium_01
@@ -3643,7 +3643,7 @@
 7737586323460789464 /cy_camp_panzer_easy_03
 9377228762502281359 _kill_alpha_chargers_02
 16571044250179160369 oster_ministry_unity_02
-2802369506329449110 r_burst_rocket_launcher
+2802369506329449110 RL-77 Airburst Rocket Launcher
 12823345036025130557 camp_predator_medium_01
 822384543320862662 ountains_blocker_48m_01
 904731243539677607 arctic_snowdunes_64m_02
@@ -3855,3 +3855,10 @@
 14229469521397221872 CQC-30 Stun Baton
 16743928489815142323 Entrenchment Tool
 14954542309183038509 P-92 Warrant
+3460488074252222302 PLAS-39 Accelerator
+12750169196543686872 CQC-1 One True Flag
+18319281757224320923 GL-52 De-escalator
+6453678319562593995 MLS-4X Commando
+16777584932715761236 PLAS-45 Epoch
+11882632134944470026 SH-51 Directional Shield
+14733648658679365221 StA-X3 W.A.S.P. Launcher
