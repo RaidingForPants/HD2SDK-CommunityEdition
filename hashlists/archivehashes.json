@@ -95,7 +95,9 @@
         "5fb542484cb2c2a5": "BP-77 Grand Juror",
         "89395c2f8ce3d8a0": "AD-11 Livewire",
         "1dafd22cfccc02b8": "AD-26 Bleeding Edge",
-        "74bc9cf98d65b1bf": "AD-49 Apollonian"
+        "74bc9cf98d65b1bf": "AD-49 Apollonian",
+        "1d6dc4216e7ce52d": "A-9 Helljumper",
+        "f32d3723bfe55d2f": "A-35 Recon"
     },
 
     "Helmet": {
@@ -187,7 +189,9 @@
         "3e345b62ed9e3f46": "BP-77 Grand Juror",
         "be54826ac0d5f4db": "AD-11 Livewire",
         "7cfc63f636fa5132": "AD-26 Bleeding Edge",
-        "c5e272869f1386b6": "AD-49 Apollonian"
+        "c5e272869f1386b6": "AD-49 Apollonian",
+        "a856edff49cfdd95": "A-9 Helljumper",
+        "1a2fc86abd27bf5b": "A-35 Recon"
     },
 
     "Cape": {
@@ -251,7 +255,9 @@
         "69bb18da9fcee907": "Conductor of Brilliance",
         "5eecb73e7b1ec91e": "Over Artifice Triumphant",
         "a597d2b8cee749e4": "Schema Laid Bare",
-        "fa5a9d6c8b6df7da": "Ingress-81"
+        "fa5a9d6c8b6df7da": "Ingress-81",
+        "b0ae954c0b978553": "Eye of the Clandestine",
+        "a50f4822153fea59": "Honored Heirloom"
     },
 
     "Icons": { 
@@ -451,7 +457,8 @@
         "d1968909ea085527": "AR-61 Tenderizer",
         "a66d7cf238070ca7": "BR-14 Adjudicator",
         "40f2a2ce5c20418f": "StA-52 Assault Rifle",
-        "82751a054bdfd075": "AR-32 Pacifier"
+        "82751a054bdfd075": "AR-32 Pacifier",
+        "fd3eef9a0329b2c2": "MA5C Assault Rifle"
     },
 
     "Marksman Rifle": {
@@ -464,7 +471,8 @@
         "0601a2f91ec178a9": "MP-98 Knight",
         "f230d2d2adcc034a": "SMG-72 Pummeler & SMG-37 Defender",
         "0edad8ddec238bd9": "SMG-32 Reprimand",
-        "5193b8a6d77f5a0a": "StA-11 SMG"
+        "5193b8a6d77f5a0a": "StA-11 SMG",
+        "e0d35fe7ce80e3f0": "M7S SMG"
     },
 
     "Shotgun": {
@@ -473,7 +481,8 @@
         "2fe755e42b659f64": "SG-225IE Breaker Incendiary",
         "7af5df78217fd645": "SG-451 Cookout",
         "522be23400cc6086": "SG-20 Halt",
-        "31894c33c4ed1e2a": "SG-88 Break-Action Shotgun"
+        "31894c33c4ed1e2a": "SG-88 Break-Action Shotgun",
+        "44dd33af0ef2b0d1": "M90A Shotgun"
     },
 
     "Explosive": {
@@ -515,7 +524,8 @@
         "94b554570b12c088": "P-4 Senator",
         "99f20df1c4cf885a": "P-19 Redeemer",
         "5d5c93ef05a46880": "P-92 Warrant",
-        "b47514ae19a494f0": "P-113 Verdict"
+        "b47514ae19a494f0": "P-113 Verdict",
+        "2a5298e1c2f70c82": "M6C SOCOM Pistol"
     },
 
     "Support Weapon": {
