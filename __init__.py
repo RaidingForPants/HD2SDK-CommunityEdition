@@ -28,6 +28,7 @@ from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy.props import StringProperty, BoolProperty, IntProperty, EnumProperty, PointerProperty, CollectionProperty
 from bpy.types import Panel, Operator, PropertyGroup, Scene, Menu, OperatorFileListElement
 
+from .stingray.animation import StingrayAnimation
 from .stingray.raw_dump import StingrayRawDump
 from .stingray.material import LoadShaderVariables, StingrayMaterial
 from .stingray.texture import StingrayTexture
@@ -532,6 +533,7 @@ class TocEntry:
         if self.TypeID == ParticleID: callback = LoadStingrayParticle
         if self.TypeID == CompositeMeshID: callback = LoadStingrayCompositeMesh
         if self.TypeID == Hash64("bones"): callback = LoadStingrayBones
+        if self.TypeID == AnimationID: callback = LoadStingrayAnimation
         if callback == None: callback = LoadStingrayDump
 
         if callback != None:
@@ -546,6 +548,7 @@ class TocEntry:
         if self.TypeID == TexID: callback = SaveStingrayTexture
         if self.TypeID == MaterialID: callback = SaveStingrayMaterial
         if self.TypeID == ParticleID: callback = SaveStingrayParticle
+        if self.TypeID == AnimationID: callback = SaveStingrayAnimation
         if callback == None: callback = SaveStingrayDump
 
         if self.IsLoaded:
@@ -1022,7 +1025,26 @@ class TocManager():
 #endregion
 
 #region Classes and Functions: Stingray Materials
-
+def LoadStingrayAnimation(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
+    toc = MemoryStream(TocData)
+    print("Loading Animation")
+    animation = StingrayAnimation()
+    animation.Serialize(toc)
+    print("Finished Loading Animation")
+    if MakeBlendObject: # To-do: create action for armature
+        context = bpy.context
+        armature = context.active_object
+        bones_entry = Global_TocManager.GetEntryByLoadArchive(int(armature['BonesID']), BoneID)
+        if not bones_entry.IsLoaded:
+            bones_entry.Load()
+        bones_data = bones_entry.TocData
+        animation.to_action(context, armature, bones_data)
+    return animation
+    
+def SaveStingrayAnimation(self, ID, TocData, GpuData, StreamData, Animation):
+    toc = MemoryStream(IOMode = "write")
+    Animation.Serialize(toc)
+    return [toc.Data, b"", b""]
 
 def LoadStingrayMaterial(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
     exists = True
@@ -2991,6 +3013,68 @@ class SetMaterialTexture(Operator, ImportHelper):
 
 #endregion
 
+#region Operators : Animation
+class ImportStingrayAnimationOperator(Operator):
+    bl_label = "Import Animation"
+    bl_idname = "helldiver2.archive_animation_import"
+    bl_description = "Loads Animation into Blender Scene"
+    
+    object_id: StringProperty()
+    def execute(self, context):
+        # check if armature selected
+        armature = context.active_object
+        if armature.type != "ARMATURE":
+            self.report({'ERROR'}, "Please select an armature to import the animation to")
+            return {'CANCELLED'}
+        armature['AnimationID'] = self.object_id
+        animation_id = self.object_id
+        try:
+            Global_TocManager.Load(int(animation_id), AnimationID)
+        except Exception as error:
+            print(error)
+            return {'CANCELLED'}
+        return{'FINISHED'}
+        
+class SaveStingrayAnimationOperator(Operator):
+    bl_label  = "Save Animation"
+    bl_idname = "helldiver2.archive_animation_save"
+    bl_description = "Saves animation"
+    
+    def execute(self, context):
+        object = bpy.context.active_object
+        if object.type != "ARMATURE":
+            self.report({'ERROR'}, "Please select an armature")
+            return {'CANCELLED'}
+        try:
+            entry_id = object['AnimationID']
+        except Exception as e:
+            print(e)
+            self.report({'ERROR'}, f"{object.name} missing AnimationID property")
+            return{'CANCELLED'}
+        try:
+            bones_id = object['BonesID']
+        except Exception as e:
+            print(e)
+            self.report({'ERROR'}, f"{object.name} missing BonesID property")
+            return{'CANCELLED'}
+        animation_entry = Global_TocManager.GetEntryByLoadArchive(int(entry_id), AnimationID)
+        if not animation_entry.IsLoaded: animation_entry.Load(True, False)
+        bones_entry = Global_TocManager.GetEntryByLoadArchive(int(bones_id), BoneID)
+        bones_data = bones_entry.TocData
+        animation_entry.LoadedData.load_from_armature(context, object, bones_data)
+        wasSaved = animation_entry.Save()
+        if wasSaved:
+            if not Global_TocManager.IsInPatch(animation_entry):
+                animation_entry = Global_TocManager.AddEntryToPatch(int(entry_id), AnimationID)
+            else:
+                Global_TocManager.RemoveEntryFromPatch(int(entry_id), AnimationID)
+                animation_entry = Global_TocManager.AddEntryToPatch(int(entry_id), AnimationID)
+        else:
+            self.report({"ERROR"}, f"Failed to save animation for armature {bpy.context.selected_objects[0].name}.")
+            return{'CANCELLED'}
+        self.report({'INFO'}, f"Saved Animation")
+        return {'FINISHED'}
+
 #region Operators: Particles
 class SaveStingrayParticleOperator(Operator):
     bl_label  = "Save Particle"
@@ -3476,6 +3560,7 @@ def CustomPropertyContext(self, context):
     layout.operator("helldiver2.copy_custom_properties", icon= 'COPYDOWN')
     layout.operator("helldiver2.paste_custom_properties", icon= 'PASTEDOWN')
     layout.operator("helldiver2.archive_mesh_batchsave", icon= 'FILE_BLEND')
+    layout.operator("helldiver2.archive_animation_save", icon='ARMATURE_DATA')
 
 class CopyArchiveIDOperator(Operator):
     bl_label = "Copy Archive ID"
@@ -3582,6 +3667,7 @@ class Hd2ToolPanelSettings(PropertyGroup):
     Force1Group      : BoolProperty(name="Force 1 Group", description = "Force mesh to only have 1 vertex group", default = True)
     AutoLods         : BoolProperty(name="Auto LODs", description = "Automatically generate LOD entries based on LOD0, does not actually reduce the quality of the mesh", default = True)
     RemoveGoreMeshes : BoolProperty(name="Remove Gore Meshes", description = "Automatically delete all of the verticies with the gore material when loading a model", default = False)
+    SaveBonePositions: BoolProperty(name="Save Bone Positions", description = "Include bone positions in animation (may mess with additive animations being applied)", default = False)
     # Search
     SearchField      : StringProperty(default = "")
 
@@ -3665,6 +3751,8 @@ class HellDivers2ToolsPanel(Panel):
             row.operator("helldiver2.material_import", icon='IMPORT', text="").object_id = str(Entry.FileID)
             row.operator("helldiver2.material_showeditor", icon='MOD_LINEART', text="").object_id = str(Entry.FileID)
             self.draw_material_editor(Entry, box, row)
+        elif Entry.TypeID == AnimationID:
+            row.operator("helldiver2.archive_animation_import", icon="IMPORT", text="").object_id = str(Entry.FileID)
         #elif Entry.TypeID == ParticleID:
             #row.operator("helldiver2.particle_save", icon='FILE_BLEND', text = "").object_id = str(Entry.FileID)
             #row.operator("helldiver2.archive_particle_import", icon='IMPORT', text = "").object_id = str(Entry.FileID)
@@ -3741,6 +3829,7 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "Force3UVs")
             row.prop(scene.Hd2ToolPanelSettings, "Force1Group")
             row.prop(scene.Hd2ToolPanelSettings, "AutoLods")
+            row.prop(scene.Hd2ToolPanelSettings, "SaveBonePositions")
             row = mainbox.row(); row.separator(); row.label(text="Other Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "SaveNonSDKMaterials")
             row.prop(scene.Hd2ToolPanelSettings, "SaveUnsavedOnWrite")
@@ -4159,6 +4248,8 @@ classes = (
     PatchArchiveOperator,
     ImportStingrayMeshOperator,
     SaveStingrayMeshOperator,
+    ImportStingrayAnimationOperator,
+    SaveStingrayAnimationOperator,
     ImportMaterialOperator,
     ImportTextureOperator,
     ExportTextureOperator,
