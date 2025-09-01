@@ -616,10 +616,12 @@ class StingrayAnimation:
             
         
     def to_action(self, context, armature, bones_data):
-        action = armature.animation_data.action
+        animation_id = context.active_object['AnimationID']
+        actions = bpy.data.actions
+        action = actions.get(animation_id, None)
         if action is None:
-            action = bpy.data.actions.new("action_name")
-            armature.animation_data.action = action
+            action = actions.new(animation_id)
+        armature.animation_data.action = action
         
         fcurves = action.fcurves
         for curve in fcurves:
