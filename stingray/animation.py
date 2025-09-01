@@ -49,7 +49,7 @@ class AnimationEntry:
             data2 = AnimationBoneInitialState.decompress_position([tocFile.uint16(temp) for _ in range(3)])
         elif type == 1:
             # scale data
-            data2 = AnimationBoneInitialState.decompress_scale(tocFile.vec3_float(temp_arr))
+            data2 = AnimationBoneInitialState.decompress_scale(tocFile.vec3_half(temp_arr))
         else:
             if subtype == 4:
                 # position data (uncompressed)
