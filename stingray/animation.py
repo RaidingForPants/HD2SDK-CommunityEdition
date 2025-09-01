@@ -1,6 +1,7 @@
-import bpy
+import bpy, bpy_types
 from math import ceil, sqrt
 import mathutils
+from ..memoryStream import MemoryStream
 
 class AnimationEntry:
     def __init__(self):
