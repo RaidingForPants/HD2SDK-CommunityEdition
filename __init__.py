@@ -3043,6 +3043,9 @@ class SaveStingrayAnimationOperator(Operator):
     
     def execute(self, context):
         object = bpy.context.active_object
+        if object.animation_data is None or object.animation_data.action is None:
+            self.report({'ERROR'}, "Armature has no active action!")
+            return {'CANCELLED'}
         if object == None or object.type != "ARMATURE":
             self.report({'ERROR'}, "Please select an armature")
             return {'CANCELLED'}
