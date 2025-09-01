@@ -3559,8 +3559,9 @@ def CustomPropertyContext(self, context):
     layout.separator()
     layout.operator("helldiver2.copy_custom_properties", icon= 'COPYDOWN')
     layout.operator("helldiver2.paste_custom_properties", icon= 'PASTEDOWN')
-    layout.operator("helldiver2.archive_mesh_batchsave", icon= 'FILE_BLEND')
+    layout.separator()
     layout.operator("helldiver2.archive_animation_save", icon='ARMATURE_DATA')
+    layout.operator("helldiver2.archive_mesh_batchsave", icon= 'FILE_BLEND')
 
 class CopyArchiveIDOperator(Operator):
     bl_label = "Copy Archive ID"
