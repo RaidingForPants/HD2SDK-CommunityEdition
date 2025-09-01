@@ -3049,13 +3049,13 @@ class SaveStingrayAnimationOperator(Operator):
             entry_id = object['AnimationID']
         except Exception as e:
             print(e)
-            self.report({'ERROR'}, f"{object.name} missing AnimationID property")
+            self.report({'ERROR'}, f"Armature: {object.name} is missing AnimationID custom property")
             return{'CANCELLED'}
         try:
             bones_id = object['BonesID']
         except Exception as e:
             print(e)
-            self.report({'ERROR'}, f"{object.name} missing BonesID property")
+            self.report({'ERROR'}, f"Armature: {object.name} is missing BonesID custom property")
             return{'CANCELLED'}
         animation_entry = Global_TocManager.GetEntryByLoadArchive(int(entry_id), AnimationID)
         if not animation_entry.IsLoaded: animation_entry.Load(True, False)
@@ -3973,15 +3973,16 @@ class HellDivers2ToolsPanel(Panel):
                     type_icon = 'FILE_IMAGE'
                 elif Type.TypeID == MaterialID:
                     type_icon = 'MATERIAL' 
-                elif Type.TypeID == ParticleID: 
+                elif Type.TypeID == ParticleID:
                     type_icon = 'PARTICLES'
+                elif Type.TypeID == AnimationID: 
+                    type_icon = 'ARMATURE_DATA'
                 elif showExtras:
                     if Type.TypeID == BoneID: type_icon = 'BONE_DATA'
                     elif Type.TypeID == WwiseBankID:  type_icon = 'OUTLINER_DATA_SPEAKER'
                     elif Type.TypeID == WwiseDepID: type_icon = 'OUTLINER_DATA_SPEAKER'
                     elif Type.TypeID == WwiseStreamID:  type_icon = 'OUTLINER_DATA_SPEAKER'
                     elif Type.TypeID == WwiseMetaDataID: type_icon = 'OUTLINER_DATA_SPEAKER'
-                    elif Type.TypeID == AnimationID: type_icon = 'ARMATURE_DATA'
                     elif Type.TypeID == StateMachineID: type_icon = 'DRIVER'
                     elif Type.TypeID == StringID: type_icon = 'WORDWRAP_ON'
                     elif Type.TypeID == PhysicsID: type_icon = 'PHYSICS'
