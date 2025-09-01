@@ -3042,7 +3042,7 @@ class SaveStingrayAnimationOperator(Operator):
     
     def execute(self, context):
         object = bpy.context.active_object
-        if object.type != "ARMATURE":
+        if object == None or object.type != "ARMATURE":
             self.report({'ERROR'}, "Please select an armature")
             return {'CANCELLED'}
         try:
