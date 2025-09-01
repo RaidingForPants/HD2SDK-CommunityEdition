@@ -3031,7 +3031,8 @@ class ImportStingrayAnimationOperator(Operator):
         try:
             Global_TocManager.Load(int(animation_id), AnimationID)
         except Exception as error:
-            PrettyPrint(error)
+            PrettyPrint(f"Encountered animation error: {error}")
+            self.report({'ERROR'}, f"Encountered an error whilst importing animation. See Console for more info.")
             return {'CANCELLED'}
         return{'FINISHED'}
         
