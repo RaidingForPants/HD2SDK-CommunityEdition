@@ -3,6 +3,55 @@ from math import ceil, sqrt
 import mathutils
 from ..memoryStream import MemoryStream
 
+def compress_position(position):
+        return [int((pos * 3276.7) + 32767.0) for pos in position]
+        
+def compress_rotation(rotation):
+    if max(rotation) == rotation[0]:
+        largest_idx = 0
+    if max(rotation) == rotation[1]:
+        largest_idx = 1
+    if max(rotation) == rotation[2]:
+        largest_idx = 2
+    if max(rotation) == rotation[3]:
+        largest_idx = 3
+    cmp_rotation = 0
+    first = rotation[(largest_idx+1)%4]
+    first = int(((first / 0.75) * 512) + 512)
+    cmp_rotation |= ((first & 0x3ff) << 2)
+    second = rotation[(largest_idx+2)%4]
+    second = int(((second / 0.75) * 512) + 512)
+    cmp_rotation |= ((second & 0x3ff) << 12)
+    third = rotation[(largest_idx+3)%4]
+    third = int(((third / 0.75) * 512) + 512)
+    cmp_rotation |= ((third & 0x3ff) << 22)
+    cmp_rotation |= largest_idx
+    return cmp_rotation
+    
+def compress_scale(scale):
+    return scale
+    
+def decompress_position(position): # vector of 3 uint16 -> vector of 3 float32
+    return [(pos - 32767.0) * (10.0/32767.0) for pos in position]
+    
+def decompress_rotation(rotation): # uint32 -> vector of 4 float32
+    first = (((rotation & 0xffc) >> 2) - 512.0) / 512.0 * 0.75
+    second = (((rotation & 0x3ff000) >> 12) - 512.0) / 512.0 * 0.75
+    third = (((rotation & 0xffc00000) >> 22) - 512.0) / 512.0 * 0.75
+    largest_idx = rotation & 0x3
+    largest_val = sqrt(1 - third**2 - second**2 - first**2)
+    if largest_idx == 0:
+        return [largest_val, first, second, third]
+    elif largest_idx == 1:
+        return [third, largest_val, first, second]
+    elif largest_idx == 2:
+        return [second, third, largest_val, first]
+    elif largest_idx == 3:
+        return [first, second, third, largest_val]
+    
+def decompress_scale(scale): # vec3_float
+    return scale
+
 class AnimationEntry:
     def __init__(self):
         self.type = 0
@@ -40,14 +89,14 @@ class AnimationEntry:
             time = ((data[0] & 0xf) << 16) | (data[3] << 8) | data[2]
             
         if type == 3:
-            data2 = AnimationBoneInitialState.decompress_rotation(tocFile.uint32(temp))
+            data2 = decompress_rotation(tocFile.uint32(temp))
             # rotation data
         elif type == 2:
             # position data
-            data2 = AnimationBoneInitialState.decompress_position([tocFile.uint16(temp) for _ in range(3)])
+            data2 = decompress_position([tocFile.uint16(temp) for _ in range(3)])
         elif type == 1:
             # scale data
-            data2 = AnimationBoneInitialState.decompress_scale(tocFile.vec3_float(temp_arr))
+            data2 = decompress_scale(tocFile.vec3_float(temp_arr))
         else:
             if subtype == 4:
                 # position data (uncompressed)
@@ -105,18 +154,18 @@ class AnimationEntry:
             
         if self.type == 3:
            # data2 = AnimationBoneInitialState.compress_rotation(tocFile.uint32(temp))
-            tocFile.uint32(AnimationBoneInitialState.compress_rotation(self.data2))
+            tocFile.uint32(compress_rotation(self.data2))
             # rotation data
         elif self.type == 2:
             # position data
             #data2 = AnimationBoneInitialState.decompress_position([tocFile.uint16(temp) for _ in range(3)])
-            data2 = AnimationBoneInitialState.compress_position(self.data2)
+            data2 = compress_position(self.data2)
             for value in data2:
                 tocFile.uint16(value)
         elif self.type == 1:
             # scale data
             #data2 = AnimationBoneInitialState.decompress_scale(tocFile.vec3_float(temp_arr))
-            data2 = AnimationBoneInitialState.compress_scale(self.data2)
+            data2 = compress_scale(self.data2)
             tocFile.vec3_half(data2)
         else:
             if subtype == 4:
@@ -144,55 +193,6 @@ class AnimationBoneInitialState:
         self.position = [0, 0, 0]
         self.rotation = [0, 0, 0, 0]
         self.scale = [1, 1, 1]
-        
-    def compress_position(position):
-        return [int((pos * 3276.7) + 32767.0) for pos in position]
-        
-    def compress_rotation(rotation):
-        if max(rotation) == rotation[0]:
-            largest_idx = 0
-        if max(rotation) == rotation[1]:
-            largest_idx = 1
-        if max(rotation) == rotation[2]:
-            largest_idx = 2
-        if max(rotation) == rotation[3]:
-            largest_idx = 3
-        cmp_rotation = 0
-        first = rotation[(largest_idx+1)%4]
-        first = int(((first / 0.75) * 512) + 512)
-        cmp_rotation |= ((first & 0x3ff) << 2)
-        second = rotation[(largest_idx+2)%4]
-        second = int(((second / 0.75) * 512) + 512)
-        cmp_rotation |= ((second & 0x3ff) << 12)
-        third = rotation[(largest_idx+3)%4]
-        third = int(((third / 0.75) * 512) + 512)
-        cmp_rotation |= ((third & 0x3ff) << 22)
-        cmp_rotation |= largest_idx
-        return cmp_rotation
-        
-    def compress_scale(scale):
-        return scale
-        
-    def decompress_position(position): # vector of 3 uint16 -> vector of 3 float32
-        return [(pos - 32767.0) * (10.0/32767.0) for pos in position]
-        
-    def decompress_rotation(rotation): # uint32 -> vector of 4 float32
-        first = (((rotation & 0xffc) >> 2) - 512.0) / 512.0 * 0.75
-        second = (((rotation & 0x3ff000) >> 12) - 512.0) / 512.0 * 0.75
-        third = (((rotation & 0xffc00000) >> 22) - 512.0) / 512.0 * 0.75
-        largest_idx = rotation & 0x3
-        largest_val = sqrt(1 - third**2 - second**2 - first**2)
-        if largest_idx == 0:
-            return [largest_val, first, second, third]
-        elif largest_idx == 1:
-            return [third, largest_val, first, second]
-        elif largest_idx == 2:
-            return [second, third, largest_val, first]
-        elif largest_idx == 3:
-            return [first, second, third, largest_val]
-        
-    def decompress_scale(scale): # vec3_float
-        return scale
         
     def __repr__(self):
         s = ""
@@ -279,15 +279,15 @@ class StingrayAnimation:
             bone_state.compress_rotation = bit_array.get(x*3+1)
             bone_state.compress_scale = bit_array.get(x*3+2)
             if bone_state.compress_position:
-                bone_state.position = AnimationBoneInitialState.decompress_position([tocFile.uint16(temp) for _ in range(3)])
+                bone_state.position = decompress_position([tocFile.uint16(temp) for _ in range(3)])
             else:
                 bone_state.position = tocFile.vec3_float(temp_arr)
             if bone_state.compress_rotation:
-                bone_state.rotation = AnimationBoneInitialState.decompress_rotation(tocFile.uint32(temp))
+                bone_state.rotation = decompress_rotation(tocFile.uint32(temp))
             else:
                 bone_state.rotation = [tocFile.float32(temp) for _ in range(4)]
             if bone_state.compress_scale:
-                bone_state.scale = AnimationBoneInitialState.decompress_scale(tocFile.vec3_half(temp_arr))
+                bone_state.scale = decompress_scale(tocFile.vec3_half(temp_arr))
             else:
                 bone_state.scale = tocFile.vec3_float(temp_arr)
             self.initial_bone_states.append(bone_state)
@@ -336,17 +336,17 @@ class StingrayAnimation:
         tocFile.bytes(byte_data)
         for bone_state in self.initial_bone_states:
             if bone_state.compress_position:
-                for pos in AnimationBoneInitialState.compress_position(bone_state.position):
+                for pos in compress_position(bone_state.position):
                     tocFile.uint16(pos)
             else:
                 tocFile.vec3_float(bone_state.position)
             if bone_state.compress_rotation:
-                tocFile.uint32(AnimationBoneInitialState.compress_rotation(bone_state.rotation))
+                tocFile.uint32(compress_rotation(bone_state.rotation))
             else:
                 for value in bone_state.rotation:
                     tocFile.float32(value)
             if bone_state.compress_scale:
-                tocFile.vec3_half(AnimationBoneInitialState.compress_scale(bone_state.scale))
+                tocFile.vec3_half(compress_scale(bone_state.scale))
             else:
                 tocFile.vec3_float(bone_state.scale)
         count = 1
@@ -372,17 +372,17 @@ class StingrayAnimation:
         tocFile.bytes(byte_data)
         for bone_state in self.initial_bone_states:
             if bone_state.compress_position:
-                for pos in AnimationBoneInitialState.compress_position(bone_state.position):
+                for pos in compress_position(bone_state.position):
                     tocFile.uint16(pos)
             else:
                 tocFile.vec3_float(bone_state.position)
             if bone_state.compress_rotation:
-                tocFile.uint32(AnimationBoneInitialState.compress_rotation(bone_state.rotation))
+                tocFile.uint32(compress_rotation(bone_state.rotation))
             else:
                 for value in bone_state.rotation:
                     tocFile.float32(value)
             if bone_state.compress_scale:
-                tocFile.vec3_half(AnimationBoneInitialState.compress_scale(bone_state.scale))
+                tocFile.vec3_half(compress_scale(bone_state.scale))
             else:
                 tocFile.vec3_float(bone_state.scale)
         count = 1
