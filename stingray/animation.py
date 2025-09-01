@@ -1,6 +1,8 @@
 import bpy, bpy_types
 from math import ceil, sqrt
 import mathutils
+
+from ..logger import PrettyPrint
 from ..memoryStream import MemoryStream
 
 class AnimationEntry:
@@ -59,7 +61,7 @@ class AnimationEntry:
                 # scale data (uncompressed)
                 data2 = tocFile.vec3_float(temp_arr)
             else:
-                print(f"Unknown type/subtype! {type}/{subtype}")
+                PrettyPrint(f"Unknown type/subtype! {type}/{subtype}")
                 self.subtype = subtype
                 self.type = type
                 return

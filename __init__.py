@@ -1027,10 +1027,10 @@ class TocManager():
 #region Classes and Functions: Stingray Materials
 def LoadStingrayAnimation(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
     toc = MemoryStream(TocData)
-    print("Loading Animation")
+    PrettyPrint("Loading Animation")
     animation = StingrayAnimation()
     animation.Serialize(toc)
-    print("Finished Loading Animation")
+    PrettyPrint("Finished Loading Animation")
     if MakeBlendObject: # To-do: create action for armature
         context = bpy.context
         armature = context.active_object
@@ -1670,7 +1670,7 @@ def hex_to_decimal(hex_string):
         decimal_value = int(hex_string, 16)
         return decimal_value
     except ValueError:
-        print(f"Invalid hexadecimal string: {hex_string}")
+        PrettyPrint(f"Invalid hexadecimal string: {hex_string}")
 
 class ChangeFilepathOperator(Operator, ImportHelper):
     bl_label = "Change Filepath"
@@ -2545,7 +2545,7 @@ class BatchSaveStingrayMeshOperator(Operator):
                 self.report({"ERROR"}, f"Failed to save mesh with ID {ID}.")
                 num_meshes -= len(MeshData[ID])
                 continue
-        print("Saving mesh materials")
+        PrettyPrint("Saving mesh materials")
         SaveMeshMaterials(objects)
         self.report({'INFO'}, f"Saved {num_meshes}/{num_initially_selected} selected Meshes")
         if errors:
@@ -3031,7 +3031,7 @@ class ImportStingrayAnimationOperator(Operator):
         try:
             Global_TocManager.Load(int(animation_id), AnimationID)
         except Exception as error:
-            print(error)
+            PrettyPrint(error)
             return {'CANCELLED'}
         return{'FINISHED'}
         
@@ -3048,13 +3048,13 @@ class SaveStingrayAnimationOperator(Operator):
         try:
             entry_id = object['AnimationID']
         except Exception as e:
-            print(e)
+            PrettyPrint(f"Encountered animation error: {e}")
             self.report({'ERROR'}, f"Armature: {object.name} is missing AnimationID custom property")
             return{'CANCELLED'}
         try:
             bones_id = object['BonesID']
         except Exception as e:
-            print(e)
+            PrettyPrint(f"Encountered animation error: {e}")
             self.report({'ERROR'}, f"Armature: {object.name} is missing BonesID custom property")
             return{'CANCELLED'}
         animation_entry = Global_TocManager.GetEntryByLoadArchive(int(entry_id), AnimationID)
