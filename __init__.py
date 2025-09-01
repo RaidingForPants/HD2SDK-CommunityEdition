@@ -3050,13 +3050,13 @@ class SaveStingrayAnimationOperator(Operator):
             entry_id = object['AnimationID']
         except Exception as e:
             PrettyPrint(f"Encountered animation error: {e}")
-            self.report({'ERROR'}, f"Armature: {object.name} is missing AnimationID custom property")
+            self.report({'ERROR'}, f"Armature: {object.name} is missing HD2 custom property: AnimationID")
             return{'CANCELLED'}
         try:
             bones_id = object['BonesID']
         except Exception as e:
             PrettyPrint(f"Encountered animation error: {e}")
-            self.report({'ERROR'}, f"Armature: {object.name} is missing BonesID custom property")
+            self.report({'ERROR'}, f"Armature: {object.name} is missing HD2 custom property: BonesID")
             return{'CANCELLED'}
         animation_entry = Global_TocManager.GetEntryByLoadArchive(int(entry_id), AnimationID)
         if not animation_entry.IsLoaded: animation_entry.Load(True, False)
