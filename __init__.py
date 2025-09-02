@@ -2426,7 +2426,8 @@ class SaveStingrayMeshOperator(Operator):
             try:
                 Entry.LoadedData.RawMeshes[mesh_index] = mesh
             except IndexError:
-                self.report({'ERROR'}, f"MeshInfoIndex for {object.name} exceeds the number of meshes")
+                excpectedLength = len(Entry.LoadedData.RawMeshes) - 1
+                self.report({'ERROR'}, f"MeshInfoIndex of {mesh_index} for {object.name} exceeds the number of meshes. Expected maximum MeshInfoIndex is: {excpectedLength}. Please change the custom properties to match this value and resave the mesh.")
                 return{'CANCELLED'}
         for mesh_index, mesh in meshes.items():
             try:
@@ -2529,7 +2530,8 @@ class BatchSaveStingrayMeshOperator(Operator):
                 try:
                     Entry.LoadedData.RawMeshes[mesh_index] = mesh
                 except IndexError:
-                    self.report({'ERROR'},f"MeshInfoIndex of {mesh_index} for {object.name} exceeds the number of meshes")
+                    excpectedLength = len(Entry.LoadedData.RawMeshes) - 1
+                    self.report({'ERROR'},f"MeshInfoIndex of {mesh_index} for {object.name} exceeds the number of meshes. Expected maximum MeshInfoIndex is: {excpectedLength}. Please change the custom properties to match this value and resave the mesh.")
                     errors = True
                     num_meshes -= 1
             if Global_TocManager.IsInPatch(Entry):
