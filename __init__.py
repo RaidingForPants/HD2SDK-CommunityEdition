@@ -902,6 +902,7 @@ class TocManager():
             for Archive in self.SearchArchives:
                 if Archive.HasEntry(FileID, TypeID):
                     return self.LoadArchive(Archive.Path, False).GetEntry(FileID, TypeID)
+            PrettyPrint(f"Could not find entry of FileID: {FileID} TypeID: {TypeID}")
         return None
 
     def Load(self, FileID, TypeID, Reload=False, SearchAll=False):
@@ -1038,7 +1039,7 @@ def LoadStingrayAnimation(ID, TocData, GpuData, StreamData, Reload, MakeBlendObj
         if not bones_entry.IsLoaded:
             bones_entry.Load()
         bones_data = bones_entry.TocData
-        animation.to_action(context, armature, bones_data)
+        animation.to_action(context, armature, bones_data, ID)
     return animation
     
 def SaveStingrayAnimation(self, ID, TocData, GpuData, StreamData, Animation):
@@ -3028,12 +3029,11 @@ class ImportStingrayAnimationOperator(Operator):
         if armature.type != "ARMATURE":
             self.report({'ERROR'}, "Please select an armature to import the animation to")
             return {'CANCELLED'}
-        armature['AnimationID'] = self.object_id
         animation_id = self.object_id
         try:
             Global_TocManager.Load(int(animation_id), AnimationID)
         except Exception as error:
-            PrettyPrint(f"Encountered animation error: {error}")
+            PrettyPrint(f"Encountered animation error: {error}", 'error')
             self.report({'ERROR'}, f"Encountered an error whilst importing animation. See Console for more info.")
             return {'CANCELLED'}
         return{'FINISHED'}
@@ -3044,6 +3044,8 @@ class SaveStingrayAnimationOperator(Operator):
     bl_description = "Saves animation"
     
     def execute(self, context):
+        if PatchesNotLoaded(self):
+            return{'CANCELLED'}
         object = bpy.context.active_object
         if object.animation_data is None or object.animation_data.action is None:
             self.report({'ERROR'}, "Armature has no active action!")
@@ -3051,19 +3053,24 @@ class SaveStingrayAnimationOperator(Operator):
         if object == None or object.type != "ARMATURE":
             self.report({'ERROR'}, "Please select an armature")
             return {'CANCELLED'}
-        try:
-            entry_id = object['AnimationID']
-        except Exception as e:
-            PrettyPrint(f"Encountered animation error: {e}")
-            self.report({'ERROR'}, f"Armature: {object.name} is missing HD2 custom property: AnimationID")
-            return{'CANCELLED'}
+        action_name = object.animation_data.action.name
+        if len(object.animation_data.action.fcurves) == 0:
+            self.report({'ERROR'}, f"Action: {action_name} has no keyframe data! Make sure your animation has at least an initial keyframe with a recorded pose.")
+            return {'CANCELLED'}
+        entry_id = action_name.split(" ")[0].split("_")[0].split(".")[0]
+        if entry_id.startswith("0x"):
+            entry_id = hex_to_decimal(entry_id)
         try:
             bones_id = object['BonesID']
         except Exception as e:
-            PrettyPrint(f"Encountered animation error: {e}")
+            PrettyPrint(f"Encountered animation error: {e}", 'error')
             self.report({'ERROR'}, f"Armature: {object.name} is missing HD2 custom property: BonesID")
             return{'CANCELLED'}
+        PrettyPrint(f"Getting Animation Entry: {entry_id}")
         animation_entry = Global_TocManager.GetEntryByLoadArchive(int(entry_id), AnimationID)
+        if not animation_entry:
+            self.report({'ERROR'}, f"Could not find animation entry for Action: {action_name} as EntryID: {entry_id}. Assure your action name starts with a valid ID for the animation entry.")
+            return{'CANCELLED'}
         if not animation_entry.IsLoaded: animation_entry.Load(True, False)
         bones_entry = Global_TocManager.GetEntryByLoadArchive(int(bones_id), BoneID)
         bones_data = bones_entry.TocData

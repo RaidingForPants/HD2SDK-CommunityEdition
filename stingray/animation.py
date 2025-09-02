@@ -586,6 +586,7 @@ class StingrayAnimation:
         self.animation_length = length_frames / 30
         self.bone_count = len(self.initial_bone_states)
         bpy.ops.object.mode_set(mode="OBJECT")
+        context.scene.frame_end = length_frames + 1
         
         output_stream = MemoryStream(IOMode="write")
         self.Serialize(output_stream)
@@ -615,12 +616,10 @@ class StingrayAnimation:
                                                                                   (bone.name, curve[0]), index=curve[1], action_group=bone.name)
             
         
-    def to_action(self, context, armature, bones_data):
-        animation_id = context.active_object['AnimationID']
+    def to_action(self, context, armature, bones_data, animation_id):
+        PrettyPrint(f"Creaing action with ID: {animation_id}")
         actions = bpy.data.actions
-        action = actions.get(animation_id, None)
-        if action is None:
-            action = actions.new(animation_id)
+        action = actions.new(str(animation_id))
         armature.animation_data.action = action
         
         fcurves = action.fcurves
