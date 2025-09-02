@@ -427,6 +427,7 @@ class StingrayAnimation:
         self.entries.clear()
         self.initial_bone_states.clear()
         action = armature.animation_data.action
+        action.use_fake_user = True
         idx = bones_data.index(b"StingrayEntityRoot")
         temp = bones_data[idx:]
         splits = temp.split(b"\x00")
@@ -620,6 +621,7 @@ class StingrayAnimation:
         PrettyPrint(f"Creaing action with ID: {animation_id}")
         actions = bpy.data.actions
         action = actions.new(str(animation_id))
+        action.use_fake_user = True
         armature.animation_data.action = action
         
         fcurves = action.fcurves
