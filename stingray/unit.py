@@ -1267,7 +1267,7 @@ def NameFromMesh(mesh, id, customization_info, bone_names, use_sufix=True):
 
     return name
 
-def CreateModel(model, id, customization_info, bone_names, transform_info, bone_info):
+def CreateModel(model, id, customization_info, bone_names, transform_info, bone_info, Global_BoneNames):
     if len(model) < 1: return
     # Make collection
     old_collection = bpy.context.collection
@@ -1371,9 +1371,9 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                     #bone_index   = mesh.DEV_BoneInfo.GetRealIndex(bone_index)
                     group_name = str(group_index) + "_" + str(bone_index)
                     if not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
-                        hashIndex = bone_info[mesh.LodIndex].RealIndices[bone_index] - 1
+                        inverted_bone_info = bone_info[::-1]
+                        hashIndex = inverted_bone_info[mesh.LodIndex].RealIndices[bone_index]
                         boneHash = transform_info.NameHashes[hashIndex]
-                        global Global_BoneNames
                         if boneHash in Global_BoneNames:
                             group_name = Global_BoneNames[boneHash]
                         else:

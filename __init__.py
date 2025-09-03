@@ -72,6 +72,8 @@ Global_backslash         = "\-".replace("-", "")
 
 Global_Foldouts = []
 
+Global_BoneNames = {}
+
 Global_SectionHeader = "---------- Helldivers 2 ----------"
 
 Global_randomID = ""
@@ -1511,7 +1513,7 @@ def LoadStingrayMesh(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
     toc  = MemoryStream(TocData)
     gpu  = MemoryStream(GpuData)
     StingrayMesh = StingrayMeshFile().Serialize(toc, gpu, Global_TocManager)
-    if MakeBlendObject: CreateModel(StingrayMesh.RawMeshes, str(ID), StingrayMesh.CustomizationInfo, StingrayMesh.BoneNames, StingrayMesh.TransformInfo, StingrayMesh.BoneInfoArray)
+    if MakeBlendObject: CreateModel(StingrayMesh.RawMeshes, str(ID), StingrayMesh.CustomizationInfo, StingrayMesh.BoneNames, StingrayMesh.TransformInfo, StingrayMesh.BoneInfoArray, Global_BoneNames)
     return StingrayMesh
 
 def SaveStingrayMesh(self, ID, TocData, GpuData, StreamData, StingrayMesh, BlenderOpts=None):
@@ -3696,7 +3698,7 @@ class Hd2ToolPanelSettings(PropertyGroup):
     SaveNonSDKMaterials   : BoolProperty(name="Save Non-SDK Materials", description="Toggle if non-SDK materials should be autosaved when saving a mesh", default = False)
     SaveUnsavedOnWrite    : BoolProperty(name="Save Unsaved on Write", description="Save all entries that are unsaved when writing a patch", default = True)
     PatchBaseArchiveOnly  : BoolProperty(name="Patch Base Archive Only", description="When enabled, it will allow patched to only be created if the base archive is selected. This is helpful for new users.", default = True)
-    LegacyWeightNames     : BoolProperty(name="Legacy Weight Names", description="Brings back the old naming system for vertex groups using the X_Y schema", default = True)
+    LegacyWeightNames     : BoolProperty(name="Legacy Weight Names", description="Brings back the old naming system for vertex groups using the X_Y schema", default = False)
     
     def get_settings_dict(self):
         dict = {}
@@ -3849,7 +3851,7 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "SaveUnsavedOnWrite")
             row.prop(scene.Hd2ToolPanelSettings, "AutoSaveMeshMaterials")
             row.prop(scene.Hd2ToolPanelSettings, "PatchBaseArchiveOnly")
-            #row.prop(scene.Hd2ToolPanelSettings, "LegacyWeightNames")
+            row.prop(scene.Hd2ToolPanelSettings, "LegacyWeightNames")
 
             #Custom Searching tools
             row = mainbox.row(); row.separator(); row.label(text="Special Tools"); box = row.box(); row = box.grid_flow(columns=1)
@@ -4344,7 +4346,7 @@ def register():
     LoadNameHashes()
     LoadArchiveHashes()
     LoadShaderVariables(Global_variablespath)
-    LoadBoneHashes(Global_bonehashpath)
+    LoadBoneHashes(Global_bonehashpath, Global_BoneNames)
     for cls in classes:
         bpy.utils.register_class(cls)
     Scene.Hd2ToolPanelSettings = PointerProperty(type=Hd2ToolPanelSettings)

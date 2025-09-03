@@ -39,7 +39,7 @@ class StingrayBones:
                 PrettyPrint(f"Failed to add bone hashes as list length is misaligned. Hashes Length: {len(self.BoneHashes)} Names Length: {len(self.Names)} Hashes: {self.BoneHashes} Names: {self.Names}", "error")
         return self
     
-def LoadBoneHashes(path):
+def LoadBoneHashes(path, Global_BoneNames):
     file = open(path, "r")
     text = file.read()
     for line in text.splitlines():
