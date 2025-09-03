@@ -533,14 +533,16 @@ class StingrayAnimation:
 
                     keyvalues = []
                     scale = 0.01
+                    
+                    frames = [i for i in range(max(keyframes)+1)]
 
-                    for keyframe in keyframes:
-                        context.scene.frame_set(keyframe)
+                    for frame in frames:
+                        context.scene.frame_set(frame)
                         keyvalues.append(StingrayAnimation.utilityGetSimpleKeyValue(
                             target, property) * scale)
                             
                     # create position entry
-                    for frame_num, value in zip(keyframes, keyvalues):
+                    for frame_num, value in zip(frames, keyvalues):
                         if frame_num > length_frames:
                             length_frames = frame_num
                         new_entry = AnimationEntry()
@@ -563,14 +565,16 @@ class StingrayAnimation:
 
                 keyframes = sorted(list(set(keyframes)))
 
+                frames = [i for i in range(max(keyframes)+1)]
+
                 keyvalues = []
 
-                for keyframe in keyframes:
-                    context.scene.frame_set(keyframe)
+                for frame in frames:
+                    context.scene.frame_set(frame)
                     quat = StingrayAnimation.utilityGetQuatKeyValue(target)
                     keyvalues.append((quat.x, quat.y, quat.z, quat.w))
                 # create rotation entry
-                for frame_num, value in zip(keyframes, keyvalues):
+                for frame_num, value in zip(frames, keyvalues):
                     if frame_num > length_frames:
                         length_frames = frame_num
                     new_entry = AnimationEntry()
