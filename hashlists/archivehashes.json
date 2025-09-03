@@ -415,7 +415,9 @@
         "7d4287cda3cd9e41": "Spore Burst Warrior",
         "758bc3cb581155e8": "Spore Burst Hunter",
         "23725ae5eea97a53": "Spore Burst Scavenger",
-        "4a600305ecab1826": "Predator Hunter"
+        "4a600305ecab1826": "Predator Hunter",
+        "863dc0bbdb912c40": "Dragonroach",
+        "0f9c1ccc845ab6f6": "Hive Lord"
     },
 
     "NPC": {
@@ -549,7 +551,8 @@
         "7f37db9b767844c2": "RS-422 Railgun",
         "93fa804787551c15": "SH-51 Directional Shield",
         "5795e99a988d10b7": "StA-X3 W.A.S.P. Launcher",
-        "750605cfc0173701": "TX-41 Sterilizer"
+        "750605cfc0173701": "TX-41 Sterilizer",
+        "5d68e55823acd1bf": "EAT-700 Expendable Napalm"
     },
 
     "Unreleased": {
