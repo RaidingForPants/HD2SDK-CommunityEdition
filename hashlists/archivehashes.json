@@ -97,7 +97,10 @@
         "1dafd22cfccc02b8": "AD-26 Bleeding Edge",
         "74bc9cf98d65b1bf": "AD-49 Apollonian",
         "1d6dc4216e7ce52d": "A-9 Helljumper",
-        "f32d3723bfe55d2f": "A-35 Recon"
+        "f32d3723bfe55d2f": "A-35 Recon",
+        "b60eaad684926425":	"DS-191 Scorpion",
+        "541fbc971b1aef62":	"DS-42 Federation's Blade",
+        "aaebfbedc571fd7a":	"DS-10 Big Game Hunter"
     },
 
     "Helmet": {
@@ -191,7 +194,10 @@
         "7cfc63f636fa5132": "AD-26 Bleeding Edge",
         "c5e272869f1386b6": "AD-49 Apollonian",
         "a856edff49cfdd95": "A-9 Helljumper",
-        "1a2fc86abd27bf5b": "A-35 Recon"
+        "1a2fc86abd27bf5b": "A-35 Recon",
+        "dbfd326577ba126f":	"DS-191 Scorpion",
+        "9852e5e0b70a7441":	"DS-42 Federation's Blade",
+        "4b92ff9a0256159f":	"DS-10 Big Game Hunter"
     },
 
     "Cape": {
@@ -257,7 +263,10 @@
         "a597d2b8cee749e4": "Schema Laid Bare",
         "fa5a9d6c8b6df7da": "Ingress-81",
         "b0ae954c0b978553": "Eye of the Clandestine",
-        "a50f4822153fea59": "Honored Heirloom"
+        "a50f4822153fea59": "Honored Heirloom",
+        "ac84e68a6b9d1389":	"Eternal Corona",
+        "cbc0d073efb47b2e":	"Windswept Wayfinder",
+        "d0b7a123e50f7d36":	"Rightful Occupier"
     },
 
     "Icons": { 
@@ -415,7 +424,9 @@
         "7d4287cda3cd9e41": "Spore Burst Warrior",
         "758bc3cb581155e8": "Spore Burst Hunter",
         "23725ae5eea97a53": "Spore Burst Scavenger",
-        "4a600305ecab1826": "Predator Hunter"
+        "4a600305ecab1826": "Predator Hunter",
+        "863dc0bbdb912c40": "Dragonroach",
+        "0f9c1ccc845ab6f6": "Hive Lord"
     },
 
     "NPC": {
@@ -440,7 +451,8 @@
         "dfb81f9917285965": "G-123 Thermite",
         "1721eee4581a9c54": "G-142 PyroTech",
         "ddcea5fdd4071767": "G-31 Arc",
-        "3bf0844097ab595f": "K-2 Throwing Knife"
+        "3bf0844097ab595f": "K-2 Throwing Knife",
+        "dbf00f1b8761aba5": "G-7 Pineapple"
     },
 
     "Standard Throwable": {
@@ -458,7 +470,8 @@
         "a66d7cf238070ca7": "BR-14 Adjudicator",
         "40f2a2ce5c20418f": "StA-52 Assault Rifle",
         "82751a054bdfd075": "AR-32 Pacifier",
-        "fd3eef9a0329b2c2": "MA5C Assault Rifle"
+        "fd3eef9a0329b2c2": "MA5C Assault Rifle",
+        "ebc7888cf3886e91": "AR-2 Coyote"
     },
 
     "Marksman Rifle": {
@@ -501,7 +514,8 @@
     "Special Primary": {
         "10a7605527187ef5": "JAR-5 Dominator",
         "49fd919a67a5db66": "Flam-66 Torcher",
-        "9ceed8ae1331d7bf": "VG-70 Variable"
+        "9ceed8ae1331d7bf": "VG-70 Variable",
+        "70d708e5fd627493": "S-11 Speargun"
     },
 
     "Special Secondary": {
@@ -515,7 +529,7 @@
     },
 
     "Melee": {
-        "56aa04adbbeea69f": "CQC-30 Stun Baton, CQC-19 Stun Lance, CQC-5 Combat Hatchet & CQC-2 Saber",
+        "56aa04adbbeea69f": "CQC-30 Stun Baton, CQC-19 Stun Lance, CQC-5 Combat Hatchet & CQC-2 Saber & CQC-42 Machete",
         "49de16e1343250e4": "Entrenchment Tool"
     },
 
@@ -549,7 +563,8 @@
         "7f37db9b767844c2": "RS-422 Railgun",
         "93fa804787551c15": "SH-51 Directional Shield",
         "5795e99a988d10b7": "StA-X3 W.A.S.P. Launcher",
-        "750605cfc0173701": "TX-41 Sterilizer"
+        "750605cfc0173701": "TX-41 Sterilizer",
+        "5d68e55823acd1bf": "EAT-700 Expendable Napalm"
     },
 
     "Unreleased": {
@@ -572,7 +587,8 @@
         "515ddabd01bd0c64": "PLAS-15 Loyalist Standard ",
         "3b2c86dd5b316eb2": "P-2 Peacemaker",
         "b15cd2256a2e677b": "P-19 Redeemer",
-        "c7c2d638edffd06d": "AR-32 Extended Mag"
+        "c7c2d638edffd06d": "AR-32 Extended Mag",
+        "7be04adb392a3045": "AR-2 Coyote Mag"
     },
 
     "Scope": {
@@ -655,6 +671,7 @@
         "992d325d88de5fbf": "A/G-16 Gatling Sentry",
         "1577e917ad1f287d": "A/40 Flame Sentry",
         "11bbdf8ce39e5fc5": "A/MLS-4X Rocket Sentry",
-        "36313bf684c1fd79": "A/LAS-98 Laser Sentry"
+        "36313bf684c1fd79": "A/LAS-98 Laser Sentry",
+        "2947afe42093062f": "M5-11 Solo Silo"
     }
 }
