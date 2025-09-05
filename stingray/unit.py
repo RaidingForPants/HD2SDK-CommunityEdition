@@ -504,10 +504,13 @@ class StingrayMeshFile:
             for Component in Stream_Info.Components:
                 Stream_Info.VertexStride += Component.GetSize()
             
+
 class BoneInfo:
     def __init__(self):
         self.NumBones = self.unk1 = self.RealIndicesOffset = self.FakeIndicesOffset = self.NumFakeIndices = self.FakeIndicesUnk = 0
         self.Bones = self.RealIndices = self.FakeIndices = []
+        self.NumRemaps = self.MatrixOffset = 0
+        self.Remaps = self.RemapOffsets = self.RemapCounts = []
         self.DEV_RawData = bytearray()
     def Serialize(self, f: MemoryStream, end=None):
         if f.IsReading():
@@ -522,14 +525,16 @@ class BoneInfo:
         RelPosition = f.tell()
 
         self.NumBones       = f.uint32(self.NumBones)
-        self.unk1           = f.uint32(self.unk1)
-        self.RealIndicesOffset = f.uint32(self.RealIndicesOffset)
-        self.FakeIndicesOffset = f.uint32(self.FakeIndicesOffset)
+        self.MatrixOffset           = f.uint32(self.MatrixOffset) # matrix pointer
+        self.RealIndicesOffset = f.uint32(self.RealIndicesOffset) # unit indices
+        self.FakeIndicesOffset = f.uint32(self.FakeIndicesOffset) # remap indices
         # get bone data
         if f.IsReading():
             self.Bones = [StingrayMatrix4x4() for n in range(self.NumBones)]
             self.RealIndices = [0 for n in range(self.NumBones)]
             self.FakeIndices = [0 for n in range(self.NumBones)]
+        if f.IsReading(): f.seek(RelPosition+self.MatrixOffset)
+        else            : self.MatrixOffset = f.tell()-RelPosition
         self.Bones = [bone.Serialize(f) for bone in self.Bones]
         # get real indices
         if f.IsReading(): f.seek(RelPosition+self.RealIndicesOffset)
@@ -538,17 +543,52 @@ class BoneInfo:
         PrettyPrint("indicies")
         PrettyPrint(self.RealIndices)
         # get unknown
-        return self
+        #return self
 
         # get fake indices
         if f.IsReading(): f.seek(RelPosition+self.FakeIndicesOffset)
         else            : self.FakeIndicesOffset = f.tell()-RelPosition
-        self.NumFakeIndices = f.uint32(self.NumFakeIndices)
-        self.FakeIndicesUnk = f.uint64(self.FakeIndices[0])
-        self.FakeIndices = [f.uint32(index) for index in self.FakeIndices]
+        if f.IsReading():
+            RemapStartPosition = f.tell()
+            self.NumRemaps = f.uint32(self.NumRemaps)
+            self.RemapOffsets = [0]*self.NumRemaps
+            self.RemapCounts = [0]*self.NumRemaps
+            for i in range(self.NumRemaps):
+                self.RemapOffsets[i] = f.uint32(self.RemapOffsets[i])
+                self.RemapCounts[i] = f.uint32(self.RemapCounts[i])
+            for i in range(self.NumRemaps):
+                f.seek(RemapStartPosition+self.RemapOffsets[i])
+                self.Remaps.append([0]*self.RemapCounts[i])
+                self.Remaps[i] = [f.uint32(index) for index in self.Remaps[i]]
+        else:
+            RemapStartPosition = f.tell()
+            self.NumRemaps = f.uint32(self.NumRemaps)
+            for i in range(self.NumRemaps):
+                self.RemapOffsets[i] = f.uint32(self.RemapOffsets[i])
+                self.RemapCounts[i] = f.uint32(self.RemapCounts[i])
+            for i in range(self.NumRemaps):
+                f.seek(RemapStartPosition+self.RemapOffsets[i])
+                self.Remaps[i] = [f.uint32(index) for index in self.Remaps[i]]
+        #self.NumFakeIndices = f.uint32(self.NumFakeIndices)
+        #self.FakeIndicesUnk = f.uint64(self.FakeIndices[0])
+        #self.FakeIndices = [f.uint32(index) for index in self.FakeIndices]
+        max_len = 0
+        longest_remap = None
+        for remap in self.Remaps:
+            if len(remap) > max_len:
+                max_len = len(remap)
+                longest_remap = remap
+        self.FakeIndices = longest_remap
+        self.NumFakeIndices = max_len
+        PrettyPrint("Fake indices")
+        for remap in self.Remaps:
+            print(remap)
+        PrettyPrint(self.FakeIndices)
+        PrettyPrint(self.NumFakeIndices)
         return self
     def GetRealIndex(self, bone_index):
-        FakeIndex = self.FakeIndices.index(bone_index)
+        #FakeIndex = self.FakeIndices.index(bone_index)
+        FakeIndex = self.FakeIndices[bone_index]
         return self.RealIndices[FakeIndex]
 
 class StreamInfo:
@@ -1181,6 +1221,9 @@ def GetMeshData(og_object):
                 if group.weight > 0.001:
                     vertex_group        = object.vertex_groups[group.group]
                     vertex_group_name   = vertex_group.name
+                    #
+                    # CHANGE THIS TO SUPPORT THE NEW BONE NAMES
+                    # HOW TO ACCESS transform_info OF STINGRAY MESH??
                     parts               = vertex_group_name.split("_")
                     HDGroupIndex        = int(parts[0])
                     HDBoneIndex         = int(parts[1])
@@ -1368,11 +1411,9 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                 for weight_idx in range(len(weights)):
                     weight_value = weights[weight_idx]
                     bone_index   = indices[weight_idx]
-                    #bone_index   = mesh.DEV_BoneInfo.GetRealIndex(bone_index)
                     group_name = str(group_index) + "_" + str(bone_index)
                     if not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
-                        inverted_bone_info = bone_info[::-1]
-                        hashIndex = inverted_bone_info[mesh.LodIndex].RealIndices[bone_index]
+                        hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index)
                         boneHash = transform_info.NameHashes[hashIndex]
                         if boneHash in Global_BoneNames:
                             group_name = Global_BoneNames[boneHash]
