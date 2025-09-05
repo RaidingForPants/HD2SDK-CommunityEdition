@@ -540,12 +540,8 @@ class BoneInfo:
         if f.IsReading(): f.seek(RelPosition+self.RealIndicesOffset)
         else            : self.RealIndicesOffset = f.tell()-RelPosition
         self.RealIndices = [f.uint32(index) for index in self.RealIndices]
-        PrettyPrint("indicies")
-        PrettyPrint(self.RealIndices)
-        # get unknown
-        #return self
 
-        # get fake indices
+        # get remapped indices
         if f.IsReading(): f.seek(RelPosition+self.FakeIndicesOffset)
         else            : self.FakeIndicesOffset = f.tell()-RelPosition
         if f.IsReading():
@@ -569,9 +565,6 @@ class BoneInfo:
             for i in range(self.NumRemaps):
                 f.seek(RemapStartPosition+self.RemapOffsets[i])
                 self.Remaps[i] = [f.uint32(index) for index in self.Remaps[i]]
-        #self.NumFakeIndices = f.uint32(self.NumFakeIndices)
-        #self.FakeIndicesUnk = f.uint64(self.FakeIndices[0])
-        #self.FakeIndices = [f.uint32(index) for index in self.FakeIndices]
         max_len = 0
         longest_remap = None
         for remap in self.Remaps:
@@ -580,14 +573,8 @@ class BoneInfo:
                 longest_remap = remap
         self.FakeIndices = longest_remap
         self.NumFakeIndices = max_len
-        PrettyPrint("Fake indices")
-        for remap in self.Remaps:
-            print(remap)
-        PrettyPrint(self.FakeIndices)
-        PrettyPrint(self.NumFakeIndices)
         return self
     def GetRealIndex(self, bone_index):
-        #FakeIndex = self.FakeIndices.index(bone_index)
         FakeIndex = self.FakeIndices[bone_index]
         return self.RealIndices[FakeIndex]
 
