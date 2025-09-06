@@ -1443,7 +1443,13 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                     uvlayer.data[loop_idx].uv = (uvs[vert_idx][0], uvs[vert_idx][1]*-1 + 1)
         # -- || ASSIGN WEIGHTS || -- #
         created_groups = []
-        print([Global_BoneNames[h] for h in transform_info.NameHashes])
+        available_bones = []
+        for h in transform_info.NameHashes:
+            try:
+                available_bones.append(Global_BoneNames[h])
+            except KeyError:
+                available_bones.append(h)
+        PrettyPrint(f"Available Bones: {available_bones}")
         for vertex_idx in range(len(mesh.VertexWeights)):
             weights      = mesh.VertexWeights[vertex_idx]
             index_groups = [Indices[vertex_idx] for Indices in mesh.VertexBoneIndices]
