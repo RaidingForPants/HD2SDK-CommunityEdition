@@ -556,7 +556,6 @@ class BoneInfo:
                 self.Remaps.append([0]*self.RemapCounts[i])
                 self.Remaps[i] = [f.uint32(index) for index in self.Remaps[i]]
         else:
-            print("saving")
             RemapStartPosition = f.tell()
             self.NumRemaps = f.uint32(self.NumRemaps)
             for i in range(self.NumRemaps):
