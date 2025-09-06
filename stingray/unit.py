@@ -9,6 +9,7 @@ from ..memoryStream import MemoryStream
 from ..math import MakeTenBitUnsigned, TenBitUnsigned
 from ..logger import PrettyPrint
 from ..cpphelper import Hash32, LoadNormalPalette, NormalsFromPalette
+from ..hashlists.hash import murmur32_hash
 
 from ..constants import *
 
@@ -511,19 +512,13 @@ class BoneInfo:
         self.Bones = self.RealIndices = self.FakeIndices = []
         self.NumRemaps = self.MatrixOffset = 0
         self.Remaps = self.RemapOffsets = self.RemapCounts = []
-        self.DEV_RawData = bytearray()
     def Serialize(self, f: MemoryStream, end=None):
-        if f.IsReading():
-            self.DEV_RawData = bytearray(end-f.tell())
-            start = f.tell()
-            self.Serialize_REAL(f)
-            f.seek(start)
-        self.DEV_RawData = f.bytes(self.DEV_RawData)
+        self.Serialize_REAL(f)
         return self
 
     def Serialize_REAL(self, f: MemoryStream): # still need to figure out whats up with the unknown bit
         RelPosition = f.tell()
-
+        
         self.NumBones       = f.uint32(self.NumBones)
         self.MatrixOffset           = f.uint32(self.MatrixOffset) # matrix pointer
         self.RealIndicesOffset = f.uint32(self.RealIndicesOffset) # unit indices
@@ -535,7 +530,11 @@ class BoneInfo:
             self.FakeIndices = [0 for n in range(self.NumBones)]
         if f.IsReading(): f.seek(RelPosition+self.MatrixOffset)
         else            : self.MatrixOffset = f.tell()-RelPosition
-        self.Bones = [bone.Serialize(f) for bone in self.Bones]
+        for i, bone in enumerate(self.Bones):
+            if i == self.NumBones:
+                break
+            bone.Serialize(f)
+        #self.Bones = [bone.Serialize(f) for bone in self.Bones]
         # get real indices
         if f.IsReading(): f.seek(RelPosition+self.RealIndicesOffset)
         else            : self.RealIndicesOffset = f.tell()-RelPosition
@@ -557,6 +556,7 @@ class BoneInfo:
                 self.Remaps.append([0]*self.RemapCounts[i])
                 self.Remaps[i] = [f.uint32(index) for index in self.Remaps[i]]
         else:
+            print("saving")
             RemapStartPosition = f.tell()
             self.NumRemaps = f.uint32(self.NumRemaps)
             for i in range(self.NumRemaps):
@@ -577,6 +577,27 @@ class BoneInfo:
     def GetRealIndex(self, bone_index):
         FakeIndex = self.FakeIndices[bone_index]
         return self.RealIndices[FakeIndex]
+        
+    def GetRemappedIndex(self, bone_index):
+        return self.FakeIndices.index(self.RealIndices.index(bone_index))
+        
+    def SetRemap(self, bone_names: list[str], transform_info):
+        self.NumRemaps = 1
+        self.NumBones = len(bone_names)
+        self.RemapCounts = [len(bone_names)]
+        self.RealIndices = []
+        self.Remaps = [[]]
+        self.RemapOffsets = [self.RemapOffsets[0]]
+        for index, bone in enumerate(bone_names):
+            h = murmur32_hash(bone.encode("utf-8"))
+            if h not in transform_info.NameHashes:
+                transform_info.AddEntry(h)
+                #transform_info.NameHashes.append(h)
+            self.RealIndices.append(transform_info.NameHashes.index(h))
+            self.Remaps[0].append(index)
+        self.FakeIndices = self.Remaps[0]
+                
+        
 
 class StreamInfo:
     def __init__(self):
@@ -721,20 +742,36 @@ class TransformInfo: # READ ONLY
         self.NumTransforms = 0
         self.Transforms = []
         self.PositionTransforms = []
-        self.TransfromEntries = []
+        self.TransformEntries = []
         self.NameHashes = []
     def Serialize(self, f: MemoryStream):
-        if f.IsWriting():
-            raise Exception("This struct is read only (write not implemented)")
-        self.NumTransforms = f.uint32(self.NumTransforms)
-        f.seek(f.tell()+12)
-        self.Transforms = [StingrayLocalTransform().Serialize(f) for n in range(self.NumTransforms)]
-        self.PositionTransforms = [StingrayLocalTransform().SerializeV2(f) for n in range(self.NumTransforms)]
-        self.TransfromEntries = [StingrayLocalTransform().SerializeTransformEntry(f) for n in range(self.NumTransforms)]
-        self.NameHashes = [f.uint32(n) for n in range(self.NumTransforms)]
-        PrettyPrint(f"hashes: {self.NameHashes}")
-        for n in range(self.NumTransforms):
-            self.Transforms[n].pos = self.PositionTransforms[n].pos
+        if f.IsReading():
+            self.NumTransforms = f.uint32(self.NumTransforms)
+            f.seek(f.tell()+12)
+            self.Transforms = [StingrayLocalTransform().Serialize(f) for n in range(self.NumTransforms)]
+            self.PositionTransforms = [StingrayLocalTransform().SerializeV2(f) for n in range(self.NumTransforms)]
+            self.TransformEntries = [StingrayLocalTransform().SerializeTransformEntry(f) for n in range(self.NumTransforms)]
+            self.NameHashes = [f.uint32(n) for n in range(self.NumTransforms)]
+            PrettyPrint(f"hashes: {self.NameHashes}")
+            for n in range(self.NumTransforms):
+                self.Transforms[n].pos = self.PositionTransforms[n].pos
+        else:
+            self.NumTransforms = f.uint32(self.NumTransforms)
+            f.seek(f.tell()+12)
+            self.Transforms = [t.Serialize(f) for t in self.Transforms]
+            self.PositionTransforms = [t.SerializeV2(f) for t in self.PositionTransforms]
+            self.TransformEntries = [t.SerializeTransformEntry(f) for t in self.TransformEntries]
+            self.NameHashes = [f.uint32(h) for h in self.NameHashes]
+            PrettyPrint(f"hashes: {self.NameHashes}")
+            for n in range(self.NumTransforms):
+                self.Transforms[n].pos = self.PositionTransforms[n].pos
+            
+    def AddEntry(self, name_hash):
+        self.NumTransforms += 1
+        self.Transforms.append(StingrayLocalTransform())
+        self.PositionTransforms.append(StingrayLocalTransform())
+        self.TransformEntries.append(StingrayLocalTransform())
+        self.NameHashes.append(name_hash)
 
 class CustomizationInfo: # READ ONLY
     def __init__(self):
@@ -1141,7 +1178,7 @@ def PrepareMesh(og_object):
 
     return object
 
-def GetMeshData(og_object):
+def GetMeshData(og_object, Global_TocManager):
     global Global_palettepath
     object = PrepareMesh(og_object)
     bpy.context.view_layer.objects.active = object
@@ -1198,6 +1235,16 @@ def GetMeshData(og_object):
     # get weights
     vert_idx = 0
     numInfluences = 4
+    stingray_mesh_entry = Global_TocManager.GetEntry(int(og_object["Z_ObjectID"]), int(MeshID), IgnorePatch=True).LoadedData
+    bone_info = stingray_mesh_entry.BoneInfoArray
+    transform_info = stingray_mesh_entry.TransformInfo
+    lod_index = og_object["BoneInfoIndex"]
+    bone_names = []
+    if len(object.vertex_groups) > 0:
+        for g in object.vertex_groups:
+            bone_names.append(g.name)
+        bone_info[lod_index].SetRemap(bone_names, transform_info)
+    
     if len(object.vertex_groups) > 0:
         for vertex in mesh.vertices:
             group_idx = 0
@@ -1208,12 +1255,22 @@ def GetMeshData(og_object):
                 if group.weight > 0.001:
                     vertex_group        = object.vertex_groups[group.group]
                     vertex_group_name   = vertex_group.name
+                    name_hash = murmur32_hash(vertex_group_name.encode("utf-8"))
                     #
                     # CHANGE THIS TO SUPPORT THE NEW BONE NAMES
                     # HOW TO ACCESS transform_info OF STINGRAY MESH??
                     parts               = vertex_group_name.split("_")
-                    HDGroupIndex        = int(parts[0])
-                    HDBoneIndex         = int(parts[1])
+                    #HDGroupIndex        = int(parts[0])
+                    
+                    HDGroupIndex = 0
+                    # get real index from remapped index -> hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index); boneHash = transform_info.NameHashes[hashIndex]
+                    # want to get remapped index from bone name
+                    # hash = ...
+                    # real_index = transform_info.NameHashes.index(hash)
+                    # remap = bone_info[mesh.LodIndex].GetRemappedIndex(real_index)
+                    real_index = transform_info.NameHashes.index(name_hash)
+                    HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index)
+                    #HDBoneIndex         = int(parts[1])
                     if HDGroupIndex+1 > len(boneIndices):
                         dif = HDGroupIndex+1 - len(boneIndices)
                         boneIndices.extend([[[0,0,0,0] for n in range(len(vertices))]]*dif)
@@ -1261,13 +1318,13 @@ def GetMeshData(og_object):
         PrettyPrint(f"Current object: {object}")
     return NewMesh
 
-def GetObjectsMeshData():
+def GetObjectsMeshData(Global_TocManager):
     objects = bpy.context.selected_objects
     bpy.ops.object.select_all(action='DESELECT')
     data = {}
     for object in objects:
         ID = object["Z_ObjectID"]
-        MeshData = GetMeshData(object)
+        MeshData = GetMeshData(object, Global_TocManager)
         try:
             data[ID][MeshData.MeshInfoIndex] = MeshData
         except:
@@ -1386,6 +1443,7 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                     uvlayer.data[loop_idx].uv = (uvs[vert_idx][0], uvs[vert_idx][1]*-1 + 1)
         # -- || ASSIGN WEIGHTS || -- #
         created_groups = []
+        print([Global_BoneNames[h] for h in transform_info.NameHashes])
         for vertex_idx in range(len(mesh.VertexWeights)):
             weights      = mesh.VertexWeights[vertex_idx]
             index_groups = [Indices[vertex_idx] for Indices in mesh.VertexBoneIndices]
