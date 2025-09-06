@@ -1,3 +1,7 @@
+def bytes_to_long(bytes):
+    assert len(bytes) == 8
+    return sum((b << (k * 8) for k, b in enumerate(bytes)))
+
 def murmur64_hash(data, seed: int = 0):
 
     m = 0xc6a4a7935bd1e995

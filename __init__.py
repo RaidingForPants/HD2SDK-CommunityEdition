@@ -1656,9 +1656,9 @@ def CheckVertexGroups(self, objects):
         if len(obj.vertex_groups) > 0 and BoneIndex == -1:
             self.report({'ERROR'}, f"Vertex Groups Found for static mesh: {obj.name}. Please remove vertex groups.")
             return True
-        for group in obj.vertex_groups:
-            if "_" not in group.name:
-                incorrectGroups += 1
+        #for group in obj.vertex_groups:
+        #    if "_" not in group.name:
+        #        incorrectGroups += 1
         if incorrectGroups > 0:
             self.report({'ERROR'}, f"Found {incorrectGroups} Incorrect Vertex Group Name Scheming for Object: {obj.name}")
             return True
@@ -2415,7 +2415,7 @@ class SaveStingrayMeshOperator(Operator):
                 return {'CANCELLED'}
         except:
             self.report({'INFO'}, f"{object.name} has no HD2 Swap ID. Skipping Swap.")
-        model = GetObjectsMeshData()
+        model = GetObjectsMeshData(Global_TocManager)
         BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
         Entry = Global_TocManager.GetEntryByLoadArchive(int(ID), MeshID)
         if Entry is None:
@@ -2515,7 +2515,7 @@ class BatchSaveStingrayMeshOperator(Operator):
                 objects_by_id[obj["Z_ObjectID"]][obj["MeshInfoIndex"]] = obj
             except KeyError:
                 objects_by_id[obj["Z_ObjectID"]] = {obj["MeshInfoIndex"]: obj}
-        MeshData = GetObjectsMeshData()
+        MeshData = GetObjectsMeshData(Global_TocManager)
         BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
         num_meshes = len(objects)
         for IDitem in IDs:
@@ -3698,7 +3698,7 @@ class Hd2ToolPanelSettings(PropertyGroup):
     SaveNonSDKMaterials   : BoolProperty(name="Save Non-SDK Materials", description="Toggle if non-SDK materials should be autosaved when saving a mesh", default = False)
     SaveUnsavedOnWrite    : BoolProperty(name="Save Unsaved on Write", description="Save all entries that are unsaved when writing a patch", default = True)
     PatchBaseArchiveOnly  : BoolProperty(name="Patch Base Archive Only", description="When enabled, it will allow patched to only be created if the base archive is selected. This is helpful for new users.", default = True)
-    LegacyWeightNames     : BoolProperty(name="Legacy Weight Names", description="Brings back the old naming system for vertex groups using the X_Y schema", default = True)
+    LegacyWeightNames     : BoolProperty(name="Legacy Weight Names", description="Brings back the old naming system for vertex groups using the X_Y schema", default = False)
     
     def get_settings_dict(self):
         dict = {}
