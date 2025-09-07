@@ -372,6 +372,8 @@ class StingrayMeshFile:
             if gpu.IsReading(): gpu.seek(Stream_Info.VertexBufferOffset + (MainSection.VertexOffset*Stream_Info.VertexStride))
             
             for vidx in range(len(mesh.VertexPositions)):
+                if gpu.IsReading():
+                    pass
                 vstart = gpu.tell()
 
                 for Component in Stream_Info.Components:
@@ -565,49 +567,41 @@ class BoneInfo:
             for i in range(self.NumRemaps):
                 f.seek(RemapStartPosition+self.RemapOffsets[i])
                 self.Remaps[i] = [f.uint32(index) for index in self.Remaps[i]]
-        max_len = 0
-        longest_remap = None
-        for remap in self.Remaps:
-            if len(remap) > max_len:
-                max_len = len(remap)
-                longest_remap = remap
-        self.FakeIndices = longest_remap
-        self.NumFakeIndices = max_len
         return self
-    def GetRealIndex(self, bone_index):
-        FakeIndex = self.FakeIndices[bone_index]
+    def GetRealIndex(self, bone_index, material_index=0):
+        FakeIndex = self.Remaps[material_index][bone_index]
         return self.RealIndices[FakeIndex]
         
-    def GetRemappedIndex(self, bone_index):
-        return self.FakeIndices.index(self.RealIndices.index(bone_index))
+    def GetRemappedIndex(self, bone_index, material_index=0):
+        return self.Remaps[material_index].index(self.RealIndices.index(bone_index))
         
-    def SetRemap(self, bone_names: list[str], transform_info):
+    def SetRemap(self, remap_info: list[list[str]], transform_info):
+        # remap_info is a list of bones indexed by material
+        # so the list of bones for material slot 0 is covered by remap_info[0]
         #ideally this eventually allows for creating a remap for any arbitrary bone; requires editing the transform_info
         #return
         # I wonder if you can just take the transform component from the previous bone it was on
         # remap index should match the transform_info index!!!!!
-        self.NumRemaps = 1
-        self.RemapCounts = [len(bone_names)]
-        #self.RealIndices = []
-        self.Remaps = [[]]
+        self.NumRemaps = len(remap_info)
+        self.RemapCounts = [len(bone_names) for bone_names in remap_info]
+        self.Remaps = []
         self.RemapOffsets = [self.RemapOffsets[0]]
-        new_real_indices = [0]*self.NumBones
-        #self.NumBones = len(bone_names) 
-        for index, bone in enumerate(bone_names):
-            try:
-                h = int(bone)
-            except ValueError:
-                h = murmur32_hash(bone.encode("utf-8"))
-            real_index = transform_info.NameHashes.index(h)
-            if h not in transform_info.NameHashes:
-                pass
-                #transform_info.AddEntry(h)
-                #transform_info.NameHashes.append(h)
-            #new_real_indices[self.RealIndices.index(real_index)] = real_index
-            #self.RealIndices.append(transform_info.NameHashes.index(h))
-            self.Remaps[0].append(self.RealIndices.index(real_index))
-        self.FakeIndices = self.Remaps[0]
-        #self.RealIndices = new_real_indices
+        for i in range(1, self.NumRemaps):
+            self.RemapOffsets.append(self.RemapOffsets[i-1]+4*self.RemapCounts[i])
+        for bone_names in remap_info:
+            r = []
+            for bone in bone_names:
+                try:
+                    h = int(bone)
+                except ValueError:
+                    h = murmur32_hash(bone.encode("utf-8"))
+                try:
+                    real_index = transform_info.NameHashes.index(h)
+                    r.append(self.RealIndices.index(real_index))
+                except:
+                    print(bone)
+                
+            self.Remaps.append(r)
                 
 class StreamInfo:
     def __init__(self):
@@ -1254,10 +1248,17 @@ def GetMeshData(og_object, Global_TocManager):
     if len(object.vertex_groups) > 0:
         for g in object.vertex_groups:
             bone_names.append(g.name)
-        bone_info[lod_index].SetRemap(bone_names, transform_info)
+        remap_info = [bone_names for _ in range(len(object.material_slots))]
+        bone_info[lod_index].SetRemap(remap_info, transform_info)
+        
+    vertex_to_material_index = [-1 for _ in range(len(mesh.vertices))]
+    for polygon in mesh.polygons:
+        for vertex in polygon.vertices:
+            vertex_to_material_index[vertex] = polygon.material_index
     
     if len(object.vertex_groups) > 0:
-        for vertex in mesh.vertices:
+        for index, vertex in enumerate(mesh.vertices):
+            material_idx = vertex_to_material_index[index]
             group_idx = 0
             for group in vertex.groups:
                 # limit influences
@@ -1283,7 +1284,7 @@ def GetMeshData(og_object, Global_TocManager):
                     # real_index = transform_info.NameHashes.index(hash)
                     # remap = bone_info[mesh.LodIndex].GetRemappedIndex(real_index)
                     real_index = transform_info.NameHashes.index(name_hash)
-                    HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index)
+                    HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
                     #HDBoneIndex         = int(parts[1])
                     if HDGroupIndex+1 > len(boneIndices):
                         dif = HDGroupIndex+1 - len(boneIndices)
@@ -1464,6 +1465,11 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                     available_bones.append(Global_BoneNames[h])
             except KeyError:
                 available_bones.append(str(h))
+        vertex_to_material_index = [0]*len(mesh.VertexPositions)
+        for mat_idx, mat in enumerate(mesh.Materials):
+            for face in mesh.Indices[mat.StartIndex//3:(mat.StartIndex//3+mat.NumIndices//3)]:
+                for vert_idx in face:
+                    vertex_to_material_index[vert_idx] = mat_idx
         for vertex_idx in range(len(mesh.VertexWeights)):
             weights      = mesh.VertexWeights[vertex_idx]
             index_groups = [Indices[vertex_idx] for Indices in mesh.VertexBoneIndices]
@@ -1478,7 +1484,7 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                     bone_index   = indices[weight_idx]
                     group_name = str(group_index) + "_" + str(bone_index)
                     if not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
-                        hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index)
+                        hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index, vertex_to_material_index[vertex_idx])
                         boneHash = transform_info.NameHashes[hashIndex]
                         if boneHash in Global_BoneNames:
                             group_name = Global_BoneNames[boneHash]
