@@ -582,6 +582,7 @@ class BoneInfo:
         return self.FakeIndices.index(self.RealIndices.index(bone_index))
         
     def SetRemap(self, bone_names: list[str], transform_info):
+        #ideally this eventually allows for creating a remap for any arbitrary bone; requires editing the transform_info
         #return
         # I wonder if you can just take the transform component from the previous bone it was on
         # remap index should match the transform_info index!!!!!
@@ -599,9 +600,8 @@ class BoneInfo:
                 pass
                 #transform_info.AddEntry(h)
                 #transform_info.NameHashes.append(h)
-            new_real_indices[self.RealIndices.index(real_index)] = real_index
+            #new_real_indices[self.RealIndices.index(real_index)] = real_index
             #self.RealIndices.append(transform_info.NameHashes.index(h))
-            #self.RealIndices = [0, 0, 0, 0, 0, 10]
             self.Remaps[0].append(self.RealIndices.index(real_index))
         self.FakeIndices = self.Remaps[0]
         #self.RealIndices = new_real_indices
@@ -1458,7 +1458,6 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                     available_bones.append(Global_BoneNames[h])
             except KeyError:
                 available_bones.append(h)
-        PrettyPrint(f"Available Bones: {available_bones}")
         for vertex_idx in range(len(mesh.VertexWeights)):
             weights      = mesh.VertexWeights[vertex_idx]
             index_groups = [Indices[vertex_idx] for Indices in mesh.VertexBoneIndices]
@@ -1481,10 +1480,16 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                             group_name = str(boneHash)
                     if group_name not in created_groups:
                         created_groups.append(group_name)
+                        try:
+                            available_bones.remove(group_name)
+                        except ValueError:
+                            pass
                         new_vertex_group = new_object.vertex_groups.new(name=str(group_name))
                     vertex_group_data = [vertex_idx]
                     new_object.vertex_groups[str(group_name)].add(vertex_group_data, weight_value, 'ADD')
                 group_index += 1
+        for bone in available_bones:
+            new_vertex_group = new_object.vertex_groups.new(name=str(bone))
         # -- || ASSIGN MATERIALS || -- #
         # convert mesh to bmesh
         bm = bmesh.new()
