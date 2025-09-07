@@ -530,6 +530,7 @@ class BoneInfo:
             self.FakeIndices = [0 for n in range(self.NumBones)]
         if f.IsReading(): f.seek(RelPosition+self.MatrixOffset)
         else            : self.MatrixOffset = f.tell()-RelPosition
+        # save the right bone
         for i, bone in enumerate(self.Bones):
             if i == self.NumBones:
                 break
@@ -581,23 +582,30 @@ class BoneInfo:
         return self.FakeIndices.index(self.RealIndices.index(bone_index))
         
     def SetRemap(self, bone_names: list[str], transform_info):
+        #return
+        # I wonder if you can just take the transform component from the previous bone it was on
+        # remap index should match the transform_info index!!!!!
         self.NumRemaps = 1
-        self.NumBones = len(bone_names)
         self.RemapCounts = [len(bone_names)]
-        self.RealIndices = []
+        #self.RealIndices = []
         self.Remaps = [[]]
         self.RemapOffsets = [self.RemapOffsets[0]]
+        new_real_indices = [0]*self.NumBones
+        #self.NumBones = len(bone_names) 
         for index, bone in enumerate(bone_names):
             h = murmur32_hash(bone.encode("utf-8"))
+            real_index = transform_info.NameHashes.index(h)
             if h not in transform_info.NameHashes:
-                transform_info.AddEntry(h)
+                pass
+                #transform_info.AddEntry(h)
                 #transform_info.NameHashes.append(h)
-            self.RealIndices.append(transform_info.NameHashes.index(h))
-            self.Remaps[0].append(index)
+            new_real_indices[self.RealIndices.index(real_index)] = real_index
+            #self.RealIndices.append(transform_info.NameHashes.index(h))
+            #self.RealIndices = [0, 0, 0, 0, 0, 10]
+            self.Remaps[0].append(self.RealIndices.index(real_index))
         self.FakeIndices = self.Remaps[0]
+        #self.RealIndices = new_real_indices
                 
-        
-
 class StreamInfo:
     def __init__(self):
         self.Components = []
@@ -755,15 +763,16 @@ class TransformInfo: # READ ONLY
             for n in range(self.NumTransforms):
                 self.Transforms[n].pos = self.PositionTransforms[n].pos
         else:
-            self.NumTransforms = f.uint32(self.NumTransforms)
-            f.seek(f.tell()+12)
-            self.Transforms = [t.Serialize(f) for t in self.Transforms]
-            self.PositionTransforms = [t.SerializeV2(f) for t in self.PositionTransforms]
-            self.TransformEntries = [t.SerializeTransformEntry(f) for t in self.TransformEntries]
-            self.NameHashes = [f.uint32(h) for h in self.NameHashes]
-            PrettyPrint(f"hashes: {self.NameHashes}")
-            for n in range(self.NumTransforms):
-                self.Transforms[n].pos = self.PositionTransforms[n].pos
+            pass
+            #self.NumTransforms = f.uint32(self.NumTransforms)
+            #f.seek(f.tell()+12)
+            #self.Transforms = [t.Serialize(f) for t in self.Transforms]
+            #self.PositionTransforms = [t.SerializeV2(f) for t in self.PositionTransforms]
+            #self.TransformEntries = [t.SerializeTransformEntry(f) for t in self.TransformEntries]
+            #self.NameHashes = [f.uint32(h) for h in self.NameHashes]
+            #PrettyPrint(f"hashes: {self.NameHashes}")
+            #for n in range(self.NumTransforms):
+            #    self.Transforms[n].pos = self.PositionTransforms[n].pos
             
     def AddEntry(self, name_hash):
         self.NumTransforms += 1
@@ -1443,9 +1452,10 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
         # -- || ASSIGN WEIGHTS || -- #
         created_groups = []
         available_bones = []
-        for h in transform_info.NameHashes:
+        for i, h in enumerate(transform_info.NameHashes):
             try:
-                available_bones.append(Global_BoneNames[h])
+                if i in bone_info[mesh.LodIndex].RealIndices:
+                    available_bones.append(Global_BoneNames[h])
             except KeyError:
                 available_bones.append(h)
         PrettyPrint(f"Available Bones: {available_bones}")
