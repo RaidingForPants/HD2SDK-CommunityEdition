@@ -594,7 +594,10 @@ class BoneInfo:
         new_real_indices = [0]*self.NumBones
         #self.NumBones = len(bone_names) 
         for index, bone in enumerate(bone_names):
-            h = murmur32_hash(bone.encode("utf-8"))
+            try:
+                h = int(bone)
+            except ValueError:
+                h = murmur32_hash(bone.encode("utf-8"))
             real_index = transform_info.NameHashes.index(h)
             if h not in transform_info.NameHashes:
                 pass
@@ -1263,7 +1266,10 @@ def GetMeshData(og_object, Global_TocManager):
                 if group.weight > 0.001:
                     vertex_group        = object.vertex_groups[group.group]
                     vertex_group_name   = vertex_group.name
-                    name_hash = murmur32_hash(vertex_group_name.encode("utf-8"))
+                    try:
+                        name_hash = int(vertex_group_name)
+                    except ValueError:
+                        name_hash = murmur32_hash(vertex_group_name.encode("utf-8"))
                     #
                     # CHANGE THIS TO SUPPORT THE NEW BONE NAMES
                     # HOW TO ACCESS transform_info OF STINGRAY MESH??
@@ -1457,7 +1463,7 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                 if i in bone_info[mesh.LodIndex].RealIndices:
                     available_bones.append(Global_BoneNames[h])
             except KeyError:
-                available_bones.append(h)
+                available_bones.append(str(h))
         for vertex_idx in range(len(mesh.VertexWeights)):
             weights      = mesh.VertexWeights[vertex_idx]
             index_groups = [Indices[vertex_idx] for Indices in mesh.VertexBoneIndices]
