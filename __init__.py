@@ -1474,7 +1474,7 @@ def SaveStingrayTexture(self, ID, TocData, GpuData, StreamData, LoadedData):
 #region Stingray IO
 
 def LoadStingrayBones(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
-    StingrayBonesData = StingrayBones()
+    StingrayBonesData = StingrayBones(Global_BoneNames)
     StingrayBonesData.Serialize(MemoryStream(TocData))
     return StingrayBonesData
 
@@ -1512,6 +1512,9 @@ def SaveStingrayDump(self, ID, TocData, GpuData, StreamData, LoadedData):
 def LoadStingrayMesh(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
     toc  = MemoryStream(TocData)
     gpu  = MemoryStream(GpuData)
+    bones_entry = Global_TocManager.GetEntryByLoadArchive(int(ID), int(BoneID))
+    if bones_entry and not bones_entry.IsLoaded:
+        bones_entry.Load(False, False)
     StingrayMesh = StingrayMeshFile().Serialize(toc, gpu, Global_TocManager)
     if MakeBlendObject: CreateModel(StingrayMesh.RawMeshes, str(ID), StingrayMesh.CustomizationInfo, StingrayMesh.BoneNames, StingrayMesh.TransformInfo, StingrayMesh.BoneInfoArray, Global_BoneNames)
     return StingrayMesh
