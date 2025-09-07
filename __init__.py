@@ -1759,6 +1759,9 @@ class LoadArchiveOperator(Operator, ImportHelper):
         if not self.is_patch:
             filepaths = [Global_gamepath + f.name for f in self.files]
         else:
+            if ".patch" not in self.filepath:
+                self.report({'ERROR'}, f"Selected path: {self.filepath} is not a patch file! Please make sure to select the patch files. If you selected a zip file, please extract the contents and select the patch files actual patch files.")
+                return {'CANCELLED'}
             filepaths = [self.filepath, ]
         oldLoadedLength = len(Global_TocManager.LoadedArchives)
         for filepath in filepaths:
