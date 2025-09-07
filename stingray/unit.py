@@ -1465,6 +1465,8 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                     available_bones.append(Global_BoneNames[h])
             except KeyError:
                 available_bones.append(str(h))
+            except IndexError:
+                pass
         vertex_to_material_index = [0]*len(mesh.VertexPositions)
         for mat_idx, mat in enumerate(mesh.Materials):
             for face in mesh.Indices[mat.StartIndex//3:(mat.StartIndex//3+mat.NumIndices//3)]:
