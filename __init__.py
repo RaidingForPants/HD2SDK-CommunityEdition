@@ -1663,8 +1663,12 @@ def CheckVertexGroups(self, objects):
             for group in obj.vertex_groups:
                 if "_" not in group.name:
                     incorrectGroups += 1
+                else:
+                    parts = group.name.split("_")
+                    if parts[1] is None or not parts[0].isnumeric() or not parts[1].isnumeric():
+                        incorrectGroups += 1
         if incorrectGroups > 0:
-            self.report({'ERROR'}, f"Found {incorrectGroups} Incorrect Vertex Group Name Scheming for Object: {obj.name}")
+            self.report({'ERROR'}, f"Found {incorrectGroups} Incorrect Vertex Group Name Scheming for Legacy Weight Names for Object: {obj.name}")
             return True
     return False
 
