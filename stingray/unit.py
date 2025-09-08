@@ -1259,7 +1259,6 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     
     if len(object.vertex_groups) > 0:
         for index, vertex in enumerate(mesh.vertices):
-            material_idx = vertex_to_material_index[index]
             group_idx = 0
             for group in vertex.groups:
                 # limit influences
@@ -1277,6 +1276,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                         HDGroupIndex        = int(parts[0])
                         HDBoneIndex         = int(parts[1])
                     else:
+                        material_idx = vertex_to_material_index[index]
                         try:
                             name_hash = int(vertex_group_name)
                         except ValueError:
