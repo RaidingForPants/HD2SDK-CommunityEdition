@@ -1659,9 +1659,10 @@ def CheckVertexGroups(self, objects):
         if len(obj.vertex_groups) > 0 and BoneIndex == -1:
             self.report({'ERROR'}, f"Vertex Groups Found for static mesh: {obj.name}. Please remove vertex groups.")
             return True
-        #for group in obj.vertex_groups:
-        #    if "_" not in group.name:
-        #        incorrectGroups += 1
+        if bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
+            for group in obj.vertex_groups:
+                if "_" not in group.name:
+                    incorrectGroups += 1
         if incorrectGroups > 0:
             self.report({'ERROR'}, f"Found {incorrectGroups} Incorrect Vertex Group Name Scheming for Object: {obj.name}")
             return True
