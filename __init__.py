@@ -3811,6 +3811,7 @@ class HellDivers2ToolsPanel(Panel):
         row.alignment = 'CENTER'
         global Global_addonUpToDate
         global Global_latestAddonVersion
+        global Global_gamepathIsValid
 
         if Global_addonUpToDate == None:
             row.label(text="Addon Failed to Check latest Version")
@@ -3831,7 +3832,7 @@ class HellDivers2ToolsPanel(Panel):
             icon_only=True, emboss=False, text="Settings")
         row.label(icon="SETTINGS")
         
-        if scene.Hd2ToolPanelSettings.MenuExpanded:
+        if scene.Hd2ToolPanelSettings.MenuExpanded or not Global_gamepathIsValid:
             row = mainbox.grid_flow(columns=2)
             row = mainbox.row(); row.separator(); row.label(text="Display Types"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "ShowExtras")
@@ -3882,10 +3883,9 @@ class HellDivers2ToolsPanel(Panel):
             row.operator("helldiver2.change_filepath", icon='FILEBROWSER')
             mainbox.separator()
 
-        global Global_gamepathIsValid
         if not Global_gamepathIsValid:
             row = layout.row()
-            row.label(text="Current Selected game filepath is not valid!")
+            row.label(text="Current Selected game filepath to data folder is not valid!")
             row = layout.row()
             row.label(text="Please select your game directory in the settings!")
             return
