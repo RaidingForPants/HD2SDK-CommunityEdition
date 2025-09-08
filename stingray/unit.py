@@ -1292,7 +1292,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                                 existing_names.append(Global_BoneNames[hash])
                             else:
                                 existing_names.append(hash)
-                        raise Exception(f"Vertex Group: {vertex_group_name} Hash: {name_hash} is not an existing vertex group for the model.\nExisting groups: {existing_names}")
+                        raise Exception(f"\n\nVertex Group: {vertex_group_name} is not an existing vertex group for the model.\nIf you are using legacy weight names, make sure you enable the option in the settings.\n\nExisting vertex groups: {existing_names}")
                     HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
                     #HDBoneIndex         = int(parts[1])
                     if HDGroupIndex+1 > len(boneIndices):
