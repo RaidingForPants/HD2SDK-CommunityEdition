@@ -1267,34 +1267,36 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 if group.weight > 0.001:
                     vertex_group        = object.vertex_groups[group.group]
                     vertex_group_name   = vertex_group.name
-                    try:
-                        name_hash = int(vertex_group_name)
-                    except ValueError:
-                        name_hash = murmur32_hash(vertex_group_name.encode("utf-8"))
+                    
                     #
                     # CHANGE THIS TO SUPPORT THE NEW BONE NAMES
                     # HOW TO ACCESS transform_info OF STINGRAY MESH??
-                    parts               = vertex_group_name.split("_")
-                    #HDGroupIndex        = int(parts[0])
-                    
-                    HDGroupIndex = 0
+                    if bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
+                        parts               = vertex_group_name.split("_")
+                        HDGroupIndex        = int(parts[0])
+                        HDBoneIndex         = int(parts[1])
+                    else:
+                        try:
+                            name_hash = int(vertex_group_name)
+                        except ValueError:
+                            name_hash = murmur32_hash(vertex_group_name.encode("utf-8"))
+                        HDGroupIndex = 0
+                        try:
+                            real_index = transform_info.NameHashes.index(name_hash)
+                        except ValueError:
+                            existing_names = []
+                            for hash in transform_info.NameHashes:
+                                if hash in Global_BoneNames:
+                                    existing_names.append(Global_BoneNames[hash])
+                                else:
+                                    existing_names.append(hash)
+                            raise Exception(f"\n\nVertex Group: {vertex_group_name} is not an existing vertex group for the model.\nIf you are using legacy weight names, make sure you enable the option in the settings.\n\nExisting vertex groups: {existing_names}")
+                        HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
                     # get real index from remapped index -> hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index); boneHash = transform_info.NameHashes[hashIndex]
                     # want to get remapped index from bone name
                     # hash = ...
                     # real_index = transform_info.NameHashes.index(hash)
                     # remap = bone_info[mesh.LodIndex].GetRemappedIndex(real_index)
-                    try:
-                        real_index = transform_info.NameHashes.index(name_hash)
-                    except ValueError:
-                        existing_names = []
-                        for hash in transform_info.NameHashes:
-                            if hash in Global_BoneNames:
-                                existing_names.append(Global_BoneNames[hash])
-                            else:
-                                existing_names.append(hash)
-                        raise Exception(f"\n\nVertex Group: {vertex_group_name} is not an existing vertex group for the model.\nIf you are using legacy weight names, make sure you enable the option in the settings.\n\nExisting vertex groups: {existing_names}")
-                    HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
-                    #HDBoneIndex         = int(parts[1])
                     if HDGroupIndex+1 > len(boneIndices):
                         dif = HDGroupIndex+1 - len(boneIndices)
                         boneIndices.extend([[[0,0,0,0] for n in range(len(vertices))]]*dif)
@@ -1511,8 +1513,9 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                     vertex_group_data = [vertex_idx]
                     new_object.vertex_groups[str(group_name)].add(vertex_group_data, weight_value, 'ADD')
                 group_index += 1
-        for bone in available_bones:
-            new_vertex_group = new_object.vertex_groups.new(name=str(bone))
+        if not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
+            for bone in available_bones:
+                new_vertex_group = new_object.vertex_groups.new(name=str(bone))
         # -- || ASSIGN MATERIALS || -- #
         # convert mesh to bmesh
         bm = bmesh.new()
