@@ -1,12 +1,11 @@
 from ..logger import PrettyPrint
 from ..memoryStream import MemoryStream
 
-Global_BoneNames = {}
-
 class StingrayBones:
-    def __init__(self):
+    def __init__(self, Global_BoneNames):
         self.NumNames = self.NumLODLevels = self.Unk1 = 0
         self.UnkArray1 = []; self.BoneHashes = []; self.LODLevels = []; self.Names = []
+        self.Global_BoneNames = Global_BoneNames
     def Serialize(self, f: MemoryStream):
         self.NumNames = f.uint32(self.NumNames)
         self.NumLODLevels   = f.uint32(self.NumLODLevels)
@@ -31,10 +30,9 @@ class StingrayBones:
         # add to global bone hashes
         if f.IsReading():
             PrettyPrint("Adding Bone Hashes to global list")
-            global Global_BoneNames
             if len(self.BoneHashes) == len(self.Names):
                 for idx in range(len(self.BoneHashes)):
-                    Global_BoneNames[self.BoneHashes[idx]] = self.Names[idx]
+                    self.Global_BoneNames[self.BoneHashes[idx]] = self.Names[idx]
             else:
                 PrettyPrint(f"Failed to add bone hashes as list length is misaligned. Hashes Length: {len(self.BoneHashes)} Names Length: {len(self.Names)} Hashes: {self.BoneHashes} Names: {self.Names}", "error")
         return self
