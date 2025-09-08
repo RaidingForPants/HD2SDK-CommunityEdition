@@ -1183,7 +1183,7 @@ def PrepareMesh(og_object):
 
     return object
 
-def GetMeshData(og_object, Global_TocManager):
+def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     global Global_palettepath
     object = PrepareMesh(og_object)
     bpy.context.view_layer.objects.active = object
@@ -1283,7 +1283,16 @@ def GetMeshData(og_object, Global_TocManager):
                     # hash = ...
                     # real_index = transform_info.NameHashes.index(hash)
                     # remap = bone_info[mesh.LodIndex].GetRemappedIndex(real_index)
-                    real_index = transform_info.NameHashes.index(name_hash)
+                    try:
+                        real_index = transform_info.NameHashes.index(name_hash)
+                    except ValueError:
+                        existing_names = []
+                        for hash in transform_info.NameHashes:
+                            if hash in Global_BoneNames:
+                                existing_names.append(Global_BoneNames[hash])
+                            else:
+                                existing_names.append(hash)
+                        raise Exception(f"Vertex Group: {vertex_group_name} Hash: {name_hash} is not an existing vertex group for the model.\nExisting groups: {existing_names}")
                     HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
                     #HDBoneIndex         = int(parts[1])
                     if HDGroupIndex+1 > len(boneIndices):
@@ -1333,13 +1342,13 @@ def GetMeshData(og_object, Global_TocManager):
         PrettyPrint(f"Current object: {object}")
     return NewMesh
 
-def GetObjectsMeshData(Global_TocManager):
+def GetObjectsMeshData(Global_TocManager, Global_BoneNames):
     objects = bpy.context.selected_objects
     bpy.ops.object.select_all(action='DESELECT')
     data = {}
     for object in objects:
         ID = object["Z_ObjectID"]
-        MeshData = GetMeshData(object, Global_TocManager)
+        MeshData = GetMeshData(object, Global_TocManager, Global_BoneNames)
         try:
             data[ID][MeshData.MeshInfoIndex] = MeshData
         except:

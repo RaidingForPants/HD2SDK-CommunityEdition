@@ -2421,7 +2421,8 @@ class SaveStingrayMeshOperator(Operator):
                 return {'CANCELLED'}
         except:
             self.report({'INFO'}, f"{object.name} has no HD2 Swap ID. Skipping Swap.")
-        model = GetObjectsMeshData(Global_TocManager)
+        global Global_BoneNames
+        model = GetObjectsMeshData(Global_TocManager, Global_BoneNames)
         BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
         Entry = Global_TocManager.GetEntryByLoadArchive(int(ID), MeshID)
         if Entry is None:
@@ -2521,7 +2522,8 @@ class BatchSaveStingrayMeshOperator(Operator):
                 objects_by_id[obj["Z_ObjectID"]][obj["MeshInfoIndex"]] = obj
             except KeyError:
                 objects_by_id[obj["Z_ObjectID"]] = {obj["MeshInfoIndex"]: obj}
-        MeshData = GetObjectsMeshData(Global_TocManager)
+        global Global_BoneNames
+        MeshData = GetObjectsMeshData(Global_TocManager, Global_BoneNames)
         BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
         num_meshes = len(objects)
         for IDitem in IDs:
