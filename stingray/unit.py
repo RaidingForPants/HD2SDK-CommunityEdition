@@ -1285,12 +1285,15 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                             real_index = transform_info.NameHashes.index(name_hash)
                         except ValueError:
                             existing_names = []
-                            for hash in transform_info.NameHashes:
-                                if hash in Global_BoneNames:
-                                    existing_names.append(Global_BoneNames[hash])
-                                else:
-                                    existing_names.append(hash)
-                            raise Exception(f"\n\nVertex Group: {vertex_group_name} is not an existing vertex group for the model.\nIf you are using legacy weight names, make sure you enable the option in the settings.\n\nExisting vertex groups: {existing_names}")
+                            for i, h in enumerate(transform_info.NameHashes):
+                                try:
+                                    if i in bone_info[lod_index].RealIndices:
+                                        existing_names.append(Global_BoneNames[h])
+                                except KeyError:
+                                    existing_names.append(str(h))
+                                except IndexError:
+                                    pass
+                            raise Exception(f"\n\nVertex Group: {vertex_group_name} is not a valid vertex group for the model.\nIf you are using legacy weight names, make sure you enable the option in the settings.\n\nValid vertex group names: {existing_names}")
                         HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
                     # get real index from remapped index -> hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index); boneHash = transform_info.NameHashes[hashIndex]
                     # want to get remapped index from bone name
