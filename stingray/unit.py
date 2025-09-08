@@ -1245,16 +1245,17 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     transform_info = stingray_mesh_entry.TransformInfo
     lod_index = og_object["BoneInfoIndex"]
     bone_names = []
-    if len(object.vertex_groups) > 0:
-        for g in object.vertex_groups:
-            bone_names.append(g.name)
-        remap_info = [bone_names for _ in range(len(object.material_slots))]
-        bone_info[lod_index].SetRemap(remap_info, transform_info)
+    if not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
+        if len(object.vertex_groups) > 0:
+            for g in object.vertex_groups:
+                bone_names.append(g.name)
+            remap_info = [bone_names for _ in range(len(object.material_slots))]
+            bone_info[lod_index].SetRemap(remap_info, transform_info)
         
-    vertex_to_material_index = [-1 for _ in range(len(mesh.vertices))]
-    for polygon in mesh.polygons:
-        for vertex in polygon.vertices:
-            vertex_to_material_index[vertex] = polygon.material_index
+        vertex_to_material_index = [-1 for _ in range(len(mesh.vertices))]
+        for polygon in mesh.polygons:
+            for vertex in polygon.vertices:
+                vertex_to_material_index[vertex] = polygon.material_index
     
     if len(object.vertex_groups) > 0:
         for index, vertex in enumerate(mesh.vertices):
