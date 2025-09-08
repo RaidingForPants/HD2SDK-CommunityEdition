@@ -1763,6 +1763,9 @@ class LoadArchiveOperator(Operator, ImportHelper):
         if not self.is_patch:
             filepaths = [Global_gamepath + f.name for f in self.files]
         else:
+            if ".patch" not in self.filepath:
+                self.report({'ERROR'}, f"Selected path: {self.filepath} is not a patch file! Please make sure to select the patch files. If you selected a zip file, please extract the contents and select the patch files actual patch files.")
+                return {'CANCELLED'}
             filepaths = [self.filepath, ]
         oldLoadedLength = len(Global_TocManager.LoadedArchives)
         for filepath in filepaths:
@@ -2419,7 +2422,8 @@ class SaveStingrayMeshOperator(Operator):
                 return {'CANCELLED'}
         except:
             self.report({'INFO'}, f"{object.name} has no HD2 Swap ID. Skipping Swap.")
-        model = GetObjectsMeshData(Global_TocManager)
+        global Global_BoneNames
+        model = GetObjectsMeshData(Global_TocManager, Global_BoneNames)
         BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
         Entry = Global_TocManager.GetEntryByLoadArchive(int(ID), MeshID)
         if Entry is None:
@@ -2519,7 +2523,8 @@ class BatchSaveStingrayMeshOperator(Operator):
                 objects_by_id[obj["Z_ObjectID"]][obj["MeshInfoIndex"]] = obj
             except KeyError:
                 objects_by_id[obj["Z_ObjectID"]] = {obj["MeshInfoIndex"]: obj}
-        MeshData = GetObjectsMeshData(Global_TocManager)
+        global Global_BoneNames
+        MeshData = GetObjectsMeshData(Global_TocManager, Global_BoneNames)
         BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
         num_meshes = len(objects)
         for IDitem in IDs:
@@ -3812,6 +3817,7 @@ class HellDivers2ToolsPanel(Panel):
         row.alignment = 'CENTER'
         global Global_addonUpToDate
         global Global_latestAddonVersion
+        global Global_gamepathIsValid
 
         if Global_addonUpToDate == None:
             row.label(text="Addon Failed to Check latest Version")
@@ -3832,7 +3838,7 @@ class HellDivers2ToolsPanel(Panel):
             icon_only=True, emboss=False, text="Settings")
         row.label(icon="SETTINGS")
         
-        if scene.Hd2ToolPanelSettings.MenuExpanded:
+        if scene.Hd2ToolPanelSettings.MenuExpanded or not Global_gamepathIsValid:
             row = mainbox.grid_flow(columns=2)
             row = mainbox.row(); row.separator(); row.label(text="Display Types"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "ShowExtras")
@@ -3883,10 +3889,9 @@ class HellDivers2ToolsPanel(Panel):
             row.operator("helldiver2.change_filepath", icon='FILEBROWSER')
             mainbox.separator()
 
-        global Global_gamepathIsValid
         if not Global_gamepathIsValid:
             row = layout.row()
-            row.label(text="Current Selected game filepath is not valid!")
+            row.label(text="Current Selected game filepath to data folder is not valid!")
             row = layout.row()
             row.label(text="Please select your game directory in the settings!")
             return
