@@ -3081,6 +3081,7 @@ class TransferBonesOperator(Operator):
             lod_index = o['BoneInfoIndex']
             stingray_mesh_entry = Global_TocManager.GetEntryByLoadArchive(int(o["Z_ObjectID"]), int(MeshID))
             if stingray_mesh_entry:
+                if not stingray_mesh_entry.IsLoaded: stingray_mesh_entry.Load(True, False)
                 stingray_mesh_entry = stingray_mesh_entry.LoadedData
             else:
                 self.report({'ERROR'}, f"Unable to get stingray mesh for mesh with id {entry_id}")
