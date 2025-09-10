@@ -2530,7 +2530,7 @@ class BatchSaveStingrayMeshOperator(Operator):
         for IDitem in IDs:
             ID = IDitem[0]
             SwapID = IDitem[1]
-            Entry = Global_TocManager.GetEntryByLoadArchive(int(ID), MeshID)
+            Entry = Global_TocManager.GetEntry(int(ID), MeshID, IgnorePatch = False, SearchAll=True)
             if Entry is None:
                 self.report({'ERROR'}, f"Archive for entry being saved is not loaded. Could not find custom property object at ID: {ID}")
                 errors = True
@@ -2547,8 +2547,10 @@ class BatchSaveStingrayMeshOperator(Operator):
                     errors = True
                     num_meshes -= 1
             if Global_TocManager.IsInPatch(Entry):
-                Global_TocManager.RemoveEntryFromPatch(int(ID), MeshID)
-            Entry = Global_TocManager.AddEntryToPatch(int(ID), MeshID)
+                #Global_TocManager.RemoveEntryFromPatch(int(ID), MeshID)
+                Entry = Global_TocManager.ActivePatch.GetEntry(int(ID), MeshID)
+            else:
+                Entry = Global_TocManager.AddEntryToPatch(int(ID), MeshID)
             wasSaved = Entry.Save(BlenderOpts=BlenderOpts)
             if wasSaved:
                 if SwapID != "" and SwapID.isnumeric():
@@ -3024,6 +3026,96 @@ class SetMaterialTexture(Operator, ImportHelper):
             if area.type == "VIEW_3D": area.tag_redraw()
         
         return{'FINISHED'}
+
+#endregion
+
+#region Operators : BonesID
+
+class TransferBonesOperator(Operator):
+    bl_label  = "Transfer Bones"
+    bl_idname = "helldiver2.transfer_bones"
+    bl_description = "Transfers bones into main object"
+    
+    object_id: StringProperty()
+    def execute(self, context):
+        obj = context.active_object
+        objs = context.selected_objects
+        if len(objs) == 1:
+            self.report({'WARNING'}, "Select more than one object!")
+            return {'CANCELLED'}
+        #check if has HD2 properties
+        try:
+            _ = obj['Z_ObjectID']
+            for o in objs:
+                _ = o['Z_ObjectID']
+        except:
+            self.report({'ERROR'}, "One or more selected objects do not have HD2 Properties!")
+            return {'CANCELLED'}
+        active_entry_id = obj['Z_ObjectID']
+        lod_index = obj["BoneInfoIndex"]
+        active_stingray_mesh_entry = Global_TocManager.GetEntryByLoadArchive(int(obj["Z_ObjectID"]), int(MeshID))
+        if active_stingray_mesh_entry:
+            if not active_stingray_mesh_entry.IsLoaded: active_stingray_mesh_entry.Load(True, False)
+            if Global_TocManager.IsInPatch(active_stingray_mesh_entry):
+                 Global_TocManager.RemoveEntryFromPatch(int(active_entry_id), MeshID)
+            try:
+                active_stingray_mesh_entry = Global_TocManager.AddEntryToPatch(int(active_entry_id), MeshID)
+                print(active_stingray_mesh_entry)
+            except:
+                self.report({'ERROR'}, "No patch exists, please create on first")
+                return {'CANCELLED'}
+            active_stingray_mesh_entry = Global_TocManager.ActivePatch.GetEntry(int(active_entry_id), MeshID)
+            active_stingray_mesh = active_stingray_mesh_entry.LoadedData
+        else:
+            self.report({'ERROR'}, "Unable to get stingray mesh for active object")
+            return {'CANCELLED'}
+        active_transform_info = active_stingray_mesh.TransformInfo
+        if len(active_stingray_mesh.BoneInfoArray) == 0:
+            self.report({'ERROR'}, "Cannot transfer bones to a static mesh")
+            return {'CANCELLED'}
+        active_bone_info = active_stingray_mesh.BoneInfoArray[lod_index]
+        print(active_transform_info)
+        print(active_bone_info)
+        for o in objs:
+            entry_id = o['Z_ObjectID']
+            lod_index = o['BoneInfoIndex']
+            stingray_mesh_entry = Global_TocManager.GetEntryByLoadArchive(int(o["Z_ObjectID"]), int(MeshID))
+            if stingray_mesh_entry:
+                stingray_mesh_entry = stingray_mesh_entry.LoadedData
+            else:
+                self.report({'ERROR'}, f"Unable to get stingray mesh for mesh with id {entry_id}")
+                return {'CANCELLED'}
+            transform_info = stingray_mesh_entry.TransformInfo
+            if len(stingray_mesh_entry.BoneInfoArray) == 0:
+                PrettyPrint("Ignoring selected static mesh for transferring bones")
+            bone_info = stingray_mesh_entry.BoneInfoArray[lod_index]
+            old_name_hashes = list(active_transform_info.NameHashes)
+            active_transform_info.AppendTransformInfo(transform_info) # need to change indices of bone parents to match
+            for i, index in enumerate(bone_info.RealIndices):
+                name_hash = transform_info.NameHashes[index]
+                if name_hash not in old_name_hashes:
+                    # get bone parent
+                    bone_parent = transform_info.TransformEntries[index].ParentBone
+                    # get name hash of bone parent
+                    parent_name_hash = transform_info.NameHashes[bone_parent]
+                    # get index of parent name hash
+                    remapped_bone_parent_index = active_transform_info.NameHashes.index(parent_name_hash)
+                    hash_index = active_transform_info.NameHashes.index(name_hash)
+                    active_transform_info.TransformEntries[hash_index].ParentBone = remapped_bone_parent_index
+                    active_bone_info.RealIndices.append(hash_index)
+                    active_bone_info.Bones.append(bone_info.Bones[i])
+                    active_bone_info.NumBones += 1
+                    # add bone to Blender
+                    try:
+                        group_name = str(Global_BoneNames[name_hash])
+                    except KeyError:
+                        group_name = str(name_hash)
+                    if group_name not in [group.name for group in context.active_object.vertex_groups]:
+                        context.active_object.vertex_groups.new(name=group_name)
+            # also do BoneInfo
+        active_stingray_mesh_entry.Save(BlenderOpts=context.scene.Hd2ToolPanelSettings.get_settings_dict())
+            
+        return {'FINISHED'}
 
 #endregion
 
@@ -3586,6 +3678,7 @@ def CustomPropertyContext(self, context):
     layout.separator()
     layout.operator("helldiver2.archive_animation_save", icon='ARMATURE_DATA')
     layout.operator("helldiver2.archive_mesh_batchsave", icon= 'FILE_BLEND')
+    layout.operator("helldiver2.transfer_bones", icon="BONE_DATA")
 
 class CopyArchiveIDOperator(Operator):
     bl_label = "Copy Archive ID"
@@ -4270,6 +4363,7 @@ class WM_MT_button_context(Menu):
 #endregion
 
 classes = (
+    TransferBonesOperator,
     LoadArchiveOperator,
     PatchArchiveOperator,
     ImportStingrayMeshOperator,

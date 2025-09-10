@@ -4,6 +4,7 @@ import mathutils
 import bpy
 import random
 import bmesh
+import copy
 
 from ..memoryStream import MemoryStream
 from ..math import MakeTenBitUnsigned, TenBitUnsigned
@@ -27,6 +28,7 @@ class StingrayMeshFile:
         self.CustomizationInfo = CustomizationInfo()
         self.TransformInfo     = TransformInfo()
         self.BoneNames = None
+        self.UnreversedData1_2 = bytearray()
 
     # -- Serialize Mesh -- #
     def Serialize(self, f: MemoryStream, gpu, Global_TocManager, redo_offsets = False, BlenderOpts=None):
@@ -120,19 +122,43 @@ class StingrayMeshFile:
                 self.BoneHashes = Entry.LoadedData.BoneHashes
 
         # Get Customization data: READ ONLY
+        # need to update customization offset
         if f.IsReading() and self.CustomizationInfoOffset > 0:
             loc = f.tell(); f.seek(self.CustomizationInfoOffset)
             self.CustomizationInfo.Serialize(f)
             f.seek(loc)
         # Get Transform data: READ ONLY
-        if f.IsReading() and self.TransformInfoOffset > 0:
+        #if f.IsReading() and self.TransformInfoOffset > 0:
+        if self.TransformInfoOffset > 0: # need to update other offsets?
             loc = f.tell(); f.seek(self.TransformInfoOffset)
             self.TransformInfo.Serialize(f)
+            UnreversedData1_2Start = f.tell()
+            self.CustomizationInfoOffset = UnreversedData1_2Start
+            if f.IsReading():
+                if self.BoneInfoOffset > 0:
+                    UnreversedData1_2Size = self.BoneInfoOffset-f.tell()
+                elif self.StreamInfoOffset > 0:
+                    UnreversedData1_2Size = self.StreamInfoOffset-f.tell()
+            else:
+                UnreversedData1_2Size = len(self.UnreversedData1_2)
             f.seek(loc)
-
-        # Unreversed data
+            if f.IsWriting():
+                f.seek(self.TransformInfoOffset)
+                print(self.TransformInfo.NumTransforms)
+                f.SetReadMode()
+                print(f.uint32(self.TransformInfo.NumTransforms))
+                f.SetWriteMode()
+                f.seek(loc)
+                
+        print("unreversed start")
+        print(loc)
+        print(len(self.UnReversedData1))
+        # Unreversed data before transform info offset (may include customization info)
+        # Unreversed data intersects other data we want to leave alone!
         if f.IsReading():
-            if self.BoneInfoOffset > 0:
+            if self.TransformInfoOffset > 0:
+                UnreversedData1Size = self.TransformInfoOffset - f.tell()
+            elif self.BoneInfoOffset > 0:
                 UnreversedData1Size = self.BoneInfoOffset-f.tell()
             elif self.StreamInfoOffset > 0:
                 UnreversedData1Size = self.StreamInfoOffset-f.tell()
@@ -141,6 +167,14 @@ class StingrayMeshFile:
             self.UnReversedData1    = f.bytes(self.UnReversedData1, UnreversedData1Size)
         except:
             PrettyPrint(f"Could not set UnReversedData1", "ERROR")
+            
+        print("Unreversed 1 done")
+            
+        if self.TransformInfoOffset > 0:
+            f.seek(UnreversedData1_2Start)
+            self.UnreversedData1_2 = f.bytes(self.UnreversedData1_2, UnreversedData1_2Size)
+            
+        print("Unreversed1.2 done")
 
         # Bone Info
         if f.IsReading(): f.seek(self.BoneInfoOffset)
@@ -242,9 +276,14 @@ class StingrayMeshFile:
         if f.IsReading(): UnreversedData2Size = self.EndingOffset-f.tell()
         else: UnreversedData2Size = len(self.UnReversedData2)
         self.UnReversedData2    = f.bytes(self.UnReversedData2, UnreversedData2Size)
+        print("Unreversed2 done")
         if f.IsWriting(): self.EndingOffset = f.tell()
         self.EndingBytes        = f.uint64(self.NumMeshes)
         if redo_offsets:
+            f.seek(self.TransformInfoOffset)
+            print(self.TransformInfo.NumTransforms)
+            f.SetReadMode()
+            print(f.uint32(self.TransformInfo.NumTransforms))
             return self
 
         # Serialize Data
@@ -533,10 +572,7 @@ class BoneInfo:
         if f.IsReading(): f.seek(RelPosition+self.MatrixOffset)
         else            : self.MatrixOffset = f.tell()-RelPosition
         # save the right bone
-        for i, bone in enumerate(self.Bones):
-            if i == self.NumBones:
-                break
-            bone.Serialize(f)
+        self.Bones = [bone.Serialize(f) for bone in self.Bones]
         #self.Bones = [bone.Serialize(f) for bone in self.Bones]
         # get real indices
         if f.IsReading(): f.seek(RelPosition+self.RealIndicesOffset)
@@ -597,6 +633,9 @@ class BoneInfo:
                     h = murmur32_hash(bone.encode("utf-8"))
                 try:
                     real_index = transform_info.NameHashes.index(h)
+                    #if real_index not in self.RealIndices:
+                    #    self.RealIndices.append(real_index)
+                    #    self.NumBones += 1
                     r.append(self.RealIndices.index(real_index))
                 except:
                     print(bone)
@@ -705,6 +744,16 @@ class StingrayMatrix4x4: # Matrix4x4: https://help.autodesk.com/cloudhelp/ENU/St
     def Serialize(self, f: MemoryStream):
         self.v = [f.float32(value) for value in self.v]
         return self
+    def ToLocalTransform(self):
+        l = StingrayLocalTransform()
+        l.pos = [self.v[12], self.v[13], self.v[14]]
+        l.rot = StingrayMatrix3x3()
+        l.rot.x = [self.v[0], self.v[1], self.v[2]]
+        l.rot.y = [self.v[4], self.v[5], self.v[6]]
+        l.rot.z = [self.v[8], self.v[9], self.v[10]]
+        # for now just assume scale = 1
+        l.scale = [1, 1, 1]
+        return l
 
 class StingrayMatrix3x3: # Matrix3x3: https://help.autodesk.com/cloudhelp/ENU/Stingray-SDK-Help/engine_c/plugin__api__types_8h.html#line_84
     def __init__(self):
@@ -713,8 +762,8 @@ class StingrayMatrix3x3: # Matrix3x3: https://help.autodesk.com/cloudhelp/ENU/St
         self.z = [0,0,0]
     def Serialize(self, f: MemoryStream):
         self.x = f.vec3_float(self.x)
-        self.y = f.vec3_float(self.x)
-        self.z = f.vec3_float(self.x)
+        self.y = f.vec3_float(self.y)
+        self.z = f.vec3_float(self.z)
         return self
     
 class StingrayLocalTransform: # Stingray Local Transform: https://help.autodesk.com/cloudhelp/ENU/Stingray-SDK-Help/engine_c/plugin__api__types_8h.html#line_100
@@ -740,12 +789,29 @@ class StingrayLocalTransform: # Stingray Local Transform: https://help.autodesk.
         self.Incriment = f.uint16(self.Incriment)
         self.ParentBone = f.uint16(self.ParentBone)
         return self
+        
+    def ToMatrix4x4(self):
+        m = StingrayMatrix4x4()
+        m.v[12] = self.pos[0]
+        m.v[13] = self.pos[1]
+        m.v[14] = self.pos[2]
+        m.v[0] = self.rot.x[0]
+        m.v[1] = self.rot.x[1]
+        m.v[2] = self.rot.x[2]
+        m.v[4] = self.rot.y[0]
+        m.v[5] = self.rot.y[1]
+        m.v[6] = self.rot.y[2]
+        m.v[8] = self.rot.z[0]
+        m.v[9] = self.rot.z[1]
+        m.v[10] = self.rot.z[2]
+        m.v[15] = 1
+        return m
 
 class TransformInfo: # READ ONLY
     def __init__(self):
         self.NumTransforms = 0
         self.Transforms = []
-        self.PositionTransforms = []
+        self.MatrixTransforms = []
         self.TransformEntries = []
         self.NameHashes = []
     def Serialize(self, f: MemoryStream):
@@ -753,30 +819,31 @@ class TransformInfo: # READ ONLY
             self.NumTransforms = f.uint32(self.NumTransforms)
             f.seek(f.tell()+12)
             self.Transforms = [StingrayLocalTransform().Serialize(f) for n in range(self.NumTransforms)]
-            self.PositionTransforms = [StingrayLocalTransform().SerializeV2(f) for n in range(self.NumTransforms)]
+            self.MatrixTransforms = [StingrayMatrix4x4().Serialize(f) for n in range(self.NumTransforms)]
             self.TransformEntries = [StingrayLocalTransform().SerializeTransformEntry(f) for n in range(self.NumTransforms)]
             self.NameHashes = [f.uint32(n) for n in range(self.NumTransforms)]
             PrettyPrint(f"hashes: {self.NameHashes}")
-            for n in range(self.NumTransforms):
-                self.Transforms[n].pos = self.PositionTransforms[n].pos
-        else:
-            pass
-            #self.NumTransforms = f.uint32(self.NumTransforms)
-            #f.seek(f.tell()+12)
-            #self.Transforms = [t.Serialize(f) for t in self.Transforms]
-            #self.PositionTransforms = [t.SerializeV2(f) for t in self.PositionTransforms]
-            #self.TransformEntries = [t.SerializeTransformEntry(f) for t in self.TransformEntries]
-            #self.NameHashes = [f.uint32(h) for h in self.NameHashes]
-            #PrettyPrint(f"hashes: {self.NameHashes}")
             #for n in range(self.NumTransforms):
             #    self.Transforms[n].pos = self.PositionTransforms[n].pos
-            
-    def AddEntry(self, name_hash):
-        self.NumTransforms += 1
-        self.Transforms.append(StingrayLocalTransform())
-        self.PositionTransforms.append(StingrayLocalTransform())
-        self.TransformEntries.append(StingrayLocalTransform())
-        self.NameHashes.append(name_hash)
+        else:
+            self.NumTransforms = f.uint32(self.NumTransforms)
+            f.seek(f.tell()+12)
+            self.Transforms = [t.Serialize(f) for t in self.Transforms]
+            self.MatrixTransforms = [t.Serialize(f) for t in self.MatrixTransforms]
+            self.TransformEntries = [t.SerializeTransformEntry(f) for t in self.TransformEntries]
+            self.NameHashes = [f.uint32(h) for h in self.NameHashes]
+            PrettyPrint(f"hashes: {self.NameHashes}")
+            #for n in range(self.NumTransforms):
+            #    self.Transforms[n].pos = self.PositionTransforms[n].pos
+        
+    def AppendTransformInfo(self, transform_info):
+        for index, name_hash in enumerate(transform_info.NameHashes):
+            if name_hash not in self.NameHashes:
+                self.NameHashes.append(name_hash)
+                self.NumTransforms += 1
+                self.Transforms.append(copy.deepcopy(transform_info.Transforms[index]))
+                self.MatrixTransforms.append(copy.deepcopy(transform_info.MatrixTransforms[index]))
+                self.TransformEntries.append(copy.deepcopy(transform_info.TransformEntries[index]))
 
 class CustomizationInfo: # READ ONLY
     def __init__(self):
@@ -1240,9 +1307,17 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     # get weights
     vert_idx = 0
     numInfluences = 4
-    stingray_mesh_entry = Global_TocManager.GetEntry(int(og_object["Z_ObjectID"]), int(MeshID), IgnorePatch=True).LoadedData
+    stingray_mesh_entry = Global_TocManager.GetEntry(int(og_object["Z_ObjectID"]), int(MeshID), SearchAll=True, IgnorePatch=False)
+    print(stingray_mesh_entry)
+    if not stingray_mesh_entry.IsLoaded:
+        stingray_mesh_entry.Load(True, False)
+    print(stingray_mesh_entry)
+    stingray_mesh_entry = stingray_mesh_entry.LoadedData
+    print(stingray_mesh_entry)
     bone_info = stingray_mesh_entry.BoneInfoArray
+    print(bone_info)
     transform_info = stingray_mesh_entry.TransformInfo
+    print(transform_info)
     lod_index = og_object["BoneInfoIndex"]
     bone_names = []
     if not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
@@ -1286,15 +1361,15 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                             real_index = transform_info.NameHashes.index(name_hash)
                         except ValueError:
                             existing_names = []
-                            for i, h in enumerate(transform_info.NameHashes):
+                            for i, hash in enumerate(transform_info.NameHashes):
                                 try:
                                     if i in bone_info[lod_index].RealIndices:
-                                        existing_names.append(Global_BoneNames[h])
+                                        existing_names.append(Global_BoneNames[hash])
                                 except KeyError:
-                                    existing_names.append(str(h))
+                                    existing_names.append(str(hash))
                                 except IndexError:
                                     pass
-                            raise Exception(f"\n\nVertex Group: {vertex_group_name} is not a valid vertex group for the model.\nIf you are using legacy weight names, make sure you enable the option in the settings.\n\nValid vertex group names: {existing_names}")
+                            raise Exception(f"\n\nVertex Group: {vertex_group_name} is not an existing vertex group for the model.\nIf you are using legacy weight names, make sure you enable the option in the settings.\n\nExisting vertex groups: {existing_names}")
                         HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
                     # get real index from remapped index -> hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index); boneHash = transform_info.NameHashes[hashIndex]
                     # want to get remapped index from bone name
