@@ -585,7 +585,7 @@ class BoneInfo:
         self.NumRemaps = len(remap_info)
         self.RemapCounts = [len(bone_names) for bone_names in remap_info]
         self.Remaps = []
-        self.RemapOffsets = [self.RemapOffsets[0]]
+        self.RemapOffsets = [8*self.NumRemaps+4]
         for i in range(1, self.NumRemaps):
             self.RemapOffsets.append(self.RemapOffsets[i-1]+4*self.RemapCounts[i])
         for bone_names in remap_info:
