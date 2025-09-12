@@ -1069,10 +1069,14 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
     if self.MaterialTemplate != None:
         texturesFilepaths = GenerateMaterialTextures(self)
     mat = LoadedData
-    index = 0
     for TexIdx in range(len(mat.TexIDs)):
+        if not bpy.context.scene.Hd2ToolPanelSettings.SaveTexturesWithMaterial:
+            continue
         oldTexID = mat.TexIDs[TexIdx]
-        if mat.DEV_DDSPaths[TexIdx] != None:
+        Entry = Global_TocManager.GetEntry(int(oldTexID), TexID, True)
+        EntryInPatch = False
+        if Entry: EntryInPatch = Global_TocManager.IsInPatch(Entry)
+        if mat.DEV_DDSPaths[TexIdx] != None and not EntryInPatch:
             # get texture data
             StingrayTex = StingrayTexture()
             with open(mat.DEV_DDSPaths[TexIdx], 'r+b') as f:
@@ -1083,34 +1087,47 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
             StingrayTex.Serialize(Toc, Gpu, Stream)
             # add texture entry to archive
             Entry = TocEntry()
-            Entry.FileID = RandomHash16()
+
+            TextureID = oldTexID
+            if bpy.context.scene.Hd2ToolPanelSettings.GenerateRandomTextureIDs:
+                TextureID = RandomHash16()
+
+            Entry.FileID = TextureID
             Entry.TypeID = TexID
             Entry.IsCreated = True
             Entry.SetData(Toc.Data, Gpu.Data, Stream.Data, False)
             Global_TocManager.AddNewEntryToPatch(Entry)
-            mat.TexIDs[TexIdx] = Entry.FileID
-        else:
-            Global_TocManager.Load(int(mat.TexIDs[TexIdx]), TexID, False, True)
-            Entry = Global_TocManager.GetEntry(int(mat.TexIDs[TexIdx]), TexID, True)
+            mat.TexIDs[TexIdx] = TextureID
+        elif not EntryInPatch:
+            Global_TocManager.Load(int(oldTexID), TexID, False, True)
+            Entry = Global_TocManager.GetEntry(int(oldTexID), TexID, True)
             if Entry != None:
                 Entry = deepcopy(Entry)
-                Entry.FileID = RandomHash16()
+
+                TextureID = oldTexID
+                if bpy.context.scene.Hd2ToolPanelSettings.GenerateRandomTextureIDs:
+                    TextureID = RandomHash16()
+
+                Entry.FileID = TextureID
                 Entry.IsCreated = True
                 Global_TocManager.AddNewEntryToPatch(Entry)
-                mat.TexIDs[TexIdx] = Entry.FileID
+                mat.TexIDs[TexIdx] = TextureID
+                
         if self.MaterialTemplate != None:
-            path = texturesFilepaths[index]
+            path = texturesFilepaths[TexIdx]
             if not os.path.exists(path):
                 raise Exception(f"Could not find file at path: {path}")
             if not Entry:
-                raise Exception(f"Could not find or generate texture entry ID: {int(mat.TexIDs[TexIdx])}")
+                PrettyPrint(f"Failed to generate a texture: {oldTexID} for material: {ID}. This may be due to renaming texture entries and can be intended.", "warn")
+                continue
+                # raise Exception(f"Could not find or generate texture entry ID: {int(mat.TexIDs[TexIdx])}")
             
             if path.endswith(".dds"):
                 SaveImageDDS(path, Entry.FileID)
             else:
                 SaveImagePNG(path, Entry.FileID)
-        Global_TocManager.RemoveEntryFromPatch(oldTexID, TexID)
-        index += 1
+        if bpy.context.scene.Hd2ToolPanelSettings.GenerateRandomTextureIDs:
+            Global_TocManager.RemoveEntryFromPatch(oldTexID, TexID)
     f = MemoryStream(IOMode="write")
     LoadedData.Serialize(f)
     return [f.Data, b"", b""]
@@ -2052,6 +2069,10 @@ class MaterialTextureEntryOperator(Operator):
 
     object_id: StringProperty()
     object_typeid: StringProperty()
+
+    texture_index: StringProperty()
+    material_id: StringProperty()
+
     def execute(self, context):
         return{'FINISHED'}
 
@@ -2231,12 +2252,20 @@ class RenamePatchEntryOperator(Operator):
 
     object_id: StringProperty()
     object_typeid: StringProperty()
+
+    material_id: StringProperty(default="")
+    texture_index: StringProperty(default="")
     def execute(self, context):
         Entry = Global_TocManager.GetPatchEntry_B(int(self.object_id), int(self.object_typeid))
-        if Entry == None:
-            raise Exception("Entry does not exist in patch (cannot rename non patch entries)")
+        if Entry == None and self.material_id == "":
+            raise Exception(f"Entry does not exist in patch (cannot rename non patch entries) ID: {self.object_id} TypeID: {self.object_typeid}")
         if Entry != None and self.NewFileID != "":
             Entry.FileID = int(self.NewFileID)
+
+        # Are we renaming via a texture entry in a material?
+        if self.material_id != "" and self.texture_index != "":
+            MaterialEntry = Global_TocManager.GetPatchEntry_B(int(self.material_id), int(MaterialID))
+            MaterialEntry.LoadedData.TexIDs[int(self.texture_index)] = int(self.NewFileID)
 
         # Redraw
         for area in context.screen.areas:
@@ -3713,6 +3742,9 @@ class Hd2ToolPanelSettings(PropertyGroup):
     PatchBaseArchiveOnly  : BoolProperty(name="Patch Base Archive Only", description="When enabled, it will allow patched to only be created if the base archive is selected. This is helpful for new users.", default = True)
     LegacyWeightNames     : BoolProperty(name="Legacy Weight Names", description="Brings back the old naming system for vertex groups using the X_Y schema", default = False)
     
+    SaveTexturesWithMaterial: BoolProperty(name="Save Textures with Material", description="Save a material\'s referenced textures when said material is saved. This will not give new random IDs each time the material is saved", default = True)
+    GenerateRandomTextureIDs: BoolProperty(name="Generate Random Texture IDs", description="Give a material\'s referenced textures new random IDs when said material is saved", default = True)
+
     def get_settings_dict(self):
         dict = {}
         dict["MenuExpanded"] = self.MenuExpanded
@@ -3740,7 +3772,10 @@ class HellDivers2ToolsPanel(Panel):
                     label = filepath.name if ddsPath != None else str(t)
                     if Entry.MaterialTemplate != None:
                         label = TextureTypeLookup[Entry.MaterialTemplate][i] + ": " + label
-                    row.operator("helldiver2.material_texture_entry", icon='FILE_IMAGE', text=label, emboss=False).object_id = str(t)
+                    material_texture_entry = row.operator("helldiver2.material_texture_entry", icon='FILE_IMAGE', text=label, emboss=False)
+                    material_texture_entry.object_id = str(t)
+                    material_texture_entry.texture_index = str(i)
+                    material_texture_entry.material_id = str(Entry.FileID)
                     # props = row.operator("helldiver2.material_settex", icon='FILEBROWSER', text="")
                     # props.object_id = str(Entry.FileID)
                     # props.tex_idx = i
@@ -3860,6 +3895,8 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "Force1Group")
             row.prop(scene.Hd2ToolPanelSettings, "AutoLods")
             row.prop(scene.Hd2ToolPanelSettings, "SaveBonePositions")
+            row.prop(scene.Hd2ToolPanelSettings, "SaveTexturesWithMaterial")
+            row.prop(scene.Hd2ToolPanelSettings, "GenerateRandomTextureIDs")
             row = mainbox.row(); row.separator(); row.label(text="Other Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "SaveNonSDKMaterials")
             row.prop(scene.Hd2ToolPanelSettings, "SaveUnsavedOnWrite")
@@ -4249,14 +4286,20 @@ class WM_MT_button_context(Menu):
         if SingleEntry:
             row.operator("helldiver2.archive_setfriendlyname", icon='WORDWRAP_ON', text="Set Friendly Name").object_id = str(Entry.FileID)
             
-    def draw_material_editor_context_buttons(self, layout, FileID):
+    def draw_material_editor_context_buttons(self, layout, FileID, MaterialID, TextureIndex):
         row = layout
         row.separator()
         row.label(text=Global_SectionHeader)
         row.separator()
         row.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Entry ID").text = str(FileID)
         row.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Entry Hex ID").text = str(hex(int(FileID)))
-    
+        row.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Type ID").text  = str(TexID)
+        props = row.operator("helldiver2.archive_entryrename", icon='TEXT', text="Rename")
+        props.object_id     = str(FileID)
+        props.object_typeid = str(TexID)
+        props.material_id = str(MaterialID)
+        props.texture_index = str(TextureIndex)
+
     def draw(self, context):
         value = getattr(context, "button_operator", None)
         menuName = type(value).__name__
@@ -4268,7 +4311,9 @@ class WM_MT_button_context(Menu):
         elif menuName == "HELLDIVER2_OT_material_texture_entry":
             layout = self.layout
             FileID = getattr(value, "object_id")
-            self.draw_material_editor_context_buttons(layout, FileID)
+            MaterialID = getattr(value, "material_id")
+            TextureIndex = getattr(value, "texture_index")
+            self.draw_material_editor_context_buttons(layout, FileID, MaterialID, TextureIndex)
             
 
 #endregion
