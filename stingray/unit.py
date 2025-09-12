@@ -8,7 +8,7 @@ import bmesh
 from ..memoryStream import MemoryStream
 from ..math import MakeTenBitUnsigned, TenBitUnsigned
 from ..logger import PrettyPrint
-from ..cpphelper import Hash32, LoadNormalPalette, NormalsFromPalette
+from ..cpphelper import LoadNormalPalette, NormalsFromPalette
 from ..hashlists.hash import murmur32_hash
 
 from ..constants import *
@@ -1429,7 +1429,7 @@ def NameFromMesh(mesh, id, customization_info, bone_names, use_sufix=True):
 
     if use_sufix and bone_names != None:
         for bone_name in bone_names:
-            if Hash32(bone_name) == mesh.MeshID:
+            if murmur32_hash(bone_name.encode()) == mesh.MeshID:
                 name = bone_name
 
     return name

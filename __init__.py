@@ -37,7 +37,8 @@ from .stingray.bones import LoadBoneHashes, StingrayBones
 from .stingray.composite_unit import StingrayCompositeMesh
 from .stingray.unit import CreateModel, GetObjectsMeshData, StingrayMeshFile
 
-from .cpphelper import Hash64, LoadNormalPalette, RegisterCPPHelper, UnregisterCPPHelper
+from .cpphelper import LoadNormalPalette, RegisterCPPHelper, UnregisterCPPHelper
+from .hashlists.hash import murmur64_hash
 
 # Local
 # NOTE: Not bothering to do importlib reloading shit because these modules are unlikely to be modified frequently enough to warrant testing without Blender restarts
@@ -342,7 +343,7 @@ def AddFriendlyName(ID, Name):
 def SaveFriendlyNames():
     with open(Global_filehashpath, 'w') as f:
         for hash_info in Global_NameHashes:
-            if hash_info[1] != "" and int(hash_info[0]) == Hash64(hash_info[1]):
+            if hash_info[1] != "" and int(hash_info[0]) == murmur64_hash(hash_info[1].encode()):
                 string = str(hash_info[0]) + " " + str(hash_info[1])
                 f.writelines(string+"\n")
     with open(Global_friendlynamespath, 'w') as f:
@@ -534,7 +535,7 @@ class TocEntry:
         if self.TypeID == MaterialID: callback = LoadStingrayMaterial
         if self.TypeID == ParticleID: callback = LoadStingrayParticle
         if self.TypeID == CompositeMeshID: callback = LoadStingrayCompositeMesh
-        if self.TypeID == Hash64("bones"): callback = LoadStingrayBones
+        if self.TypeID == BoneID: callback = LoadStingrayBones
         if self.TypeID == AnimationID: callback = LoadStingrayAnimation
         if callback == None: callback = LoadStingrayDump
 
@@ -3361,11 +3362,11 @@ class SetEntryFriendlyNameOperator(Operator):
         layout = self.layout; row = layout.row()
         row.prop(self, "NewFriendlyName", icon='COPY_ID')
         row = layout.row()
-        if Hash64(str(self.NewFriendlyName)) == int(self.object_id):
+        if murmur64_hash(str(self.NewFriendlyName).encode()) == int(self.object_id):
             row.label(text="Hash is correct")
         else:
             row.label(text="Hash is incorrect")
-        row.label(text=str(Hash64(str(self.NewFriendlyName))))
+        row.label(text=str(murmur64_hash(str(self.NewFriendlyName).encode())))
 
     object_id: StringProperty()
     def execute(self, context):
