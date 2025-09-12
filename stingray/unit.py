@@ -1335,6 +1335,10 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                                     existing_names.append(str(h))
                                 except IndexError:
                                     pass
+                            if object:
+                                PrettyPrint(f"Deleting object early and exiting weight painting mode...", 'error')
+                                bpy.ops.object.mode_set(mode='OBJECT')
+                                bpy.data.objects.remove(object, do_unlink=True)
                             raise Exception(f"\n\nVertex Group: {vertex_group_name} is not a valid vertex group for the model.\nIf you are using legacy weight names, make sure you enable the option in the settings.\n\nValid vertex group names: {existing_names}")
                         HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
                     # get real index from remapped index -> hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index); boneHash = transform_info.NameHashes[hashIndex]
