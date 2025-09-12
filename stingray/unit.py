@@ -13,6 +13,8 @@ from ..hashlists.hash import murmur32_hash
 
 from ..constants import *
 
+Global_MaterialSlotNames = {}
+
 class StingrayMeshFile:
     def __init__(self):
         self.HeaderData1        = bytearray(28);  self.HeaderData2        = bytearray(20); self.UnReversedData1  = bytearray(); self.UnReversedData2    = bytearray()
@@ -53,6 +55,8 @@ class StingrayMeshFile:
                 idx         = Raw_Mesh.MeshInfoIndex
                 Mesh_info   = self.MeshInfoArray[self.DEV_MeshInfoMap[idx]]
                 Mesh_info.Sections = []
+                Mesh_info.NumSections = 0
+                Mesh_info.NumMaterials = 0
                 for Material in Raw_Mesh.Materials:
                     Section = MeshSectionInfo()
                     Section.ID          = int(Material.ShortID)
@@ -63,18 +67,20 @@ class StingrayMeshFile:
                     # This doesnt do what it was intended to do
                     if Material.DEV_BoneInfoOverride != None:
                         PrettyPrint("Overriding unknown material values")
-                        Section.unk1 = Material.DEV_BoneInfoOverride
-                        Section.unk2 = Material.DEV_BoneInfoOverride
+                        Section.MaterialIndex = Material.DEV_BoneInfoOverride
+                        Section.GroupIndex = Material.DEV_BoneInfoOverride
                     else:
-                        Section.unk1 = len(Mesh_info.Sections) # | dont know what these actually are, but this is usually correct it seems
-                        Section.unk2 = len(Mesh_info.Sections) # /
+                        Section.MaterialIndex = len(Mesh_info.Sections) # | dont know what these actually are, but this is usually correct it seems
+                        Section.GroupIndex = len(Mesh_info.Sections) # /
 
                     Mesh_info.Sections.append(Section)
+                    Mesh_info.NumSections += 1
+                    Mesh_info.NumMaterials += 1
                     Order -= 1
                     try: # if material ID uses the defualt material string it will throw an error, but thats fine as we dont want to include those ones anyway
                         #if int(Material.MatID) not in self.MaterialIDs:
                         self.MaterialIDs.append(int(Material.MatID))
-                        self.SectionsIDs.append(int(Material.ShortID))
+                        self.SectionsIDs.append(int(Material.ShortID)) # MATERIAL SLOT NAME
                     except:
                         pass
 
@@ -237,6 +243,13 @@ class StingrayMeshFile:
             self.MaterialIDs = [0]*self.NumMaterials
         self.SectionsIDs = [f.uint32(ID) for ID in self.SectionsIDs]
         self.MaterialIDs = [f.uint64(ID) for ID in self.MaterialIDs]
+        if f.IsReading():
+            global Global_MaterialSlotNames
+            for i in range(self.NumMaterials):
+                if self.MaterialIDs[i] not in Global_MaterialSlotNames: # probably going to have to save material slot names per LOD/mesh
+                    Global_MaterialSlotNames[self.MaterialIDs[i]] = []
+                print(f"Saving material slot name {self.SectionsIDs[i]} for material {self.MaterialIDs[i]}")
+                Global_MaterialSlotNames[self.MaterialIDs[i]].append(self.SectionsIDs[i])
 
         # Unreversed Data
         if f.IsReading(): UnreversedData2Size = self.EndingOffset-f.tell()
@@ -296,13 +309,18 @@ class StingrayMeshFile:
                 IndexInt = gpu.uint32
 
             TotalIndex = 0
+            mat_count = {}
             for Section in Mesh_Info.Sections:
                 # Create mat info
                 if gpu.IsReading():
                     mat = RawMaterialClass()
                     if Section.ID in self.SectionsIDs:
                         mat_idx = self.SectionsIDs.index(Section.ID)
-                        mat.IDFromName(str(self.MaterialIDs[mat_idx]))
+                        mat.MatID = str(self.MaterialIDs[mat_idx])
+                        if mat.MatID not in mat_count:
+                            mat_count[mat.MatID] = -1
+                        mat_count[mat.MatID] += 1
+                        mat.IDFromName(str(self.MaterialIDs[mat_idx]), mat_count[mat.MatID])
                         mat.MatID = str(self.MaterialIDs[mat_idx])
                         #mat.ShortID = self.SectionsIDs[mat_idx]
                         if bpy.context.scene.Hd2ToolPanelSettings.ImportMaterials:
@@ -585,7 +603,7 @@ class BoneInfo:
         self.NumRemaps = len(remap_info)
         self.RemapCounts = [len(bone_names) for bone_names in remap_info]
         self.Remaps = []
-        self.RemapOffsets = [self.RemapOffsets[0]]
+        self.RemapOffsets = [8*self.NumRemaps+4]
         for i in range(1, self.NumRemaps):
             self.RemapOffsets.append(self.RemapOffsets[i-1]+4*self.RemapCounts[i])
         for bone_names in remap_info:
@@ -650,19 +668,20 @@ class StreamInfo:
         f.seek(EndOffset)
         return self
 
-class MeshSectionInfo:
+class MeshSectionInfo: # material info
     def __init__(self, ID=0):
-        self.unk1 = self.VertexOffset=self.NumVertices=self.IndexOffset=self.NumIndices=self.unk2 = 0
+        self.MaterialIndex = self.VertexOffset=self.NumVertices=self.IndexOffset=self.NumIndices=self.unk2 = 0
         self.DEV_MeshInfoOffset=0 # helper var, not in file
         self.ID = ID
+        self.MaterialIndex = self.GroupIndex = 0
     def Serialize(self, f: MemoryStream):
         self.DEV_MeshInfoOffset = f.tell()
-        self.unk1           = f.uint32(self.unk1)
+        self.MaterialIndex           = f.uint32(self.MaterialIndex)
         self.VertexOffset   = f.uint32(self.VertexOffset)
         self.NumVertices    = f.uint32(self.NumVertices)
         self.IndexOffset    = f.uint32(self.IndexOffset)
         self.NumIndices     = f.uint32(self.NumIndices)
-        self.unk2           = f.uint32(self.unk1)
+        self.GroupIndex           = f.uint32(self.GroupIndex)
         return self
 
 class MeshInfo:
@@ -670,7 +689,11 @@ class MeshInfo:
         self.unk1 = self.unk3 = self.unk4 = self.TransformIndex = self.LodIndex = self.StreamIndex = self.NumSections = self.unk7 = self.unk8 = self.unk9 = self.NumSections_unk = self.MeshID = 0
         self.unk2 = bytearray(32); self.unk6 = bytearray(40)
         self.SectionIDs = self.Sections = []
+        self.NumMaterials = 0
+        self.MaterialOffset = 0
+        self.SectionsOffset = 0
     def Serialize(self, f: MemoryStream):
+        start_offset = f.tell()
         self.unk1 = f.uint64(self.unk1)
         self.unk2 = f.bytes(self.unk2, 32)
         self.MeshID= f.uint32(self.MeshID)
@@ -680,11 +703,12 @@ class MeshInfo:
         self.LodIndex       = f.int32(self.LodIndex)
         self.StreamIndex    = f.uint32(self.StreamIndex)
         self.unk6           = f.bytes(self.unk6, 40)
-        self.NumSections_unk= f.uint32(len(self.Sections))
-        self.unk7           = f.uint32(0x80)
+        self.NumMaterials = f.uint32(self.NumMaterials)
+        self.MaterialOffset = f.uint32(self.MaterialOffset)
         self.unk8           = f.uint64(self.unk8)
-        self.NumSections    = f.uint32(len(self.Sections))
-        self.unk9           = f.uint32(0x80+(len(self.Sections)*4))
+        self.NumSections    = f.uint32(self.NumSections)
+        if f.IsWriting(): self.SectionsOffset = self.MaterialOffset + 4*self.NumMaterials
+        self.SectionsOffset  = f.uint32(self.SectionsOffset)
         if f.IsReading(): self.SectionIDs  = [0 for n in range(self.NumSections)]
         else:             self.SectionIDs  = [section.ID for section in self.Sections]
         self.SectionIDs  = [f.uint32(ID) for ID in self.SectionIDs]
@@ -959,14 +983,22 @@ class RawMaterialClass:
         self.NumIndices = 0
         self.DEV_BoneInfoOverride = None
 
-    def IDFromName(self, name):
+    def IDFromName(self, name, index):
         if name.find(self.DefaultMaterialName) != -1:
             self.MatID   = self.DefaultMaterialName
             self.ShortID = self.DefaultMaterialShortID
         else:
             try:
                 self.MatID   = int(name)
-                self.ShortID = random.randint(1, 0xffffffff)
+                try:
+                    self.ShortID = Global_MaterialSlotNames[self.MatID][index]
+                except KeyError:
+                    print(f"Unable to find material slot for material {name} with material count {index}, using random material slot name")
+                    self.ShortID = random.randint(1, 0xffffffff)
+                
+                #self.ShortID = random.randint(1, 0xffffffff)
+                #if self.MatID == 7924776834995323303: # railgun charge material exception
+                #    self.ShortID = 2113163872
             except:
                 raise Exception("Material name must be a number")
 
@@ -1199,7 +1231,16 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     boneIndices = []
     faces       = []
     materials   = [ RawMaterialClass() for idx in range(len(object.material_slots))]
-    for idx in range(len(object.material_slots)): materials[idx].IDFromName(object.material_slots[idx].name)
+    mat_count = {}
+    for idx in range(len(object.material_slots)):
+        try:
+            mat_id = int(object.material_slots[idx].name)
+        except:
+            raise Exception("Material name must be a number")
+        if mat_id not in mat_count:
+            mat_count[mat_id] = -1
+        mat_count[mat_id] += 1
+        materials[idx].IDFromName(str(mat_id), mat_count[mat_id])
 
     # get vertex color
     if mesh.vertex_colors:
@@ -1240,7 +1281,12 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     # get weights
     vert_idx = 0
     numInfluences = 4
-    stingray_mesh_entry = Global_TocManager.GetEntry(int(og_object["Z_ObjectID"]), int(MeshID), IgnorePatch=True).LoadedData
+    stingray_mesh_entry = Global_TocManager.GetEntry(int(og_object["Z_ObjectID"]), int(MeshID), IgnorePatch=True, SearchAll=True)
+    if stingray_mesh_entry:
+        if not stingray_mesh_entry.IsLoaded: stingray_mesh_entry.Load(True, False)
+        stingray_mesh_entry = stingray_mesh_entry.LoadedData
+    else:
+        raise Exception(f"Unable to get mesh entry {og_object['Z_ObjectID']}")
     bone_info = stingray_mesh_entry.BoneInfoArray
     transform_info = stingray_mesh_entry.TransformInfo
     lod_index = og_object["BoneInfoIndex"]
