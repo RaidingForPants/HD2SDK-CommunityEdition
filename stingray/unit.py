@@ -13,6 +13,8 @@ from ..hashlists.hash import murmur32_hash
 
 from ..constants import *
 
+Global_MaterialSlotNames = {}
+
 class StingrayMeshFile:
     def __init__(self):
         self.HeaderData1        = bytearray(28);  self.HeaderData2        = bytearray(20); self.UnReversedData1  = bytearray(); self.UnReversedData2    = bytearray()
@@ -78,7 +80,7 @@ class StingrayMeshFile:
                     try: # if material ID uses the defualt material string it will throw an error, but thats fine as we dont want to include those ones anyway
                         #if int(Material.MatID) not in self.MaterialIDs:
                         self.MaterialIDs.append(int(Material.MatID))
-                        self.SectionsIDs.append(int(Material.ShortID))
+                        self.SectionsIDs.append(int(Material.ShortID)) # MATERIAL SLOT NAME
                     except:
                         pass
 
@@ -241,6 +243,13 @@ class StingrayMeshFile:
             self.MaterialIDs = [0]*self.NumMaterials
         self.SectionsIDs = [f.uint32(ID) for ID in self.SectionsIDs]
         self.MaterialIDs = [f.uint64(ID) for ID in self.MaterialIDs]
+        if f.IsReading():
+            global Global_MaterialSlotNames
+            for i in range(self.NumMaterials):
+                if self.MaterialIDs[i] not in Global_MaterialSlotNames: # probably going to have to save material slot names per LOD/mesh
+                    Global_MaterialSlotNames[self.MaterialIDs[i]] = []
+                print(f"Saving material slot name {self.SectionsIDs[i]} for material {self.MaterialIDs[i]}")
+                Global_MaterialSlotNames[self.MaterialIDs[i]].append(self.SectionsIDs[i])
 
         # Unreversed Data
         if f.IsReading(): UnreversedData2Size = self.EndingOffset-f.tell()
@@ -300,13 +309,18 @@ class StingrayMeshFile:
                 IndexInt = gpu.uint32
 
             TotalIndex = 0
+            mat_count = {}
             for Section in Mesh_Info.Sections:
                 # Create mat info
                 if gpu.IsReading():
                     mat = RawMaterialClass()
                     if Section.ID in self.SectionsIDs:
                         mat_idx = self.SectionsIDs.index(Section.ID)
-                        mat.IDFromName(str(self.MaterialIDs[mat_idx]))
+                        mat.MatID = str(self.MaterialIDs[mat_idx])
+                        if mat.MatID not in mat_count:
+                            mat_count[mat.MatID] = -1
+                        mat_count[mat.MatID] += 1
+                        mat.IDFromName(str(self.MaterialIDs[mat_idx]), mat_count[mat.MatID])
                         mat.MatID = str(self.MaterialIDs[mat_idx])
                         #mat.ShortID = self.SectionsIDs[mat_idx]
                         if bpy.context.scene.Hd2ToolPanelSettings.ImportMaterials:
@@ -969,14 +983,22 @@ class RawMaterialClass:
         self.NumIndices = 0
         self.DEV_BoneInfoOverride = None
 
-    def IDFromName(self, name):
+    def IDFromName(self, name, index):
         if name.find(self.DefaultMaterialName) != -1:
             self.MatID   = self.DefaultMaterialName
             self.ShortID = self.DefaultMaterialShortID
         else:
             try:
                 self.MatID   = int(name)
-                self.ShortID = random.randint(1, 0xffffffff)
+                try:
+                    self.ShortID = Global_MaterialSlotNames[self.MatID][index]
+                except KeyError:
+                    print(f"Unable to find material slot for material {name} with material count {index}, using random material slot name")
+                    self.ShortID = random.randint(1, 0xffffffff)
+                
+                #self.ShortID = random.randint(1, 0xffffffff)
+                #if self.MatID == 7924776834995323303: # railgun charge material exception
+                #    self.ShortID = 2113163872
             except:
                 raise Exception("Material name must be a number")
 
@@ -1209,7 +1231,16 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     boneIndices = []
     faces       = []
     materials   = [ RawMaterialClass() for idx in range(len(object.material_slots))]
-    for idx in range(len(object.material_slots)): materials[idx].IDFromName(object.material_slots[idx].name)
+    mat_count = {}
+    for idx in range(len(object.material_slots)):
+        try:
+            mat_id = int(object.material_slots[idx].name)
+        except:
+            raise Exception("Material name must be a number")
+        if mat_id not in mat_count:
+            mat_count[mat_id] = -1
+        mat_count[mat_id] += 1
+        materials[idx].IDFromName(str(mat_id), mat_count[mat_id])
 
     # get vertex color
     if mesh.vertex_colors:
