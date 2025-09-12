@@ -53,6 +53,8 @@ class StingrayMeshFile:
                 idx         = Raw_Mesh.MeshInfoIndex
                 Mesh_info   = self.MeshInfoArray[self.DEV_MeshInfoMap[idx]]
                 Mesh_info.Sections = []
+                Mesh_info.NumSections = 0
+                Mesh_info.NumMaterials = 0
                 for Material in Raw_Mesh.Materials:
                     Section = MeshSectionInfo()
                     Section.ID          = int(Material.ShortID)
@@ -63,13 +65,15 @@ class StingrayMeshFile:
                     # This doesnt do what it was intended to do
                     if Material.DEV_BoneInfoOverride != None:
                         PrettyPrint("Overriding unknown material values")
-                        Section.unk1 = Material.DEV_BoneInfoOverride
-                        Section.unk2 = Material.DEV_BoneInfoOverride
+                        Section.MaterialIndex = Material.DEV_BoneInfoOverride
+                        Section.GroupIndex = Material.DEV_BoneInfoOverride
                     else:
-                        Section.unk1 = len(Mesh_info.Sections) # | dont know what these actually are, but this is usually correct it seems
-                        Section.unk2 = len(Mesh_info.Sections) # /
+                        Section.MaterialIndex = len(Mesh_info.Sections) # | dont know what these actually are, but this is usually correct it seems
+                        Section.GroupIndex = len(Mesh_info.Sections) # /
 
                     Mesh_info.Sections.append(Section)
+                    Mesh_info.NumSections += 1
+                    Mesh_info.NumMaterials += 1
                     Order -= 1
                     try: # if material ID uses the defualt material string it will throw an error, but thats fine as we dont want to include those ones anyway
                         #if int(Material.MatID) not in self.MaterialIDs:
@@ -650,19 +654,20 @@ class StreamInfo:
         f.seek(EndOffset)
         return self
 
-class MeshSectionInfo:
+class MeshSectionInfo: # material info
     def __init__(self, ID=0):
-        self.unk1 = self.VertexOffset=self.NumVertices=self.IndexOffset=self.NumIndices=self.unk2 = 0
+        self.MaterialIndex = self.VertexOffset=self.NumVertices=self.IndexOffset=self.NumIndices=self.unk2 = 0
         self.DEV_MeshInfoOffset=0 # helper var, not in file
         self.ID = ID
+        self.MaterialIndex = self.GroupIndex = 0
     def Serialize(self, f: MemoryStream):
         self.DEV_MeshInfoOffset = f.tell()
-        self.unk1           = f.uint32(self.unk1)
+        self.MaterialIndex           = f.uint32(self.MaterialIndex)
         self.VertexOffset   = f.uint32(self.VertexOffset)
         self.NumVertices    = f.uint32(self.NumVertices)
         self.IndexOffset    = f.uint32(self.IndexOffset)
         self.NumIndices     = f.uint32(self.NumIndices)
-        self.unk2           = f.uint32(self.unk1)
+        self.GroupIndex           = f.uint32(self.GroupIndex)
         return self
 
 class MeshInfo:
@@ -670,7 +675,11 @@ class MeshInfo:
         self.unk1 = self.unk3 = self.unk4 = self.TransformIndex = self.LodIndex = self.StreamIndex = self.NumSections = self.unk7 = self.unk8 = self.unk9 = self.NumSections_unk = self.MeshID = 0
         self.unk2 = bytearray(32); self.unk6 = bytearray(40)
         self.SectionIDs = self.Sections = []
+        self.NumMaterials = 0
+        self.MaterialOffset = 0
+        self.SectionsOffset = 0
     def Serialize(self, f: MemoryStream):
+        start_offset = f.tell()
         self.unk1 = f.uint64(self.unk1)
         self.unk2 = f.bytes(self.unk2, 32)
         self.MeshID= f.uint32(self.MeshID)
@@ -680,11 +689,12 @@ class MeshInfo:
         self.LodIndex       = f.int32(self.LodIndex)
         self.StreamIndex    = f.uint32(self.StreamIndex)
         self.unk6           = f.bytes(self.unk6, 40)
-        self.NumSections_unk= f.uint32(len(self.Sections))
-        self.unk7           = f.uint32(0x80)
+        self.NumMaterials = f.uint32(self.NumMaterials)
+        self.MaterialOffset = f.uint32(self.MaterialOffset)
         self.unk8           = f.uint64(self.unk8)
-        self.NumSections    = f.uint32(len(self.Sections))
-        self.unk9           = f.uint32(0x80+(len(self.Sections)*4))
+        self.NumSections    = f.uint32(self.NumSections)
+        if f.IsWriting(): self.SectionsOffset = self.MaterialOffset + 4*self.NumMaterials
+        self.SectionsOffset  = f.uint32(self.SectionsOffset)
         if f.IsReading(): self.SectionIDs  = [0 for n in range(self.NumSections)]
         else:             self.SectionIDs  = [section.ID for section in self.Sections]
         self.SectionIDs  = [f.uint32(ID) for ID in self.SectionIDs]
