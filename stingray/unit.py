@@ -13,6 +13,8 @@ from ..hashlists.hash import murmur32_hash
 
 from ..constants import *
 
+Global_MaterialSlotNames = {}
+
 class StingrayMeshFile:
     def __init__(self):
         self.HeaderData1        = bytearray(28);  self.HeaderData2        = bytearray(20); self.UnReversedData1  = bytearray(); self.UnReversedData2    = bytearray()
@@ -78,7 +80,7 @@ class StingrayMeshFile:
                     try: # if material ID uses the defualt material string it will throw an error, but thats fine as we dont want to include those ones anyway
                         #if int(Material.MatID) not in self.MaterialIDs:
                         self.MaterialIDs.append(int(Material.MatID))
-                        self.SectionsIDs.append(int(Material.ShortID))
+                        self.SectionsIDs.append(int(Material.ShortID)) # MATERIAL SLOT NAME
                     except:
                         pass
 
@@ -241,6 +243,11 @@ class StingrayMeshFile:
             self.MaterialIDs = [0]*self.NumMaterials
         self.SectionsIDs = [f.uint32(ID) for ID in self.SectionsIDs]
         self.MaterialIDs = [f.uint64(ID) for ID in self.MaterialIDs]
+        if f.IsReading():
+            global Global_MaterialSlotNames
+            for i in range(self.NumMaterials):
+                print(f"Saving material slot name {self.SectionsIDs[i]} for material {self.MaterialIDs[i]}")
+                Global_MaterialSlotNames[self.MaterialIDs[i]] = self.SectionsIDs[i]
 
         # Unreversed Data
         if f.IsReading(): UnreversedData2Size = self.EndingOffset-f.tell()
@@ -976,7 +983,11 @@ class RawMaterialClass:
         else:
             try:
                 self.MatID   = int(name)
-                self.ShortID = random.randint(1, 0xffffffff)
+                try:
+                    self.ShortID = Global_MaterialSlotNames[self.MatID]
+                except KeyError:
+                    print(f"Unable to find material slot for material {name}, using random material slot name")
+                    self.ShortID = random.randint(1, 0xffffffff)
             except:
                 raise Exception("Material name must be a number")
 
