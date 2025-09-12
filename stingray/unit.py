@@ -132,6 +132,8 @@ class StingrayMeshFile:
         if self.TransformInfoOffset > 0: # need to update other offsets?
             loc = f.tell(); f.seek(self.TransformInfoOffset)
             self.TransformInfo.Serialize(f)
+            if f.tell() % 16 != 0:
+                f.seek(f.tell() + (16-f.tell()%16))
             UnreversedData1_2Start = f.tell()
             self.CustomizationInfoOffset = UnreversedData1_2Start
             if f.IsReading():
@@ -572,6 +574,7 @@ class BoneInfo:
         if f.IsReading(): f.seek(RelPosition+self.MatrixOffset)
         else            : self.MatrixOffset = f.tell()-RelPosition
         # save the right bone
+        #self.Bones = [StingrayMatrix4x4() for n in range(self.NumBones)]
         self.Bones = [bone.Serialize(f) for bone in self.Bones]
         #self.Bones = [bone.Serialize(f) for bone in self.Bones]
         # get real indices
@@ -619,9 +622,11 @@ class BoneInfo:
         # I wonder if you can just take the transform component from the previous bone it was on
         # remap index should match the transform_info index!!!!!
         self.NumRemaps = len(remap_info)
+        print(self.NumRemaps)
         self.RemapCounts = [len(bone_names) for bone_names in remap_info]
+        print(self.RemapCounts)
         self.Remaps = []
-        self.RemapOffsets = [self.RemapOffsets[0]]
+        self.RemapOffsets = [8*self.NumRemaps+4]
         for i in range(1, self.NumRemaps):
             self.RemapOffsets.append(self.RemapOffsets[i-1]+4*self.RemapCounts[i])
         for bone_names in remap_info:
@@ -744,6 +749,13 @@ class StingrayMatrix4x4: # Matrix4x4: https://help.autodesk.com/cloudhelp/ENU/St
     def Serialize(self, f: MemoryStream):
         self.v = [f.float32(value) for value in self.v]
         return self
+    def Identity():
+        m = StingrayMatrix4x4()
+        m.v[0] = 1
+        m.v[5] = 1
+        m.v[10] = 1
+        m.v[15] = 1
+        return m
     def ToLocalTransform(self):
         l = StingrayLocalTransform()
         l.pos = [self.v[12], self.v[13], self.v[14]]
@@ -760,6 +772,12 @@ class StingrayMatrix3x3: # Matrix3x3: https://help.autodesk.com/cloudhelp/ENU/St
         self.x = [0,0,0]
         self.y = [0,0,0]
         self.z = [0,0,0]
+    def Identity():
+        m = StingrayMatrix3x3()
+        m.x[0] = 1
+        m.y[1] = 1
+        m.z[2] = 1
+        return m
     def Serialize(self, f: MemoryStream):
         self.x = f.vec3_float(self.x)
         self.y = f.vec3_float(self.y)
@@ -768,7 +786,7 @@ class StingrayMatrix3x3: # Matrix3x3: https://help.autodesk.com/cloudhelp/ENU/St
     
 class StingrayLocalTransform: # Stingray Local Transform: https://help.autodesk.com/cloudhelp/ENU/Stingray-SDK-Help/engine_c/plugin__api__types_8h.html#line_100
     def __init__(self):
-        self.rot   = StingrayMatrix3x3()
+        self.rot   = StingrayMatrix3x3.Identity()
         self.pos   = [0,0,0]
         self.scale = [1,1,1]
         self.dummy = 0 # Force 16 byte alignment
@@ -835,6 +853,7 @@ class TransformInfo: # READ ONLY
             PrettyPrint(f"hashes: {self.NameHashes}")
             #for n in range(self.NumTransforms):
             #    self.Transforms[n].pos = self.PositionTransforms[n].pos
+        return self
         
     def AppendTransformInfo(self, transform_info):
         for index, name_hash in enumerate(transform_info.NameHashes):
@@ -1370,7 +1389,13 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                                 except IndexError:
                                     pass
                             raise Exception(f"\n\nVertex Group: {vertex_group_name} is not an existing vertex group for the model.\nIf you are using legacy weight names, make sure you enable the option in the settings.\n\nExisting vertex groups: {existing_names}")
-                        HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
+                        try:
+                            HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
+                        except:
+                            print(material_idx)
+                            print(vertex_group_name)
+                            print(real_index)
+                            raise Exception("Fail")
                     # get real index from remapped index -> hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index); boneHash = transform_info.NameHashes[hashIndex]
                     # want to get remapped index from bone name
                     # hash = ...

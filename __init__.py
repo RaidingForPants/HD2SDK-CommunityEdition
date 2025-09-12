@@ -35,7 +35,7 @@ from .stingray.texture import StingrayTexture
 from .stingray.particle import StingrayParticles
 from .stingray.bones import LoadBoneHashes, StingrayBones
 from .stingray.composite_unit import StingrayCompositeMesh
-from .stingray.unit import CreateModel, GetObjectsMeshData, StingrayMeshFile
+from .stingray.unit import CreateModel, GetObjectsMeshData, StingrayMeshFile, StingrayMatrix4x4, TransformInfo, BoneInfo
 
 from .cpphelper import Hash64, LoadNormalPalette, RegisterCPPHelper, UnregisterCPPHelper
 
@@ -3040,9 +3040,9 @@ class TransferBonesOperator(Operator):
     def execute(self, context):
         obj = context.active_object
         objs = context.selected_objects
-        if len(objs) == 1:
-            self.report({'WARNING'}, "Select more than one object!")
-            return {'CANCELLED'}
+        #if len(objs) == 1:
+        #    self.report({'WARNING'}, "Select more than one object!")
+        #    return {'CANCELLED'}
         #check if has HD2 properties
         try:
             _ = obj['Z_ObjectID']
@@ -3076,6 +3076,30 @@ class TransferBonesOperator(Operator):
         active_bone_info = active_stingray_mesh.BoneInfoArray[lod_index]
         print(active_transform_info)
         print(active_bone_info)
+        
+        # read from the composite mesh instead (for testing)
+        
+        with open("C:/Users/Evie/Documents/helldiver.unit", "rb") as f:
+            m = MemoryStream(f.read())
+        m.seek(0x34)
+        transform_info_offset = 0
+        transform_info_offset = m.uint32(transform_info_offset)
+        m.seek(0x58)
+        bone_info_offset = 0
+        bone_info_offset = m.uint32(bone_info_offset)
+        t_info = TransformInfo()
+        b_info = BoneInfo()
+        m.seek(transform_info_offset)
+        t_info = t_info.Serialize(m)
+        print(t_info)
+        m.seek(bone_info_offset+8)
+        b_info = b_info.Serialize(m)
+        print(b_info)
+        active_stingray_mesh.BoneInfoArray[lod_index] = b_info
+        active_stingray_mesh.TransformInfo = t_info
+
+        
+        '''
         for o in objs:
             entry_id = o['Z_ObjectID']
             lod_index = o['BoneInfoIndex']
@@ -3092,28 +3116,70 @@ class TransferBonesOperator(Operator):
             bone_info = stingray_mesh_entry.BoneInfoArray[lod_index]
             old_name_hashes = list(active_transform_info.NameHashes)
             active_transform_info.AppendTransformInfo(transform_info) # need to change indices of bone parents to match
-            for i, index in enumerate(bone_info.RealIndices):
-                name_hash = transform_info.NameHashes[index]
-                if name_hash not in old_name_hashes:
+            print(o.name)
+            #for i in range(bone_info.NumBones):
+            #    bone_index = bone_info.RealIndices[i]
+            #    print(bone_index)
+            #    print(Global_BoneNames[transform_info.NameHashes[bone_index]])
+            #    print(bone_info.Bones[i].ToLocalTransform().pos)
+            #
+            # FIGURE OUT WHY PUTTING THE BONE DATA ON DIFFERENT MESHES CAUSES DIFFERENT BONES TO BE BROKEN
+            # do transforms have to be in a particular order?
+            
+            #for i, index in enumerate(bone_info.RealIndices):
+            for index, name_hash in enumerate(transform_info.NameHashes):
+                #name_hash = transform_info.NameHashes[index]
+                if name_hash not in old_name_hashes: # if newly added name hash
                     # get bone parent
+                    #print(f"Added {Global_BoneNames[name_hash]}")
                     bone_parent = transform_info.TransformEntries[index].ParentBone
                     # get name hash of bone parent
                     parent_name_hash = transform_info.NameHashes[bone_parent]
+                    #print(f"Parent: {Global_BoneNames[parent_name_hash]}")
                     # get index of parent name hash
                     remapped_bone_parent_index = active_transform_info.NameHashes.index(parent_name_hash)
                     hash_index = active_transform_info.NameHashes.index(name_hash)
                     active_transform_info.TransformEntries[hash_index].ParentBone = remapped_bone_parent_index
-                    active_bone_info.RealIndices.append(hash_index)
-                    active_bone_info.Bones.append(bone_info.Bones[i])
-                    active_bone_info.NumBones += 1
-                    # add bone to Blender
-                    try:
-                        group_name = str(Global_BoneNames[name_hash])
-                    except KeyError:
-                        group_name = str(name_hash)
-                    if group_name not in [group.name for group in context.active_object.vertex_groups]:
-                        context.active_object.vertex_groups.new(name=group_name)
+                    if index in bone_info.RealIndices:
+                        active_bone_info.RealIndices.append(hash_index)
+                        active_bone_info.Bones.append(copy.deepcopy(bone_info.Bones[bone_info.RealIndices.index(index)]))
+                        active_bone_info.NumBones += 1
+                        # add bone to Blender
+                        try:
+                            group_name = str(Global_BoneNames[name_hash])
+                        except KeyError:
+                            group_name = str(name_hash)
+                        if group_name not in [group.name for group in context.active_object.vertex_groups]:
+                            context.active_object.vertex_groups.new(name=group_name)
             # also do BoneInfo
+        for i in range(active_bone_info.NumBones):
+            active_bone_info.Bones[i] = StingrayMatrix4x4.Identity()
+            pass
+            #print(active_bone_info.Bones[i].v)
+            #bone_index = active_bone_info.RealIndices[i]
+            #print(bone_index)
+            #position_data = helldiver_bone_data[Global_BoneNames[active_transform_info.NameHashes[bone_index]]]
+            #local_transform = active_bone_info.Bones[i].ToLocalTransform()
+            #local_transform.pos = position_data
+            #active_bone_info.Bones[i] = local_transform.ToMatrix4x4()
+            #print(Global_BoneNames[active_transform_info.NameHashes[bone_index]])
+            #print(active_bone_info.Bones[i].ToLocalTransform().pos)
+        for i, index in enumerate(active_bone_info.RealIndices):
+            name_hash = active_transform_info.NameHashes[index]
+            hash_index = t_info.NameHashes.index(name_hash)
+            r_index = b_info.RealIndices.index(hash_index)
+            active_bone_info.Bones[i] = b_info.Bones[r_index]
+            #active_transform_info.Transforms[
+        '''
+        for i, index in enumerate(b_info.RealIndices):
+            name_hash = t_info.NameHashes[index]
+            try:
+                group_name = str(Global_BoneNames[name_hash])
+            except KeyError:
+                group_name = str(name_hash)
+            if group_name not in [group.name for group in context.active_object.vertex_groups]:
+                context.active_object.vertex_groups.new(name=group_name)
+        
         active_stingray_mesh_entry.Save(BlenderOpts=context.scene.Hd2ToolPanelSettings.get_settings_dict())
             
         return {'FINISHED'}
