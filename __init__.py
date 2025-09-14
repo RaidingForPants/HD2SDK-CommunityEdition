@@ -183,12 +183,12 @@ def CheckAddonUpToDate():
     PrettyPrint("Checking If Addon is up to date...")
     currentVersion = bl_info["version"]
     try:
-        req = requests.get(Global_latestVersionLink)
+        req = requests.get(Global_latestVersionLink, timeout=5)
         req.raise_for_status()  # Check if the request is successful.
         if req.status_code == requests.codes.ok:
             req = req.json()
-            latestVersion = req['tag_name'].replace("v", "")
-            latestVersion = (int(latestVersion.split(".")[0]), int(latestVersion.split(".")[1]), int(latestVersion.split(".")[2]))
+            latestVersion = req['tag_name'].replace("v", "").replace("-", ".").split(".")
+            latestVersion = (int(latestVersion[0]), int(latestVersion[1]), int(latestVersion[2]))
             
             PrettyPrint(f"Current Version: {currentVersion}")
             PrettyPrint(f"Latest Version: {latestVersion}")
