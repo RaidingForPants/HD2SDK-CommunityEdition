@@ -3083,12 +3083,12 @@ class ImportStingrayAnimationOperator(Operator):
             self.report({'ERROR'}, "Please select an armature to import the animation to")
             return {'CANCELLED'}
         animation_id = self.object_id
-        try:
-            Global_TocManager.Load(int(animation_id), AnimationID)
-        except Exception as error:
-            PrettyPrint(f"Encountered animation error: {error}", 'error')
-            self.report({'ERROR'}, f"Encountered an error whilst importing animation. See Console for more info.")
-            return {'CANCELLED'}
+        # try:
+        Global_TocManager.Load(int(animation_id), AnimationID)
+        # except Exception as error:
+        #     PrettyPrint(f"Encountered animation error: {error}", 'error')
+        #     self.report({'ERROR'}, f"Encountered an error whilst importing animation. See Console for more info.")
+        #     return {'CANCELLED'}
         return{'FINISHED'}
         
 class SaveStingrayAnimationOperator(Operator):
