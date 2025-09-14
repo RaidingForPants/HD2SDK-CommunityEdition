@@ -1062,21 +1062,39 @@ class RawMaterialClass:
 
 class BoneIndexException(Exception):
     pass
-            
-def decompress_rotation(rotation): # uint32 -> vector of 4 float32
-        first = (((rotation & 0xffc) >> 2) - 512.0) / 512.0
-        second = (((rotation & 0x3ff000) >> 12) - 512.0) / 512.0
-        third = (((rotation & 0xffc00000) >> 22) - 512.0) / 512.0
-        largest_idx = rotation & 0x3
-        largest_val = sqrt(1 - third**2 - second**2 - first**2)
-        if largest_idx == 0:
-            return [largest_val, first, second, third]
-        elif largest_idx == 1:
-            return [third, largest_val, first, second]
-        elif largest_idx == 2:
-            return [second, third, largest_val, first]
-        elif largest_idx == 3:
-            return [first, second, third, largest_val]
+ 
+def sign(n):
+    if n > 0:
+        return 1
+    if n < 0:
+        return -1
+    return 0
+    
+def octahedral_encode(x, y, z):
+    l1_norm = abs(x) + abs(y) + abs(z)
+    x /= l1_norm
+    y /= l1_norm
+    if z < 0:
+        x, y = ((1-abs(y)) * sign(x)), ((1-abs(x)) * sign(y))
+    return x, y
+    
+def octahedral_decode(x, y):
+    z = 1 - abs(x) - abs(y)
+    if z < 0:
+        x, y = ((1-abs(y)) * sign(x)), ((1-abs(x)) * sign(y))
+    return mathutils.Vector((x, y, z)).normalized().to_tuple()
+    
+def decode_packed_oct_norm(norm):
+    r10 = norm & 0x3ff
+    g10 = (norm >> 10) & 0x3ff
+    return octahedral_decode(
+        r10 * (2.0/1023.0) - 1,
+        g10 * (2.0/1023.0) - 1
+    )
+    
+def encode_packed_oct_norm(x, y, z):
+    x, y = octahedral_encode(x, y, z)
+    return int((x+1)*(1023.0/2.0)) | (int((y+1)*(1023.0/2.0)) << 10)
 
 class SerializeFunctions:
     
@@ -1084,14 +1102,16 @@ class SerializeFunctions:
         mesh.VertexPositions[vidx] = component.SerializeComponent(gpu, mesh.VertexPositions[vidx])
     
     def SerializeNormalComponent(gpu, mesh, component, vidx):
-        norm = component.SerializeComponent(gpu, mesh.VertexNormals[vidx])
         if gpu.IsReading():
+            norm = component.SerializeComponent(gpu, mesh.VertexNormals[vidx])
             if not isinstance(norm, int):
                 norm = list(mathutils.Vector((norm[0],norm[1],norm[2])).normalized())
                 mesh.VertexNormals[vidx] = norm[:3]
             else:
-                
-                mesh.VertexNormals[vidx] = norm
+                mesh.VertexNormals[vidx] = decode_packed_oct_norm(norm)
+        else:
+            norm = encode_packed_oct_norm(*mathutils.Vector(mesh.VertexNormals[vidx]).normalized().to_tuple())
+            norm = component.SerializeComponent(gpu, norm)
     
     def SerializeTangentComponent(gpu, mesh, component, vidx):
         mesh.VertexTangents[vidx] = component.SerializeComponent(gpu, mesh.VertexTangents[vidx])
@@ -1340,8 +1360,8 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         #tangents[loop.vertex_index]   = loop.tangent.normalized()
         #bitangents[loop.vertex_index] = loop.bitangent.normalized()
     # if fuckywuckynormalwormal do this bullshit
-    LoadNormalPalette()
-    normals = NormalsFromPalette(normals)
+    #LoadNormalPalette()
+    #normals = NormalsFromPalette(normals)
     # get uvs
     for uvlayer in object.data.uv_layers:
         if len(uvs) >= 3:
