@@ -1062,21 +1062,39 @@ class RawMaterialClass:
 
 class BoneIndexException(Exception):
     pass
-            
-def decompress_rotation(rotation): # uint32 -> vector of 4 float32
-        first = (((rotation & 0xffc) >> 2) - 512.0) / 512.0
-        second = (((rotation & 0x3ff000) >> 12) - 512.0) / 512.0
-        third = (((rotation & 0xffc00000) >> 22) - 512.0) / 512.0
-        largest_idx = rotation & 0x3
-        largest_val = sqrt(1 - third**2 - second**2 - first**2)
-        if largest_idx == 0:
-            return [largest_val, first, second, third]
-        elif largest_idx == 1:
-            return [third, largest_val, first, second]
-        elif largest_idx == 2:
-            return [second, third, largest_val, first]
-        elif largest_idx == 3:
-            return [first, second, third, largest_val]
+ 
+def sign(n):
+    if n > 0:
+        return 1
+    if n < 0:
+        return -1
+    return 0
+    
+def octahedral_encode(x, y, z):
+    l1_norm = abs(x) + abs(y) + abs(z)
+    x /= l1_norm
+    y /= l1_norm
+    if z < 0:
+        x, y = ((1-abs(y)) * sign(x)), ((1-abs(x)) * sign(y))
+    return x, y
+    
+def octahedral_decode(x, y):
+    z = 1 - abs(x) - abs(y)
+    if z < 0:
+        x, y = ((1-abs(y)) * sign(x)), ((1-abs(x)) * sign(y))
+    return mathutils.Vector((x, y, z)).normalized().to_tuple()
+    
+def decode_packed_oct_norm(norm):
+    r10 = norm & 0x3ff
+    g10 = (norm >> 10) & 0x3ff
+    return octahedral_decode(
+        r10 * (2.0/1023.0) - 1,
+        g10 * (2.0/1023.0) - 1
+    )
+    
+def encode_packed_oct_norm(x, y, z):
+    x, y = octahedral_encode(x, y, z)
+    return int((x+1)*(1023.0/2.0)) | (int((y+1)*(1023.0/2.0)) << 10)
 
 class SerializeFunctions:
     
@@ -1084,14 +1102,16 @@ class SerializeFunctions:
         mesh.VertexPositions[vidx] = component.SerializeComponent(gpu, mesh.VertexPositions[vidx])
     
     def SerializeNormalComponent(gpu, mesh, component, vidx):
-        norm = component.SerializeComponent(gpu, mesh.VertexNormals[vidx])
         if gpu.IsReading():
+            norm = component.SerializeComponent(gpu, mesh.VertexNormals[vidx])
             if not isinstance(norm, int):
                 norm = list(mathutils.Vector((norm[0],norm[1],norm[2])).normalized())
                 mesh.VertexNormals[vidx] = norm[:3]
             else:
-                
-                mesh.VertexNormals[vidx] = norm
+                mesh.VertexNormals[vidx] = decode_packed_oct_norm(norm)
+        else:
+            norm = encode_packed_oct_norm(*mathutils.Vector(mesh.VertexNormals[vidx]).normalized().to_tuple())
+            norm = component.SerializeComponent(gpu, norm)
     
     def SerializeTangentComponent(gpu, mesh, component, vidx):
         mesh.VertexTangents[vidx] = component.SerializeComponent(gpu, mesh.VertexTangents[vidx])
@@ -1340,8 +1360,8 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         #tangents[loop.vertex_index]   = loop.tangent.normalized()
         #bitangents[loop.vertex_index] = loop.bitangent.normalized()
     # if fuckywuckynormalwormal do this bullshit
-    LoadNormalPalette()
-    normals = NormalsFromPalette(normals)
+    #LoadNormalPalette()
+    #normals = NormalsFromPalette(normals)
     # get uvs
     for uvlayer in object.data.uv_layers:
         if len(uvs) >= 3:
@@ -1471,15 +1491,21 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 m[3][0], m[3][1], m[3][2], m[3][3]
             ]
             transform_info.TransformMatrices[transform_index] = transform_matrix
-            translation, rotation, scale = bone.matrix.decompose()
-            rotation = rotation.to_matrix()
-            transform_local = StingrayLocalTransform()
-            transform_local.rot.x = [rotation[0][0], rotation[0][1], rotation[0][2]]
-            transform_local.rot.y = [rotation[1][0], rotation[1][1], rotation[1][2]]
-            transform_local.rot.z = [rotation[2][0], rotation[2][1], rotation[2][2]]
-            transform_local.pos = translation
-            transform_local.scale = scale
-            transform_info.Transforms[transform_index] = transform_local
+            if bone.parent:
+                parent_matrix = bone.parent.matrix
+                local_transform_matrix = parent_matrix.inverted() @ bone.matrix
+                translation, rotation, scale = local_transform_matrix.decompose()
+                rotation = rotation.to_matrix()
+                transform_local = StingrayLocalTransform()
+                transform_local.rot.x = [rotation[0][0], rotation[0][1], rotation[0][2]]
+                transform_local.rot.y = [rotation[1][0], rotation[1][1], rotation[1][2]]
+                transform_local.rot.z = [rotation[2][0], rotation[2][1], rotation[2][2]]
+                transform_local.pos = translation
+                transform_local.scale = scale
+                transform_info.Transforms[transform_index] = transform_local
+            else:
+                transform_local = StingrayLocalTransform()
+                transform_info.Transforms[transform_index] = transform_local
         bpy.context.view_layer.objects.active = prev_obj
         bpy.ops.object.mode_set(mode=prev_mode)
     #bpy.ops.object.mode_set(mode='OBJECT')
@@ -1738,30 +1764,47 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                 boneTransforms = {}
                 boneMatrices = {}
                 boneParents = [0] * b_info.NumBones
-                
                 # create all bones
-                for i, bone in enumerate(b_info.Bones): # this is not every bone in the transform_info
-                    boneIndex = b_info.RealIndices[i] # index of bone in transform info
-                    boneParent = transform_info.TransformEntries[boneIndex].ParentBone # index of parent bone in transform info
-                    # index of parent bone in b_info.Bones?
-                    if boneParent in b_info.RealIndices:
-                        boneParentIndex = b_info.RealIndices.index(boneParent)
-                    else:
-                        boneParentIndex = -1
-                    boneHash = transform_info.NameHashes[boneIndex]
-                    if boneHash in Global_BoneNames: # name of bone
-                        boneName = Global_BoneNames[boneHash]
-                    else:
-                        boneName = str(boneHash)
-                    
-                    newBone = armature.edit_bones.get(boneName)
-                    if (newBone == None):
-                        newBone = armature.edit_bones.new(boneName)
-                        newBone.tail = 0, 0.0000025, 0
-                    bones[i] = newBone
-                    boneTransforms[newBone.name] = transform_info.Transforms[boneIndex]
-                    boneMatrices[newBone.name] = transform_info.TransformMatrices[boneIndex]
-                    boneParents[i] = boneParentIndex
+                if mesh.LodIndex == 0:
+                    bones = [None] * transform_info.NumTransforms
+                    boneParents = [0] * transform_info.NumTransforms
+                    for i, transform in enumerate(transform_info.TransformEntries):
+                        boneParent = transform.ParentBone
+                        boneHash = transform_info.NameHashes[i]
+                        if boneHash in Global_BoneNames: # name of bone
+                            boneName = Global_BoneNames[boneHash]
+                        else:
+                            boneName = str(boneHash)
+                        newBone = armature.edit_bones.get(boneName)
+                        if newBone is None:
+                            newBone = armature.edit_bones.new(boneName)
+                            newBone.tail = 0, 0.0000025, 0
+                        bones[i] = newBone
+                        boneParents[i] = boneParent
+                        boneTransforms[newBone.name] = transform_info.Transforms[i]
+                        boneMatrices[newBone.name] = transform_info.TransformMatrices[i]
+                else:
+                    for i, bone in enumerate(b_info.Bones): # this is not every bone in the transform_info
+                        boneIndex = b_info.RealIndices[i] # index of bone in transform info
+                        boneParent = transform_info.TransformEntries[boneIndex].ParentBone # index of parent bone in transform info
+                        # index of parent bone in b_info.Bones?
+                        if boneParent in b_info.RealIndices:
+                            boneParentIndex = b_info.RealIndices.index(boneParent)
+                        else:
+                            boneParentIndex = -1
+                        boneHash = transform_info.NameHashes[boneIndex]
+                        if boneHash in Global_BoneNames: # name of bone
+                            boneName = Global_BoneNames[boneHash]
+                        else:
+                            boneName = str(boneHash)
+                        newBone = armature.edit_bones.get(boneName)
+                        if newBone is None:
+                            newBone = armature.edit_bones.new(boneName)
+                            newBone.tail = 0, 0.0000025, 0
+                        bones[i] = newBone
+                        boneTransforms[newBone.name] = transform_info.Transforms[boneIndex]
+                        boneMatrices[newBone.name] = transform_info.TransformMatrices[boneIndex]
+                        boneParents[i] = boneParentIndex
                     
                 # parent all bones
                 for i, bone in enumerate(bones):
@@ -1792,7 +1835,6 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                 bpy.ops.object.mode_set(mode='OBJECT')
                 
                 # assign armature modifier to the mesh object
-                
                 modifier = new_object.modifiers.get("ARMATURE")
                 if (modifier == None):
                     modifier = new_object.modifiers.new("Armature", "ARMATURE")
@@ -1805,6 +1847,10 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                 for obj in bpy.context.selected_objects:
                     obj.select_set(False)
                 skeletonObj.select_set(True)
+                
+                # create empty animation data if it does not exist
+                if not skeletonObj.animation_data:
+                  skeletonObj.animation_data_create()
                 
         # -- || ASSIGN MATERIALS || -- #
         # convert mesh to bmesh
