@@ -1795,8 +1795,10 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                             boneName = Global_BoneNames[boneHash]
                         else:
                             boneName = str(boneHash)
-                        newBone = armature.edit_bones.new(boneName)
-                        newBone.tail = 0, 0.0000025, 0
+                        newBone = armature.edit_bones.get(boneName)
+                        if newBone is None:
+                            newBone = armature.edit_bones.new(boneName)
+                            newBone.tail = 0, 0.0000025, 0
                         bones[i] = newBone
                         boneTransforms[newBone.name] = transform_info.Transforms[boneIndex]
                         boneMatrices[newBone.name] = transform_info.TransformMatrices[boneIndex]
