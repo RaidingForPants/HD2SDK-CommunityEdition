@@ -2414,19 +2414,19 @@ class ImportStingrayMeshOperator(Operator):
             if len(EntriesIDs) == 1:
                 Global_TocManager.Load(EntryID, MeshID)
             else:
-                try:
-                    Global_TocManager.Load(EntryID, MeshID)
-                except Exception as error:
-                    Errors.append([EntryID, error])
+                # try:
+                Global_TocManager.Load(EntryID, MeshID)
+                # except Exception as error:
+                #     Errors.append([EntryID, error])
 
-        if len(Errors) > 0:
-            PrettyPrint("\nThese errors occurred while attempting to load meshes...", "error")
-            idx = 0
-            for error in Errors:
-                PrettyPrint(f"  Error {idx}: for mesh {error[0]}", "error")
-                PrettyPrint(f"    {error[1]}\n", "error")
-                idx += 1
-            raise Exception("One or more meshes failed to load")
+        # if len(Errors) > 0:
+        #     PrettyPrint("\nThese errors occurred while attempting to load meshes...", "error")
+        #     idx = 0
+        #     for error in Errors:
+        #         PrettyPrint(f"  Error {idx}: for mesh {error[0]}", "error")
+        #         PrettyPrint(f"    {error[1]}\n", "error")
+        #         idx += 1
+        #     raise Exception("One or more meshes failed to load")
         return{'FINISHED'}
 
 class SaveStingrayMeshOperator(Operator):
@@ -3735,7 +3735,9 @@ class Hd2ToolPanelSettings(PropertyGroup):
     AutoLods         : BoolProperty(name="Auto LODs", description = "Automatically generate LOD entries based on LOD0, does not actually reduce the quality of the mesh", default = True)
     RemoveGoreMeshes : BoolProperty(name="Remove Gore Meshes", description = "Automatically delete all of the verticies with the gore material when loading a model", default = False)
     SaveBonePositions: BoolProperty(name="Save Bone Positions", description = "Include bone positions in animation (may mess with additive animations being applied)", default = False)
-    ImportArmature   : BoolProperty(name="Import Armature", description = "Import unit armature data", default = False)
+    ImportArmature   : BoolProperty(name="Import Armatures", description = "Import unit armature data", default = True)
+    MergeArmatures   : BoolProperty(name="Merge Armatures", description = "Merge new armatures to the selected armature", default = True)
+    ParentArmature   : BoolProperty(name="Parent Armatures", description = "Make imported armatures the parent of the imported mesh", default = True)
     # Search
     SearchField      : StringProperty(default = "")
 
@@ -3900,6 +3902,7 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "ImportCulling")
             row.prop(scene.Hd2ToolPanelSettings, "ImportStatic")
             row.prop(scene.Hd2ToolPanelSettings, "RemoveGoreMeshes")
+            row.prop(scene.Hd2ToolPanelSettings, "ParentArmature")
             row.prop(scene.Hd2ToolPanelSettings, "ImportArmature")
             row = mainbox.row(); row.separator(); row.label(text="Export Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "Force3UVs")
@@ -3914,6 +3917,7 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "AutoSaveMeshMaterials")
             row.prop(scene.Hd2ToolPanelSettings, "PatchBaseArchiveOnly")
             row.prop(scene.Hd2ToolPanelSettings, "LegacyWeightNames")
+            row.prop(scene.Hd2ToolPanelSettings, "MergeArmatures")
 
             #Custom Searching tools
             row = mainbox.row(); row.separator(); row.label(text="Special Tools"); box = row.box(); row = box.grid_flow(columns=1)

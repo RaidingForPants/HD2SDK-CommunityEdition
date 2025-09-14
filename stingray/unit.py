@@ -1450,14 +1450,19 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         bpy.context.view_layer.objects.active = armature_obj
         bpy.ops.object.mode_set(mode='EDIT')
         for bone in armature_obj.data.edit_bones: # I'd like to use edit bones but it doesn't work for some reason
-            print(bone.name)
+            PrettyPrint(bone.name)
             try:
                 name_hash = int(bone.name)
             except ValueError:
                 name_hash = murmur32_hash(bone.name.encode("utf-8"))
-            transform_index = transform_info.NameHashes.index(name_hash)
+            try:
+                transform_index = transform_info.NameHashes.index(name_hash)
+            except ValueError:
+                PrettyPrint(f"Failed to write data for bone: {bone.name}. This may be intended", 'warn')
+                continue
+                
             m = bone.matrix.transposed()
-            print(m)
+            PrettyPrint(m)
             transform_matrix = StingrayMatrix4x4()
             transform_matrix.v = [
                 m[0][0], m[0][1], m[0][2], m[0][3],
@@ -1694,12 +1699,23 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
         if bpy.context.scene.Hd2ToolPanelSettings.ImportArmature:
             b_info = bone_info[mesh.LodIndex]
             if b_info.NumBones > 0:
-                armature = bpy.data.armatures.new(f"{id}_skeleton{mesh.LodIndex}")
-                armature.display_type = "STICK"
-                skeletonObj = bpy.data.objects.new(f"{id}_lod{mesh.LodIndex}_rig", armature)
-                skeletonObj['Z_ObjectID'] = str(id)
-                skeletonObj['MeshInfoIndex'] = mesh.LodIndex
-                skeletonObj.show_in_front = True
+                skeletonObj = None
+                armature = None
+                if len(bpy.context.selected_objects) > 0:
+                    skeletonObj = bpy.context.selected_objects[0]
+                if skeletonObj and skeletonObj.type == 'ARMATURE':
+                    armature = skeletonObj.data
+                if bpy.context.scene.Hd2ToolPanelSettings.MergeArmatures and armature != None:
+                    PrettyPrint(f"Merging to previous skeleton: {skeletonObj.name}")
+                else:
+                    PrettyPrint(f"Creaing New Skeleton")
+                    armature = bpy.data.armatures.new(f"{id}_skeleton{mesh.LodIndex}")
+                    armature.display_type = "STICK"
+                    skeletonObj = bpy.data.objects.new(f"{id}_lod{mesh.LodIndex}_rig", armature)
+                    skeletonObj['Z_ObjectID'] = str(id)
+                    skeletonObj['MeshInfoIndex'] = mesh.LodIndex
+                    skeletonObj.show_in_front = True
+                    
                 if bpy.context.scene.Hd2ToolPanelSettings.MakeCollections:
                     if 'skeletons' not in bpy.data.collections:
                         collection = bpy.data.collections.new("skeletons")
@@ -1708,7 +1724,12 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                         collection = bpy.data.collections['skeletons']
                 else:
                     collection = bpy.context.collection
-                collection.objects.link(skeletonObj)
+
+                try:
+                    collection.objects.link(skeletonObj)
+                except Exception as e:
+                    PrettyPrint(f"{e}", 'warn')
+
                 #bpy.context.active_object = skeletonObj
                 bpy.context.view_layer.objects.active = skeletonObj
                 bpy.ops.object.mode_set(mode='EDIT')
@@ -1732,8 +1753,11 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                         boneName = Global_BoneNames[boneHash]
                     else:
                         boneName = str(boneHash)
-                    newBone = armature.edit_bones.new(boneName)
-                    newBone.tail = 0, 0.0000025, 0
+                    
+                    newBone = armature.edit_bones.get(boneName)
+                    if (newBone == None):
+                        newBone = armature.edit_bones.new(boneName)
+                        newBone.tail = 0, 0.0000025, 0
                     bones[i] = newBone
                     boneTransforms[newBone.name] = transform_info.Transforms[boneIndex]
                     boneMatrices[newBone.name] = transform_info.TransformMatrices[boneIndex]
@@ -1751,23 +1775,36 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                 for i, bone in enumerate(skeletonObj.pose.bones):
                     bone.matrix_basis.identity()
                     
-                    a = boneMatrices[bone.name]
-                    mat = mathutils.Matrix.Identity(4)
-                    mat[0] = a.v[0:4]
-                    mat[1] = a.v[4:8]
-                    mat[2] = a.v[8:12]
-                    mat[3] = a.v[12:16]
-                    mat.transpose()
-                    bone.matrix = mat
-                    bpy.context.view_layer.update()
+                    try:
+                        a = boneMatrices[bone.name]
+                        mat = mathutils.Matrix.Identity(4)
+                        mat[0] = a.v[0:4]
+                        mat[1] = a.v[4:8]
+                        mat[2] = a.v[8:12]
+                        mat[3] = a.v[12:16]
+                        mat.transpose()
+                        bone.matrix = mat
+                        bpy.context.view_layer.update()
+                    except Exception as e:
+                        PrettyPrint(f"Failed setting bone matricies for: {e}. This may be intended", 'warn')
                     
                 bpy.ops.pose.armature_apply()
                 bpy.ops.object.mode_set(mode='OBJECT')
                 
                 # assign armature modifier to the mesh object
                 
-                modifier = new_object.modifiers.new("Armature", "ARMATURE")
-                modifier.object = skeletonObj
+                modifier = new_object.modifiers.get("ARMATURE")
+                if (modifier == None):
+                    modifier = new_object.modifiers.new("Armature", "ARMATURE")
+                    modifier.object = skeletonObj
+
+                if bpy.context.scene.Hd2ToolPanelSettings.ParentArmature:
+                    new_object.parent = skeletonObj
+                
+                # select the armature at the end so we can chain import when merging
+                for obj in bpy.context.selected_objects:
+                    obj.select_set(False)
+                skeletonObj.select_set(True)
                 
         # -- || ASSIGN MATERIALS || -- #
         # convert mesh to bmesh
