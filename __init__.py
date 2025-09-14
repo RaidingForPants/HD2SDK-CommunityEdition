@@ -37,7 +37,8 @@ from .stingray.bones import LoadBoneHashes, StingrayBones
 from .stingray.composite_unit import StingrayCompositeMesh
 from .stingray.unit import CreateModel, GetObjectsMeshData, StingrayMeshFile
 
-from .cpphelper import Hash64, LoadNormalPalette, RegisterCPPHelper, UnregisterCPPHelper
+from .cpphelper import LoadNormalPalette, RegisterCPPHelper, UnregisterCPPHelper
+from .hashlists.hash import murmur64_hash
 
 # Local
 # NOTE: Not bothering to do importlib reloading shit because these modules are unlikely to be modified frequently enough to warrant testing without Blender restarts
@@ -182,12 +183,12 @@ def CheckAddonUpToDate():
     PrettyPrint("Checking If Addon is up to date...")
     currentVersion = bl_info["version"]
     try:
-        req = requests.get(Global_latestVersionLink)
+        req = requests.get(Global_latestVersionLink, timeout=5)
         req.raise_for_status()  # Check if the request is successful.
         if req.status_code == requests.codes.ok:
             req = req.json()
-            latestVersion = req['tag_name'].replace("v", "")
-            latestVersion = (int(latestVersion.split(".")[0]), int(latestVersion.split(".")[1]), int(latestVersion.split(".")[2]))
+            latestVersion = req['tag_name'].replace("v", "").replace("-", ".").split(".")
+            latestVersion = (int(latestVersion[0]), int(latestVersion[1]), int(latestVersion[2]))
             
             PrettyPrint(f"Current Version: {currentVersion}")
             PrettyPrint(f"Latest Version: {latestVersion}")
@@ -342,7 +343,7 @@ def AddFriendlyName(ID, Name):
 def SaveFriendlyNames():
     with open(Global_filehashpath, 'w') as f:
         for hash_info in Global_NameHashes:
-            if hash_info[1] != "" and int(hash_info[0]) == Hash64(hash_info[1]):
+            if hash_info[1] != "" and int(hash_info[0]) == murmur64_hash(hash_info[1].encode()):
                 string = str(hash_info[0]) + " " + str(hash_info[1])
                 f.writelines(string+"\n")
     with open(Global_friendlynamespath, 'w') as f:
@@ -534,7 +535,7 @@ class TocEntry:
         if self.TypeID == MaterialID: callback = LoadStingrayMaterial
         if self.TypeID == ParticleID: callback = LoadStingrayParticle
         if self.TypeID == CompositeMeshID: callback = LoadStingrayCompositeMesh
-        if self.TypeID == Hash64("bones"): callback = LoadStingrayBones
+        if self.TypeID == BoneID: callback = LoadStingrayBones
         if self.TypeID == AnimationID: callback = LoadStingrayAnimation
         if callback == None: callback = LoadStingrayDump
 
@@ -1037,7 +1038,7 @@ def LoadStingrayAnimation(ID, TocData, GpuData, StreamData, Reload, MakeBlendObj
     if MakeBlendObject: # To-do: create action for armature
         context = bpy.context
         armature = context.active_object
-        bones_entry = Global_TocManager.GetEntryByLoadArchive(int(armature['BonesID']), BoneID)
+        bones_entry = Global_TocManager.GetEntryByLoadArchive(int(armature['Z_ObjectID']), BoneID)
         if not bones_entry.IsLoaded:
             bones_entry.Load()
         bones_data = bones_entry.TocData
@@ -1069,10 +1070,14 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
     if self.MaterialTemplate != None:
         texturesFilepaths = GenerateMaterialTextures(self)
     mat = LoadedData
-    index = 0
     for TexIdx in range(len(mat.TexIDs)):
+        if not bpy.context.scene.Hd2ToolPanelSettings.SaveTexturesWithMaterial:
+            continue
         oldTexID = mat.TexIDs[TexIdx]
-        if mat.DEV_DDSPaths[TexIdx] != None:
+        Entry = Global_TocManager.GetEntry(int(oldTexID), TexID, True)
+        EntryInPatch = False
+        if Entry: EntryInPatch = Global_TocManager.IsInPatch(Entry)
+        if mat.DEV_DDSPaths[TexIdx] != None and not EntryInPatch:
             # get texture data
             StingrayTex = StingrayTexture()
             with open(mat.DEV_DDSPaths[TexIdx], 'r+b') as f:
@@ -1083,34 +1088,47 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
             StingrayTex.Serialize(Toc, Gpu, Stream)
             # add texture entry to archive
             Entry = TocEntry()
-            Entry.FileID = RandomHash16()
+
+            TextureID = oldTexID
+            if bpy.context.scene.Hd2ToolPanelSettings.GenerateRandomTextureIDs:
+                TextureID = RandomHash16()
+
+            Entry.FileID = TextureID
             Entry.TypeID = TexID
             Entry.IsCreated = True
             Entry.SetData(Toc.Data, Gpu.Data, Stream.Data, False)
             Global_TocManager.AddNewEntryToPatch(Entry)
-            mat.TexIDs[TexIdx] = Entry.FileID
-        else:
-            Global_TocManager.Load(int(mat.TexIDs[TexIdx]), TexID, False, True)
-            Entry = Global_TocManager.GetEntry(int(mat.TexIDs[TexIdx]), TexID, True)
+            mat.TexIDs[TexIdx] = TextureID
+        elif not EntryInPatch:
+            Global_TocManager.Load(int(oldTexID), TexID, False, True)
+            Entry = Global_TocManager.GetEntry(int(oldTexID), TexID, True)
             if Entry != None:
                 Entry = deepcopy(Entry)
-                Entry.FileID = RandomHash16()
+
+                TextureID = oldTexID
+                if bpy.context.scene.Hd2ToolPanelSettings.GenerateRandomTextureIDs:
+                    TextureID = RandomHash16()
+
+                Entry.FileID = TextureID
                 Entry.IsCreated = True
                 Global_TocManager.AddNewEntryToPatch(Entry)
-                mat.TexIDs[TexIdx] = Entry.FileID
+                mat.TexIDs[TexIdx] = TextureID
+                
         if self.MaterialTemplate != None:
-            path = texturesFilepaths[index]
+            path = texturesFilepaths[TexIdx]
             if not os.path.exists(path):
                 raise Exception(f"Could not find file at path: {path}")
             if not Entry:
-                raise Exception(f"Could not find or generate texture entry ID: {int(mat.TexIDs[TexIdx])}")
+                PrettyPrint(f"Failed to generate a texture: {oldTexID} for material: {ID}. This may be due to renaming texture entries and can be intended.", "warn")
+                continue
+                # raise Exception(f"Could not find or generate texture entry ID: {int(mat.TexIDs[TexIdx])}")
             
             if path.endswith(".dds"):
                 SaveImageDDS(path, Entry.FileID)
             else:
                 SaveImagePNG(path, Entry.FileID)
-        Global_TocManager.RemoveEntryFromPatch(oldTexID, TexID)
-        index += 1
+        if bpy.context.scene.Hd2ToolPanelSettings.GenerateRandomTextureIDs:
+            Global_TocManager.RemoveEntryFromPatch(oldTexID, TexID)
     f = MemoryStream(IOMode="write")
     LoadedData.Serialize(f)
     return [f.Data, b"", b""]
@@ -1602,6 +1620,10 @@ def HasZeroVerticies(self, objects):
 
 def MeshNotValidToSave(self):
     objects = bpy.context.selected_objects
+    for i, obj in enumerate(objects):
+        if obj.type != 'MESH':
+            objects.pop(i)
+
     return (PatchesNotLoaded(self) or 
             CheckDuplicateIDsInScene(self, objects) or 
             CheckVertexGroups(self, objects) or 
@@ -2053,6 +2075,10 @@ class MaterialTextureEntryOperator(Operator):
 
     object_id: StringProperty()
     object_typeid: StringProperty()
+
+    texture_index: StringProperty()
+    material_id: StringProperty()
+
     def execute(self, context):
         return{'FINISHED'}
 
@@ -2232,12 +2258,20 @@ class RenamePatchEntryOperator(Operator):
 
     object_id: StringProperty()
     object_typeid: StringProperty()
+
+    material_id: StringProperty(default="")
+    texture_index: StringProperty(default="")
     def execute(self, context):
         Entry = Global_TocManager.GetPatchEntry_B(int(self.object_id), int(self.object_typeid))
-        if Entry == None:
-            raise Exception("Entry does not exist in patch (cannot rename non patch entries)")
+        if Entry == None and self.material_id == "":
+            raise Exception(f"Entry does not exist in patch (cannot rename non patch entries) ID: {self.object_id} TypeID: {self.object_typeid}")
         if Entry != None and self.NewFileID != "":
             Entry.FileID = int(self.NewFileID)
+
+        # Are we renaming via a texture entry in a material?
+        if self.material_id != "" and self.texture_index != "":
+            MaterialEntry = Global_TocManager.GetPatchEntry_B(int(self.material_id), int(MaterialID))
+            MaterialEntry.LoadedData.TexIDs[int(self.texture_index)] = int(self.NewFileID)
 
         # Redraw
         for area in context.screen.areas:
@@ -2380,19 +2414,19 @@ class ImportStingrayMeshOperator(Operator):
             if len(EntriesIDs) == 1:
                 Global_TocManager.Load(EntryID, MeshID)
             else:
-                try:
-                    Global_TocManager.Load(EntryID, MeshID)
-                except Exception as error:
-                    Errors.append([EntryID, error])
+                # try:
+                Global_TocManager.Load(EntryID, MeshID)
+                # except Exception as error:
+                #     Errors.append([EntryID, error])
 
-        if len(Errors) > 0:
-            PrettyPrint("\nThese errors occurred while attempting to load meshes...", "error")
-            idx = 0
-            for error in Errors:
-                PrettyPrint(f"  Error {idx}: for mesh {error[0]}", "error")
-                PrettyPrint(f"    {error[1]}\n", "error")
-                idx += 1
-            raise Exception("One or more meshes failed to load")
+        # if len(Errors) > 0:
+        #     PrettyPrint("\nThese errors occurred while attempting to load meshes...", "error")
+        #     idx = 0
+        #     for error in Errors:
+        #         PrettyPrint(f"  Error {idx}: for mesh {error[0]}", "error")
+        #         PrettyPrint(f"    {error[1]}\n", "error")
+        #         idx += 1
+        #     raise Exception("One or more meshes failed to load")
         return{'FINISHED'}
 
 class SaveStingrayMeshOperator(Operator):
@@ -2485,7 +2519,6 @@ class BatchSaveStingrayMeshOperator(Operator):
             return {'CANCELLED'}
 
         objects = bpy.context.selected_objects
-        num_initially_selected = len(objects)
 
         if len(objects) == 0:
             self.report({'WARNING'}, "No Objects Selected")
@@ -2493,7 +2526,10 @@ class BatchSaveStingrayMeshOperator(Operator):
 
         IDs = []
         IDswaps = {}
-        for object in objects:
+        for i, object in enumerate(objects):
+            if object.type != 'MESH':
+                objects.pop(i)
+                continue
             SwapID = ""
             try:
                 ID = object["Z_ObjectID"]
@@ -2512,6 +2548,7 @@ class BatchSaveStingrayMeshOperator(Operator):
             except KeyError:
                 self.report({'ERROR'}, f"{object.name} has no HD2 custom properties")
                 return {'CANCELLED'}
+        num_initially_selected = len(objects)
         swapCheck = {}
         for IDitem in IDs:
             ID = IDitem[0]
@@ -3046,12 +3083,12 @@ class ImportStingrayAnimationOperator(Operator):
             self.report({'ERROR'}, "Please select an armature to import the animation to")
             return {'CANCELLED'}
         animation_id = self.object_id
-        try:
-            Global_TocManager.Load(int(animation_id), AnimationID)
-        except Exception as error:
-            PrettyPrint(f"Encountered animation error: {error}", 'error')
-            self.report({'ERROR'}, f"Encountered an error whilst importing animation. See Console for more info.")
-            return {'CANCELLED'}
+        # try:
+        Global_TocManager.Load(int(animation_id), AnimationID)
+        # except Exception as error:
+        #     PrettyPrint(f"Encountered animation error: {error}", 'error')
+        #     self.report({'ERROR'}, f"Encountered an error whilst importing animation. See Console for more info.")
+        #     return {'CANCELLED'}
         return{'FINISHED'}
         
 class SaveStingrayAnimationOperator(Operator):
@@ -3077,10 +3114,10 @@ class SaveStingrayAnimationOperator(Operator):
         if entry_id.startswith("0x"):
             entry_id = hex_to_decimal(entry_id)
         try:
-            bones_id = object['BonesID']
+            bones_id = object['Z_ObjectID']
         except Exception as e:
             PrettyPrint(f"Encountered animation error: {e}", 'error')
-            self.report({'ERROR'}, f"Armature: {object.name} is missing HD2 custom property: BonesID")
+            self.report({'ERROR'}, f"Armature: {object.name} is missing HD2 custom property: Z_ObjectID")
             return{'CANCELLED'}
         PrettyPrint(f"Getting Animation Entry: {entry_id}")
         animation_entry = Global_TocManager.GetEntryByLoadArchive(int(entry_id), AnimationID)
@@ -3200,7 +3237,7 @@ class CopyTextOperator(Operator):
 
     text: StringProperty()
     def execute(self, context):
-        cmd='echo '+str(self.text).strip()+'|clip'
+        cmd='echo|set /p="'+str(self.text).strip()+'"|clip'
         subprocess.check_call(cmd, shell=True)
         self.report({'INFO'}, f"Copied: {self.text}")
         return{'FINISHED'}
@@ -3333,11 +3370,11 @@ class SetEntryFriendlyNameOperator(Operator):
         layout = self.layout; row = layout.row()
         row.prop(self, "NewFriendlyName", icon='COPY_ID')
         row = layout.row()
-        if Hash64(str(self.NewFriendlyName)) == int(self.object_id):
+        if murmur64_hash(str(self.NewFriendlyName).encode()) == int(self.object_id):
             row.label(text="Hash is correct")
         else:
             row.label(text="Hash is incorrect")
-        row.label(text=str(Hash64(str(self.NewFriendlyName))))
+        row.label(text=str(murmur64_hash(str(self.NewFriendlyName).encode())))
 
     object_id: StringProperty()
     def execute(self, context):
@@ -3698,7 +3735,9 @@ class Hd2ToolPanelSettings(PropertyGroup):
     AutoLods         : BoolProperty(name="Auto LODs", description = "Automatically generate LOD entries based on LOD0, does not actually reduce the quality of the mesh", default = True)
     RemoveGoreMeshes : BoolProperty(name="Remove Gore Meshes", description = "Automatically delete all of the verticies with the gore material when loading a model", default = False)
     SaveBonePositions: BoolProperty(name="Save Bone Positions", description = "Include bone positions in animation (may mess with additive animations being applied)", default = False)
-    ImportArmature   : BoolProperty(name="Import Armature", description = "Import unit armature data", default = False)
+    ImportArmature   : BoolProperty(name="Import Armatures", description = "Import unit armature data", default = True)
+    MergeArmatures   : BoolProperty(name="Merge Armatures", description = "Merge new armatures to the selected armature", default = True)
+    ParentArmature   : BoolProperty(name="Parent Armatures", description = "Make imported armatures the parent of the imported mesh", default = True)
     # Search
     SearchField      : StringProperty(default = "")
 
@@ -3715,6 +3754,9 @@ class Hd2ToolPanelSettings(PropertyGroup):
     PatchBaseArchiveOnly  : BoolProperty(name="Patch Base Archive Only", description="When enabled, it will allow patched to only be created if the base archive is selected. This is helpful for new users.", default = True)
     LegacyWeightNames     : BoolProperty(name="Legacy Weight Names", description="Brings back the old naming system for vertex groups using the X_Y schema", default = False)
     
+    SaveTexturesWithMaterial: BoolProperty(name="Save Textures with Material", description="Save a material\'s referenced textures to the patch when said material is saved. When disabled, new random IDs will not be given each time the material is saved", default = True)
+    GenerateRandomTextureIDs: BoolProperty(name="Generate Random Texture IDs", description="Give a material\'s referenced textures new random IDs when said material is saved", default = True)
+
     def get_settings_dict(self):
         dict = {}
         dict["MenuExpanded"] = self.MenuExpanded
@@ -3742,7 +3784,10 @@ class HellDivers2ToolsPanel(Panel):
                     label = filepath.name if ddsPath != None else str(t)
                     if Entry.MaterialTemplate != None:
                         label = TextureTypeLookup[Entry.MaterialTemplate][i] + ": " + label
-                    row.operator("helldiver2.material_texture_entry", icon='FILE_IMAGE', text=label, emboss=False).object_id = str(t)
+                    material_texture_entry = row.operator("helldiver2.material_texture_entry", icon='FILE_IMAGE', text=label, emboss=False)
+                    material_texture_entry.object_id = str(t)
+                    material_texture_entry.texture_index = str(i)
+                    material_texture_entry.material_id = str(Entry.FileID)
                     # props = row.operator("helldiver2.material_settex", icon='FILEBROWSER', text="")
                     # props.object_id = str(Entry.FileID)
                     # props.tex_idx = i
@@ -3857,18 +3902,22 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "ImportCulling")
             row.prop(scene.Hd2ToolPanelSettings, "ImportStatic")
             row.prop(scene.Hd2ToolPanelSettings, "RemoveGoreMeshes")
+            row.prop(scene.Hd2ToolPanelSettings, "ParentArmature")
             row.prop(scene.Hd2ToolPanelSettings, "ImportArmature")
             row = mainbox.row(); row.separator(); row.label(text="Export Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "Force3UVs")
             row.prop(scene.Hd2ToolPanelSettings, "Force1Group")
             row.prop(scene.Hd2ToolPanelSettings, "AutoLods")
             row.prop(scene.Hd2ToolPanelSettings, "SaveBonePositions")
+            row.prop(scene.Hd2ToolPanelSettings, "SaveTexturesWithMaterial")
+            row.prop(scene.Hd2ToolPanelSettings, "GenerateRandomTextureIDs")
             row = mainbox.row(); row.separator(); row.label(text="Other Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "SaveNonSDKMaterials")
             row.prop(scene.Hd2ToolPanelSettings, "SaveUnsavedOnWrite")
             row.prop(scene.Hd2ToolPanelSettings, "AutoSaveMeshMaterials")
             row.prop(scene.Hd2ToolPanelSettings, "PatchBaseArchiveOnly")
             row.prop(scene.Hd2ToolPanelSettings, "LegacyWeightNames")
+            row.prop(scene.Hd2ToolPanelSettings, "MergeArmatures")
 
             #Custom Searching tools
             row = mainbox.row(); row.separator(); row.label(text="Special Tools"); box = row.box(); row = box.grid_flow(columns=1)
@@ -4252,14 +4301,20 @@ class WM_MT_button_context(Menu):
         if SingleEntry:
             row.operator("helldiver2.archive_setfriendlyname", icon='WORDWRAP_ON', text="Set Friendly Name").object_id = str(Entry.FileID)
             
-    def draw_material_editor_context_buttons(self, layout, FileID):
+    def draw_material_editor_context_buttons(self, layout, FileID, MaterialID, TextureIndex):
         row = layout
         row.separator()
         row.label(text=Global_SectionHeader)
         row.separator()
         row.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Entry ID").text = str(FileID)
         row.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Entry Hex ID").text = str(hex(int(FileID)))
-    
+        row.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Type ID").text  = str(TexID)
+        props = row.operator("helldiver2.archive_entryrename", icon='TEXT', text="Rename")
+        props.object_id     = str(FileID)
+        props.object_typeid = str(TexID)
+        props.material_id = str(MaterialID)
+        props.texture_index = str(TextureIndex)
+
     def draw(self, context):
         value = getattr(context, "button_operator", None)
         menuName = type(value).__name__
@@ -4271,7 +4326,9 @@ class WM_MT_button_context(Menu):
         elif menuName == "HELLDIVER2_OT_material_texture_entry":
             layout = self.layout
             FileID = getattr(value, "object_id")
-            self.draw_material_editor_context_buttons(layout, FileID)
+            MaterialID = getattr(value, "material_id")
+            TextureIndex = getattr(value, "texture_index")
+            self.draw_material_editor_context_buttons(layout, FileID, MaterialID, TextureIndex)
             
 
 #endregion

@@ -5,6 +5,8 @@ import mathutils
 from ..logger import PrettyPrint
 from ..memoryStream import MemoryStream
 
+from bpy.types import Armature
+
 class AnimationEntry:
     def __init__(self):
         self.type = 0
@@ -621,11 +623,13 @@ class StingrayAnimation:
                                                                                   (bone.name, curve[0]), index=curve[1], action_group=bone.name)
             
         
-    def to_action(self, context, armature, bones_data, animation_id):
+    def to_action(self, context, armature: Armature, bones_data, animation_id):
         PrettyPrint(f"Creaing action with ID: {animation_id}")
         actions = bpy.data.actions
         action = actions.new(str(animation_id))
         action.use_fake_user = True
+        if armature.animation_data == None:
+            armature.animation_data_create()
         armature.animation_data.action = action
         
         fcurves = action.fcurves

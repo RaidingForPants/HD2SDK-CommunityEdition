@@ -8,7 +8,7 @@ import bmesh
 from ..memoryStream import MemoryStream
 from ..math import MakeTenBitUnsigned, TenBitUnsigned
 from ..logger import PrettyPrint
-from ..cpphelper import Hash32, LoadNormalPalette, NormalsFromPalette
+from ..cpphelper import LoadNormalPalette, NormalsFromPalette
 from ..hashlists.hash import murmur32_hash
 
 from ..constants import *
@@ -1470,14 +1470,19 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         bpy.context.view_layer.objects.active = armature_obj
         bpy.ops.object.mode_set(mode='EDIT')
         for bone in armature_obj.data.edit_bones: # I'd like to use edit bones but it doesn't work for some reason
-            print(bone.name)
+            PrettyPrint(bone.name)
             try:
                 name_hash = int(bone.name)
             except ValueError:
                 name_hash = murmur32_hash(bone.name.encode("utf-8"))
-            transform_index = transform_info.NameHashes.index(name_hash)
+            try:
+                transform_index = transform_info.NameHashes.index(name_hash)
+            except ValueError:
+                PrettyPrint(f"Failed to write data for bone: {bone.name}. This may be intended", 'warn')
+                continue
+                
             m = bone.matrix.transposed()
-            print(m)
+            PrettyPrint(m)
             transform_matrix = StingrayMatrix4x4()
             transform_matrix.v = [
                 m[0][0], m[0][1], m[0][2], m[0][3],
@@ -1545,6 +1550,8 @@ def GetObjectsMeshData(Global_TocManager, Global_BoneNames):
     bpy.ops.object.select_all(action='DESELECT')
     data = {}
     for object in objects:
+        if object.type != 'MESH':
+            continue
         ID = object["Z_ObjectID"]
         MeshData = GetMeshData(object, Global_TocManager, Global_BoneNames)
         try:
@@ -1571,7 +1578,7 @@ def NameFromMesh(mesh, id, customization_info, bone_names, use_sufix=True):
 
     if use_sufix and bone_names != None:
         for bone_name in bone_names:
-            if Hash32(bone_name) == mesh.MeshID:
+            if murmur32_hash(bone_name.encode()) == mesh.MeshID:
                 name = bone_name
 
     return name
@@ -1718,17 +1725,37 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
         if bpy.context.scene.Hd2ToolPanelSettings.ImportArmature:
             b_info = bone_info[mesh.LodIndex]
             if b_info.NumBones > 0:
-                armature = bpy.data.armatures.new(f"{id}_skeleton{mesh.LodIndex}")
-                armature.display_type = "STICK"
-                skeletonObj = bpy.data.objects.new(f"{id}_lod{mesh.LodIndex}_rig", armature)
-                skeletonObj['Z_ObjectID'] = str(id)
-                skeletonObj.show_in_front = True
-                if 'skeletons' not in bpy.data.collections:
-                    collection = bpy.data.collections.new("skeletons")
-                    bpy.context.scene.collection.children.link(collection)
+                skeletonObj = None
+                armature = None
+                if len(bpy.context.selected_objects) > 0:
+                    skeletonObj = bpy.context.selected_objects[0]
+                if skeletonObj and skeletonObj.type == 'ARMATURE':
+                    armature = skeletonObj.data
+                if bpy.context.scene.Hd2ToolPanelSettings.MergeArmatures and armature != None:
+                    PrettyPrint(f"Merging to previous skeleton: {skeletonObj.name}")
                 else:
-                    collection = bpy.data.collections['skeletons']
-                collection.objects.link(skeletonObj)
+                    PrettyPrint(f"Creaing New Skeleton")
+                    armature = bpy.data.armatures.new(f"{id}_skeleton{mesh.LodIndex}")
+                    armature.display_type = "STICK"
+                    skeletonObj = bpy.data.objects.new(f"{id}_lod{mesh.LodIndex}_rig", armature)
+                    skeletonObj['Z_ObjectID'] = str(id)
+                    skeletonObj['MeshInfoIndex'] = mesh.LodIndex
+                    skeletonObj.show_in_front = True
+                    
+                if bpy.context.scene.Hd2ToolPanelSettings.MakeCollections:
+                    if 'skeletons' not in bpy.data.collections:
+                        collection = bpy.data.collections.new("skeletons")
+                        bpy.context.scene.collection.children.link(collection)
+                    else:
+                        collection = bpy.data.collections['skeletons']
+                else:
+                    collection = bpy.context.collection
+
+                try:
+                    collection.objects.link(skeletonObj)
+                except Exception as e:
+                    PrettyPrint(f"{e}", 'warn')
+
                 #bpy.context.active_object = skeletonObj
                 bpy.context.view_layer.objects.active = skeletonObj
                 bpy.ops.object.mode_set(mode='EDIT')
@@ -1738,7 +1765,6 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                 boneMatrices = {}
                 boneParents = [0] * b_info.NumBones
                 # create all bones
-                
                 if mesh.LodIndex == 0:
                     bones = [None] * transform_info.NumTransforms
                     boneParents = [0] * transform_info.NumTransforms
@@ -1788,24 +1814,39 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                 for i, bone in enumerate(skeletonObj.pose.bones):
                     bone.matrix_basis.identity()
                     
-                    a = boneMatrices[bone.name]
-                    mat = mathutils.Matrix.Identity(4)
-                    mat[0] = a.v[0:4]
-                    mat[1] = a.v[4:8]
-                    mat[2] = a.v[8:12]
-                    mat[3] = a.v[12:16]
-                    mat.transpose()
-                    bone.matrix = mat
-                    bpy.context.view_layer.update()
+                    try:
+                        a = boneMatrices[bone.name]
+                        mat = mathutils.Matrix.Identity(4)
+                        mat[0] = a.v[0:4]
+                        mat[1] = a.v[4:8]
+                        mat[2] = a.v[8:12]
+                        mat[3] = a.v[12:16]
+                        mat.transpose()
+                        bone.matrix = mat
+                        bpy.context.view_layer.update()
+                    except Exception as e:
+                        PrettyPrint(f"Failed setting bone matricies for: {e}. This may be intended", 'warn')
                     
                 bpy.ops.pose.armature_apply()
                 bpy.ops.object.mode_set(mode='OBJECT')
                 
                 # assign armature modifier to the mesh object
+                modifier = new_object.modifiers.get("ARMATURE")
+                if (modifier == None):
+                    modifier = new_object.modifiers.new("Armature", "ARMATURE")
+                    modifier.object = skeletonObj
+
+                if bpy.context.scene.Hd2ToolPanelSettings.ParentArmature:
+                    new_object.parent = skeletonObj
                 
-                modifier = new_object.modifiers.new("Armature", "ARMATURE")
-                modifier.object = skeletonObj
-                skeletonObj.animation_data_create()
+                # select the armature at the end so we can chain import when merging
+                for obj in bpy.context.selected_objects:
+                    obj.select_set(False)
+                skeletonObj.select_set(True)
+                
+                # create empty animation data if it does not exist
+                if not skeletonObj.animation_data:
+                  skeletonObj.animation_data_create()
                 
         # -- || ASSIGN MATERIALS || -- #
         # convert mesh to bmesh
