@@ -1700,11 +1700,14 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                 skeletonObj['Z_ObjectID'] = str(id)
                 skeletonObj['MeshInfoIndex'] = mesh.LodIndex
                 skeletonObj.show_in_front = True
-                if 'skeletons' not in bpy.data.collections:
-                    collection = bpy.data.collections.new("skeletons")
-                    bpy.context.scene.collection.children.link(collection)
+                if bpy.context.scene.Hd2ToolPanelSettings.MakeCollections:
+                    if 'skeletons' not in bpy.data.collections:
+                        collection = bpy.data.collections.new("skeletons")
+                        bpy.context.scene.collection.children.link(collection)
+                    else:
+                        collection = bpy.data.collections['skeletons']
                 else:
-                    collection = bpy.data.collections['skeletons']
+                    collection = bpy.context.collection
                 collection.objects.link(skeletonObj)
                 #bpy.context.active_object = skeletonObj
                 bpy.context.view_layer.objects.active = skeletonObj
