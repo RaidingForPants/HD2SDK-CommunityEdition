@@ -1466,15 +1466,21 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 m[3][0], m[3][1], m[3][2], m[3][3]
             ]
             transform_info.TransformMatrices[transform_index] = transform_matrix
-            translation, rotation, scale = bone.matrix.decompose()
-            rotation = rotation.to_matrix()
-            transform_local = StingrayLocalTransform()
-            transform_local.rot.x = [rotation[0][0], rotation[0][1], rotation[0][2]]
-            transform_local.rot.y = [rotation[1][0], rotation[1][1], rotation[1][2]]
-            transform_local.rot.z = [rotation[2][0], rotation[2][1], rotation[2][2]]
-            transform_local.pos = translation
-            transform_local.scale = scale
-            transform_info.Transforms[transform_index] = transform_local
+            if bone.parent:
+                parent_matrix = bone.parent.matrix
+                local_transform_matrix = parent_matrix.inverted() @ bone.matrix
+                translation, rotation, scale = local_transform_matrix.decompose()
+                rotation = rotation.to_matrix()
+                transform_local = StingrayLocalTransform()
+                transform_local.rot.x = [rotation[0][0], rotation[0][1], rotation[0][2]]
+                transform_local.rot.y = [rotation[1][0], rotation[1][1], rotation[1][2]]
+                transform_local.rot.z = [rotation[2][0], rotation[2][1], rotation[2][2]]
+                transform_local.pos = translation
+                transform_local.scale = scale
+                transform_info.Transforms[transform_index] = transform_local
+            else:
+                transform_local = StingrayLocalTransform()
+                transform_info.Transforms[transform_index] = transform_local
         bpy.context.view_layer.objects.active = prev_obj
         bpy.ops.object.mode_set(mode=prev_mode)
     #bpy.ops.object.mode_set(mode='OBJECT')
