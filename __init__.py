@@ -1620,6 +1620,10 @@ def HasZeroVerticies(self, objects):
 
 def MeshNotValidToSave(self):
     objects = bpy.context.selected_objects
+    for i, obj in enumerate(objects):
+        if obj.type != 'MESH':
+            objects.pop(i)
+
     return (PatchesNotLoaded(self) or 
             CheckDuplicateIDsInScene(self, objects) or 
             CheckVertexGroups(self, objects) or 
@@ -2515,7 +2519,6 @@ class BatchSaveStingrayMeshOperator(Operator):
             return {'CANCELLED'}
 
         objects = bpy.context.selected_objects
-        num_initially_selected = len(objects)
 
         if len(objects) == 0:
             self.report({'WARNING'}, "No Objects Selected")
@@ -2523,7 +2526,10 @@ class BatchSaveStingrayMeshOperator(Operator):
 
         IDs = []
         IDswaps = {}
-        for object in objects:
+        for i, object in enumerate(objects):
+            if object.type != 'MESH':
+                objects.pop(i)
+                continue
             SwapID = ""
             try:
                 ID = object["Z_ObjectID"]
@@ -2542,6 +2548,7 @@ class BatchSaveStingrayMeshOperator(Operator):
             except KeyError:
                 self.report({'ERROR'}, f"{object.name} has no HD2 custom properties")
                 return {'CANCELLED'}
+        num_initially_selected = len(objects)
         swapCheck = {}
         for IDitem in IDs:
             ID = IDitem[0]

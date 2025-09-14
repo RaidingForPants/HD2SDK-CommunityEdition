@@ -1519,6 +1519,8 @@ def GetObjectsMeshData(Global_TocManager, Global_BoneNames):
     bpy.ops.object.select_all(action='DESELECT')
     data = {}
     for object in objects:
+        if object.type != 'MESH':
+            continue
         ID = object["Z_ObjectID"]
         MeshData = GetMeshData(object, Global_TocManager, Global_BoneNames)
         try:
