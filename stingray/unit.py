@@ -132,7 +132,8 @@ class StingrayMeshFile:
             self.CustomizationInfo.Serialize(f)
             f.seek(loc)
         # Get Transform data: READ ONLY
-        if self.TransformInfoOffset > 0:
+        #if f.IsReading() and self.TransformInfoOffset > 0:
+        if self.TransformInfoOffset > 0: # need to update other offsets?
             loc = f.tell(); f.seek(self.TransformInfoOffset)
             self.TransformInfo.Serialize(f)
             if f.tell() % 16 != 0:
@@ -149,11 +150,20 @@ class StingrayMeshFile:
             else:
                 UnreversedData1_2Size = len(self.UnreversedData1_2)
             f.seek(loc)
+            if f.IsWriting():
+                f.seek(self.TransformInfoOffset)
+                print(self.TransformInfo.NumTransforms)
+                f.SetReadMode()
+                print(f.uint32(self.TransformInfo.NumTransforms))
+                f.SetWriteMode()
+                f.seek(loc)
 
         # Unreversed data before transform info offset (may include customization info)
         # Unreversed data intersects other data we want to leave alone!
         if f.IsReading():
-            if self.BoneInfoOffset > 0:
+            if self.TransformInfoOffset > 0:
+                UnreversedData1Size = self.TransformInfoOffset - f.tell()
+            elif self.BoneInfoOffset > 0:
                 UnreversedData1Size = self.BoneInfoOffset-f.tell()
             elif self.StreamInfoOffset > 0:
                 UnreversedData1Size = self.StreamInfoOffset-f.tell()
@@ -758,8 +768,8 @@ class StingrayMatrix3x3: # Matrix3x3: https://help.autodesk.com/cloudhelp/ENU/St
         self.z = [0,0,0]
     def Serialize(self, f: MemoryStream):
         self.x = f.vec3_float(self.x)
-        self.y = f.vec3_float(self.x)
-        self.z = f.vec3_float(self.x)
+        self.y = f.vec3_float(self.y)
+        self.z = f.vec3_float(self.z)
         return self
     def ToQuaternion(self):
         T = self.x[0] + self.y[1] + self.z[2]
