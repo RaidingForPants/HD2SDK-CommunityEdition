@@ -826,8 +826,8 @@ class TransformInfo: # READ ONLY
             self.TransformEntries = [StingrayLocalTransform().SerializeTransformEntry(f) for n in range(self.NumTransforms)]
             self.NameHashes = [f.uint32(n) for n in range(self.NumTransforms)]
             PrettyPrint(f"hashes: {self.NameHashes}")
-            for n in range(self.NumTransforms):
-                self.Transforms[n].pos = self.PositionTransforms[n].pos
+            #for n in range(self.NumTransforms):
+            #    self.Transforms[n].pos = self.PositionTransforms[n].pos
         else:
             print("Saving")
             print(self.NumTransforms)
