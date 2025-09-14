@@ -29,6 +29,7 @@ class StingrayMeshFile:
         self.CustomizationInfo = CustomizationInfo()
         self.TransformInfo     = TransformInfo()
         self.BoneNames = None
+        self.UnreversedData1_2 = bytearray()
 
     # -- Serialize Mesh -- #
     def Serialize(self, f: MemoryStream, gpu, Global_TocManager, redo_offsets = False, BlenderOpts=None):
