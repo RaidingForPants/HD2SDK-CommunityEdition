@@ -3230,7 +3230,7 @@ class CopyTextOperator(Operator):
 
     text: StringProperty()
     def execute(self, context):
-        cmd='echo '+str(self.text).strip()+'|clip'
+        cmd='echo|set /p="'+str(self.text).strip()+'"|clip'
         subprocess.check_call(cmd, shell=True)
         self.report({'INFO'}, f"Copied: {self.text}")
         return{'FINISHED'}
