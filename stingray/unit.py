@@ -1696,7 +1696,6 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                 armature.display_type = "STICK"
                 skeletonObj = bpy.data.objects.new(f"{id}_lod{mesh.LodIndex}_rig", armature)
                 skeletonObj['Z_ObjectID'] = str(id)
-                skeletonObj['MeshInfoIndex'] = mesh.LodIndex
                 skeletonObj.show_in_front = True
                 if 'skeletons' not in bpy.data.collections:
                     collection = bpy.data.collections.new("skeletons")
@@ -1712,27 +1711,44 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                 boneTransforms = {}
                 boneMatrices = {}
                 boneParents = [0] * b_info.NumBones
-                
                 # create all bones
-                for i, bone in enumerate(b_info.Bones): # this is not every bone in the transform_info
-                    boneIndex = b_info.RealIndices[i] # index of bone in transform info
-                    boneParent = transform_info.TransformEntries[boneIndex].ParentBone # index of parent bone in transform info
-                    # index of parent bone in b_info.Bones?
-                    if boneParent in b_info.RealIndices:
-                        boneParentIndex = b_info.RealIndices.index(boneParent)
-                    else:
-                        boneParentIndex = -1
-                    boneHash = transform_info.NameHashes[boneIndex]
-                    if boneHash in Global_BoneNames: # name of bone
-                        boneName = Global_BoneNames[boneHash]
-                    else:
-                        boneName = str(boneHash)
-                    newBone = armature.edit_bones.new(boneName)
-                    newBone.tail = 0, 0.0000025, 0
-                    bones[i] = newBone
-                    boneTransforms[newBone.name] = transform_info.Transforms[boneIndex]
-                    boneMatrices[newBone.name] = transform_info.TransformMatrices[boneIndex]
-                    boneParents[i] = boneParentIndex
+                
+                if mesh.LodIndex == 0:
+                    bones = [None] * transform_info.NumTransforms
+                    boneParents = [0] * transform_info.NumTransforms
+                    for i, transform in enumerate(transform_info.TransformEntries):
+                        boneParent = transform.ParentBone
+                        boneHash = transform_info.NameHashes[i]
+                        if boneHash in Global_BoneNames: # name of bone
+                            boneName = Global_BoneNames[boneHash]
+                        else:
+                            boneName = str(boneHash)
+                        newBone = armature.edit_bones.new(boneName)
+                        newBone.tail = 0, 0.0000025, 0
+                        bones[i] = newBone
+                        boneParents[i] = boneParent
+                        boneTransforms[newBone.name] = transform_info.Transforms[i]
+                        boneMatrices[newBone.name] = transform_info.TransformMatrices[i]
+                else:
+                    for i, bone in enumerate(b_info.Bones): # this is not every bone in the transform_info
+                        boneIndex = b_info.RealIndices[i] # index of bone in transform info
+                        boneParent = transform_info.TransformEntries[boneIndex].ParentBone # index of parent bone in transform info
+                        # index of parent bone in b_info.Bones?
+                        if boneParent in b_info.RealIndices:
+                            boneParentIndex = b_info.RealIndices.index(boneParent)
+                        else:
+                            boneParentIndex = -1
+                        boneHash = transform_info.NameHashes[boneIndex]
+                        if boneHash in Global_BoneNames: # name of bone
+                            boneName = Global_BoneNames[boneHash]
+                        else:
+                            boneName = str(boneHash)
+                        newBone = armature.edit_bones.new(boneName)
+                        newBone.tail = 0, 0.0000025, 0
+                        bones[i] = newBone
+                        boneTransforms[newBone.name] = transform_info.Transforms[boneIndex]
+                        boneMatrices[newBone.name] = transform_info.TransformMatrices[boneIndex]
+                        boneParents[i] = boneParentIndex
                     
                 # parent all bones
                 for i, bone in enumerate(bones):
@@ -1763,6 +1779,7 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                 
                 modifier = new_object.modifiers.new("Armature", "ARMATURE")
                 modifier.object = skeletonObj
+                skeletonObj.animation_data_create()
                 
         # -- || ASSIGN MATERIALS || -- #
         # convert mesh to bmesh
