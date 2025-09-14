@@ -1576,9 +1576,10 @@ def PatchesNotLoaded(self):
 
 def ObjectHasModifiers(self, objects):
     for obj in objects:
-        if obj.modifiers:
-            self.report({'ERROR'}, f"Object: {obj.name} has {len(obj.modifiers)} unapplied modifiers")
-            return True
+        for modifier in obj.modifiers:
+            if modifier.type != "ARMATURE":
+                self.report({'ERROR'}, f"Object: {obj.name} has {len(obj.modifiers)} unapplied modifiers")
+                return True
     return False
 
 def ObjectHasShapeKeys(self, objects):
@@ -3727,6 +3728,7 @@ class Hd2ToolPanelSettings(PropertyGroup):
     AutoLods         : BoolProperty(name="Auto LODs", description = "Automatically generate LOD entries based on LOD0, does not actually reduce the quality of the mesh", default = True)
     RemoveGoreMeshes : BoolProperty(name="Remove Gore Meshes", description = "Automatically delete all of the verticies with the gore material when loading a model", default = False)
     SaveBonePositions: BoolProperty(name="Save Bone Positions", description = "Include bone positions in animation (may mess with additive animations being applied)", default = False)
+    ImportArmature   : BoolProperty(name="Import Armature", description = "Import unit armature data", default = False)
     # Search
     SearchField      : StringProperty(default = "")
 
@@ -3891,6 +3893,7 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "ImportCulling")
             row.prop(scene.Hd2ToolPanelSettings, "ImportStatic")
             row.prop(scene.Hd2ToolPanelSettings, "RemoveGoreMeshes")
+            row.prop(scene.Hd2ToolPanelSettings, "ImportArmature")
             row = mainbox.row(); row.separator(); row.label(text="Export Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "Force3UVs")
             row.prop(scene.Hd2ToolPanelSettings, "Force1Group")
