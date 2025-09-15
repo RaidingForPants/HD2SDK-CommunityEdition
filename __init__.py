@@ -1041,7 +1041,7 @@ def LoadStingrayAnimation(ID, TocData, GpuData, StreamData, Reload, MakeBlendObj
     if MakeBlendObject: # To-do: create action for armature
         context = bpy.context
         armature = context.active_object
-        bones_entry = Global_TocManager.GetEntryByLoadArchive(int(armature['Z_ObjectID']), BoneID)
+        bones_entry = Global_TocManager.GetEntryByLoadArchive(int(armature['BonesID']), BoneID)
         if not bones_entry.IsLoaded:
             bones_entry.Load()
         bones_data = bones_entry.TocData
@@ -3131,10 +3131,10 @@ class SaveStingrayAnimationOperator(Operator):
         if entry_id.startswith("0x"):
             entry_id = hex_to_decimal(entry_id)
         try:
-            bones_id = object['Z_ObjectID']
+            bones_id = object['BonesID']
         except Exception as e:
             PrettyPrint(f"Encountered animation error: {e}", 'error')
-            self.report({'ERROR'}, f"Armature: {object.name} is missing HD2 custom property: Z_ObjectID")
+            self.report({'ERROR'}, f"Armature: {object.name} is missing HD2 custom property: BonesID")
             return{'CANCELLED'}
         PrettyPrint(f"Getting Animation Entry: {entry_id}")
         animation_entry = Global_TocManager.GetEntryByLoadArchive(int(entry_id), AnimationID)
