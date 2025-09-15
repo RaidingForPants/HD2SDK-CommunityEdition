@@ -96,7 +96,7 @@ class StingrayMeshFile:
         self.HeaderData2        = f.bytes(self.HeaderData2, 20)
         self.CustomizationInfoOffset  = f.uint32(self.CustomizationInfoOffset)
         self.UnkHeaderOffset1   = f.uint32(self.UnkHeaderOffset1)
-        self.UnkHeaderOffset2   = f.uint32(self.UnkHeaderOffset1)
+        self.UnkHeaderOffset2   = f.uint32(self.UnkHeaderOffset2)
         self.BoneInfoOffset     = f.uint32(self.BoneInfoOffset)
         self.StreamInfoOffset   = f.uint32(self.StreamInfoOffset)
         self.EndingOffset       = f.uint32(self.EndingOffset)
@@ -141,7 +141,8 @@ class StingrayMeshFile:
             if f.tell() % 16 != 0:
                 f.seek(f.tell() + (16-f.tell()%16))
             UnreversedData1_2Start = f.tell()
-            self.CustomizationInfoOffset = UnreversedData1_2Start
+            if self.CustomizationInfoOffset > 0:
+                self.CustomizationInfoOffset = UnreversedData1_2Start
             if f.IsReading():
                 if self.BoneInfoOffset > 0:
                     UnreversedData1_2Size = self.BoneInfoOffset-f.tell()
@@ -276,7 +277,8 @@ class StingrayMeshFile:
                 if self.MaterialIDs[i] not in Global_MaterialSlotNames[id]: # probably going to have to save material slot names per LOD/mesh
                     Global_MaterialSlotNames[id][self.MaterialIDs[i]] = []
                 print(f"Saving material slot name {self.SectionsIDs[i]} for material {self.MaterialIDs[i]}")
-                Global_MaterialSlotNames[id][self.MaterialIDs[i]].append(self.SectionsIDs[i])
+                if self.SectionsIDs[i] not in Global_MaterialSlotNames[id][self.MaterialIDs[i]]:
+                    Global_MaterialSlotNames[id][self.MaterialIDs[i]].append(self.SectionsIDs[i])
 
         # Unreversed Data
         if f.IsReading(): UnreversedData2Size = self.EndingOffset-f.tell()
@@ -759,9 +761,9 @@ class StingrayMatrix4x4: # Matrix4x4: https://help.autodesk.com/cloudhelp/ENU/St
 
 class StingrayMatrix3x3: # Matrix3x3: https://help.autodesk.com/cloudhelp/ENU/Stingray-SDK-Help/engine_c/plugin__api__types_8h.html#line_84
     def __init__(self):
-        self.x = [0,0,0]
-        self.y = [0,0,0]
-        self.z = [0,0,0]
+        self.x = [1,0,0]
+        self.y = [0,1,0]
+        self.z = [0,0,1]
     def Serialize(self, f: MemoryStream):
         self.x = f.vec3_float(self.x)
         self.y = f.vec3_float(self.y)
