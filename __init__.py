@@ -528,7 +528,7 @@ class TocEntry:
         if self.IsLoaded:
             self.Load(True, False)
     # -- Load Data -- #
-    def Load(self, Reload=False, MakeBlendObject=True):
+    def Load(self, Reload=False, MakeBlendObject=True, LoadMaterialSlotNames=False):
         callback = None
         if self.TypeID == MeshID: callback = LoadStingrayMesh
         if self.TypeID == TexID: callback = LoadStingrayTexture
@@ -540,7 +540,10 @@ class TocEntry:
         if callback == None: callback = LoadStingrayDump
 
         if callback != None:
-            self.LoadedData = callback(self.FileID, self.TocData, self.GpuData, self.StreamData, Reload, MakeBlendObject)
+            if self.TypeID == MeshID:
+                self.LoadedData = callback(self.FileID, self.TocData, self.GpuData, self.StreamData, Reload, MakeBlendObject, LoadMaterialSlotNames)
+            else:
+                self.LoadedData = callback(self.FileID, self.TocData, self.GpuData, self.StreamData, Reload, MakeBlendObject)
             if self.LoadedData == None: raise Exception("Archive Entry Load Failed")
             self.IsLoaded = True
 
@@ -1527,14 +1530,18 @@ def SaveStingrayDump(self, ID, TocData, GpuData, StreamData, LoadedData):
 
     return [Toc.Data, Gpu.Data, Stream.Data]
 
-def LoadStingrayMesh(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
+def LoadStingrayMesh(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject, LoadMaterialSlotNames=False):
     toc  = MemoryStream(TocData)
     gpu  = MemoryStream(GpuData)
+        
     bones_entry = Global_TocManager.GetEntryByLoadArchive(int(ID), int(BoneID))
     if bones_entry and not bones_entry.IsLoaded:
         bones_entry.Load(False, False)
-    StingrayMesh = StingrayMeshFile().Serialize(toc, gpu, Global_TocManager)
-    if MakeBlendObject: CreateModel(StingrayMesh.RawMeshes, str(ID), StingrayMesh.CustomizationInfo, StingrayMesh.BoneNames, StingrayMesh.TransformInfo, StingrayMesh.BoneInfoArray, Global_BoneNames)
+    StingrayMesh = StingrayMeshFile()
+    StingrayMesh.NameHash = int(ID)
+    StingrayMesh.LoadMaterialSlotNames = LoadMaterialSlotNames
+    StingrayMesh.Serialize(toc, gpu, Global_TocManager)
+    if MakeBlendObject: CreateModel(StingrayMesh, str(ID), Global_BoneNames)
     return StingrayMesh
 
 def SaveStingrayMesh(self, ID, TocData, GpuData, StreamData, StingrayMesh, BlenderOpts=None):
@@ -2518,18 +2525,19 @@ class BatchSaveStingrayMeshOperator(Operator):
         if MeshNotValidToSave(self):
             return {'CANCELLED'}
 
-        objects = bpy.context.selected_objects
+        o = bpy.context.selected_objects
 
-        if len(objects) == 0:
+        if len(o) == 0:
             self.report({'WARNING'}, "No Objects Selected")
             return {'CANCELLED'}
 
         IDs = []
         IDswaps = {}
+        objects = []
+        for object in o:
+            if object.type == 'MESH':
+                objects.append(object)
         for i, object in enumerate(objects):
-            if object.type != 'MESH':
-                objects.pop(i)
-                continue
             SwapID = ""
             try:
                 ID = object["Z_ObjectID"]
@@ -2566,9 +2574,9 @@ class BatchSaveStingrayMeshOperator(Operator):
             except KeyError:
                 objects_by_id[obj["Z_ObjectID"]] = {obj["MeshInfoIndex"]: obj}
         global Global_BoneNames
-        MeshData = GetObjectsMeshData(Global_TocManager, Global_BoneNames)
         BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
         num_meshes = len(objects)
+        entries = []
         for IDitem in IDs:
             ID = IDitem[0]
             SwapID = IDitem[1]
@@ -2577,8 +2585,20 @@ class BatchSaveStingrayMeshOperator(Operator):
                 self.report({'ERROR'}, f"Archive for entry being saved is not loaded. Could not find custom property object at ID: {ID}")
                 errors = True
                 num_meshes -= len(MeshData[ID])
+                entries.append(None)
                 continue
-            if not Entry.IsLoaded: Entry.Load(True, False)
+            Entry.Load(True, False, True)
+            if Global_TocManager.IsInPatch(Entry):
+                Global_TocManager.RemoveEntryFromPatch(int(ID), MeshID)
+            Entry = Global_TocManager.AddEntryToPatch(int(ID), MeshID)
+            entries.append(Entry)
+        MeshData = GetObjectsMeshData(Global_TocManager, Global_BoneNames)    
+        for i, IDitem in enumerate(IDs):
+            ID = IDitem[0]
+            SwapID = IDitem[1]
+            Entry = entries[i]
+            if Entry is None:
+                continue
             MeshList = MeshData[ID]
             for mesh_index, mesh in MeshList.items():
                 try:
@@ -2588,9 +2608,6 @@ class BatchSaveStingrayMeshOperator(Operator):
                     self.report({'ERROR'},f"MeshInfoIndex of {mesh_index} for {object.name} exceeds the number of meshes. Expected maximum MeshInfoIndex is: {excpectedLength}. Please change the custom properties to match this value and resave the mesh.")
                     errors = True
                     num_meshes -= 1
-            if Global_TocManager.IsInPatch(Entry):
-                Global_TocManager.RemoveEntryFromPatch(int(ID), MeshID)
-            Entry = Global_TocManager.AddEntryToPatch(int(ID), MeshID)
             wasSaved = Entry.Save(BlenderOpts=BlenderOpts)
             if wasSaved:
                 if SwapID != "" and SwapID.isnumeric():

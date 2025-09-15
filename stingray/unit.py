@@ -30,6 +30,8 @@ class StingrayMeshFile:
         self.TransformInfo     = TransformInfo()
         self.BoneNames = None
         self.UnreversedData1_2 = bytearray()
+        self.NameHash = 0
+        self.LoadMaterialSlotNames = True
 
     # -- Serialize Mesh -- #
     def Serialize(self, f: MemoryStream, gpu, Global_TocManager, redo_offsets = False, BlenderOpts=None):
@@ -94,7 +96,7 @@ class StingrayMeshFile:
         self.HeaderData2        = f.bytes(self.HeaderData2, 20)
         self.CustomizationInfoOffset  = f.uint32(self.CustomizationInfoOffset)
         self.UnkHeaderOffset1   = f.uint32(self.UnkHeaderOffset1)
-        self.UnkHeaderOffset2   = f.uint32(self.UnkHeaderOffset1)
+        self.UnkHeaderOffset2   = f.uint32(self.UnkHeaderOffset2)
         self.BoneInfoOffset     = f.uint32(self.BoneInfoOffset)
         self.StreamInfoOffset   = f.uint32(self.StreamInfoOffset)
         self.EndingOffset       = f.uint32(self.EndingOffset)
@@ -139,24 +141,16 @@ class StingrayMeshFile:
             if f.tell() % 16 != 0:
                 f.seek(f.tell() + (16-f.tell()%16))
             UnreversedData1_2Start = f.tell()
-            self.CustomizationInfoOffset = UnreversedData1_2Start
+            if self.CustomizationInfoOffset > 0:
+                self.CustomizationInfoOffset = UnreversedData1_2Start
             if f.IsReading():
                 if self.BoneInfoOffset > 0:
                     UnreversedData1_2Size = self.BoneInfoOffset-f.tell()
                 elif self.StreamInfoOffset > 0:
                     UnreversedData1_2Size = self.StreamInfoOffset-f.tell()
-                print(f.tell())
-                print(self.BoneInfoOffset)
             else:
                 UnreversedData1_2Size = len(self.UnreversedData1_2)
             f.seek(loc)
-            if f.IsWriting():
-                f.seek(self.TransformInfoOffset)
-                print(self.TransformInfo.NumTransforms)
-                f.SetReadMode()
-                print(f.uint32(self.TransformInfo.NumTransforms))
-                f.SetWriteMode()
-                f.seek(loc)
 
         # Unreversed data before transform info offset (may include customization info)
         # Unreversed data intersects other data we want to leave alone!
@@ -274,13 +268,17 @@ class StingrayMeshFile:
             self.MaterialIDs = [0]*self.NumMaterials
         self.SectionsIDs = [f.uint32(ID) for ID in self.SectionsIDs]
         self.MaterialIDs = [f.uint64(ID) for ID in self.MaterialIDs]
-        if f.IsReading():
+        if f.IsReading() and self.LoadMaterialSlotNames:
             global Global_MaterialSlotNames
+            id = str(self.NameHash)
+            if id not in Global_MaterialSlotNames:
+                Global_MaterialSlotNames[id] = {}
             for i in range(self.NumMaterials):
-                if self.MaterialIDs[i] not in Global_MaterialSlotNames: # probably going to have to save material slot names per LOD/mesh
-                    Global_MaterialSlotNames[self.MaterialIDs[i]] = []
+                if self.MaterialIDs[i] not in Global_MaterialSlotNames[id]: # probably going to have to save material slot names per LOD/mesh
+                    Global_MaterialSlotNames[id][self.MaterialIDs[i]] = []
                 print(f"Saving material slot name {self.SectionsIDs[i]} for material {self.MaterialIDs[i]}")
-                Global_MaterialSlotNames[self.MaterialIDs[i]].append(self.SectionsIDs[i])
+                if self.SectionsIDs[i] not in Global_MaterialSlotNames[id][self.MaterialIDs[i]]:
+                    Global_MaterialSlotNames[id][self.MaterialIDs[i]].append(self.SectionsIDs[i])
 
         # Unreversed Data
         if f.IsReading(): UnreversedData2Size = self.EndingOffset-f.tell()
@@ -351,7 +349,7 @@ class StingrayMeshFile:
                         if mat.MatID not in mat_count:
                             mat_count[mat.MatID] = -1
                         mat_count[mat.MatID] += 1
-                        mat.IDFromName(str(self.MaterialIDs[mat_idx]), mat_count[mat.MatID])
+                        mat.IDFromName(str(self.NameHash), str(self.MaterialIDs[mat_idx]), mat_count[mat.MatID])
                         mat.MatID = str(self.MaterialIDs[mat_idx])
                         #mat.ShortID = self.SectionsIDs[mat_idx]
                         if bpy.context.scene.Hd2ToolPanelSettings.ImportMaterials:
@@ -763,9 +761,9 @@ class StingrayMatrix4x4: # Matrix4x4: https://help.autodesk.com/cloudhelp/ENU/St
 
 class StingrayMatrix3x3: # Matrix3x3: https://help.autodesk.com/cloudhelp/ENU/Stingray-SDK-Help/engine_c/plugin__api__types_8h.html#line_84
     def __init__(self):
-        self.x = [0,0,0]
-        self.y = [0,0,0]
-        self.z = [0,0,0]
+        self.x = [1,0,0]
+        self.y = [0,1,0]
+        self.z = [0,0,1]
     def Serialize(self, f: MemoryStream):
         self.x = f.vec3_float(self.x)
         self.y = f.vec3_float(self.y)
@@ -1041,7 +1039,7 @@ class RawMaterialClass:
         self.NumIndices = 0
         self.DEV_BoneInfoOverride = None
 
-    def IDFromName(self, name, index):
+    def IDFromName(self, unit_id, name, index):
         if name.find(self.DefaultMaterialName) != -1:
             self.MatID   = self.DefaultMaterialName
             self.ShortID = self.DefaultMaterialShortID
@@ -1049,7 +1047,7 @@ class RawMaterialClass:
             try:
                 self.MatID   = int(name)
                 try:
-                    self.ShortID = Global_MaterialSlotNames[self.MatID][index]
+                    self.ShortID = Global_MaterialSlotNames[unit_id][self.MatID][index]
                 except KeyError:
                     print(f"Unable to find material slot for material {name} with material count {index}, using random material slot name")
                     self.ShortID = random.randint(1, 0xffffffff)
@@ -1334,7 +1332,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         if mat_id not in mat_count:
             mat_count[mat_id] = -1
         mat_count[mat_id] += 1
-        materials[idx].IDFromName(str(mat_id), mat_count[mat_id])
+        materials[idx].IDFromName(og_object['Z_ObjectID'], str(mat_id), mat_count[mat_id])
 
     # get vertex color
     if mesh.vertex_colors:
@@ -1375,7 +1373,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     # get weights
     vert_idx = 0
     numInfluences = 4
-    stingray_mesh_entry = Global_TocManager.GetEntry(int(og_object["Z_ObjectID"]), int(MeshID), IgnorePatch=True, SearchAll=True)
+    stingray_mesh_entry = Global_TocManager.GetEntry(int(og_object["Z_ObjectID"]), int(MeshID), IgnorePatch=False, SearchAll=True)
     if stingray_mesh_entry:
         if not stingray_mesh_entry.IsLoaded: stingray_mesh_entry.Load(True, False)
         stingray_mesh_entry = stingray_mesh_entry.LoadedData
@@ -1460,6 +1458,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     # check option for saving bones
     # get armature object
     prev_obj = bpy.context.view_layer.objects.active
+    prev_objs = bpy.context.selected_objects
     prev_mode = prev_obj.mode
     armature_obj = None
     for modifier in og_object.modifiers:
@@ -1467,6 +1466,8 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             armature_obj = modifier.object
             break
     if armature_obj is not None:
+        was_hidden = armature_obj.hide_get()
+        armature_obj.hide_set(False)
         bpy.context.view_layer.objects.active = armature_obj
         bpy.ops.object.mode_set(mode='EDIT')
         for bone in armature_obj.data.edit_bones: # I'd like to use edit bones but it doesn't work for some reason
@@ -1506,6 +1507,9 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             else:
                 transform_local = StingrayLocalTransform()
                 transform_info.Transforms[transform_index] = transform_local
+        armature_obj.hide_set(was_hidden)
+        for obj in prev_objs:
+            obj.select_set(True)
         bpy.context.view_layer.objects.active = prev_obj
         bpy.ops.object.mode_set(mode=prev_mode)
     #bpy.ops.object.mode_set(mode='OBJECT')
@@ -1583,7 +1587,8 @@ def NameFromMesh(mesh, id, customization_info, bone_names, use_sufix=True):
 
     return name
 
-def CreateModel(model, id, customization_info, bone_names, transform_info, bone_info, Global_BoneNames):
+def CreateModel(stingray_unit, id, Global_BoneNames):
+    model, customization_info, bone_names, transform_info, bone_info = stingray_unit.RawMeshes, stingray_unit.CustomizationInfo, stingray_unit.BoneNames, stingray_unit.TransformInfo, stingray_unit.BoneInfoArray
     if len(model) < 1: return
     # Make collection
     old_collection = bpy.context.collection
@@ -1721,8 +1726,7 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                 new_vertex_group = new_object.vertex_groups.new(name=str(bone))
                 
         # -- || ADD BONES || -- #
-        
-        if bpy.context.scene.Hd2ToolPanelSettings.ImportArmature:
+        if bpy.context.scene.Hd2ToolPanelSettings.ImportArmature and mesh.LodIndex != -1:
             b_info = bone_info[mesh.LodIndex]
             if b_info.NumBones > 0:
                 skeletonObj = None
