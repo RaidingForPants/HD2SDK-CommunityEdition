@@ -2518,18 +2518,19 @@ class BatchSaveStingrayMeshOperator(Operator):
         if MeshNotValidToSave(self):
             return {'CANCELLED'}
 
-        objects = bpy.context.selected_objects
+        o = bpy.context.selected_objects
 
-        if len(objects) == 0:
+        if len(o) == 0:
             self.report({'WARNING'}, "No Objects Selected")
             return {'CANCELLED'}
 
         IDs = []
         IDswaps = {}
+        objects = []
+        for object in o:
+            if object.type == 'MESH':
+                objects.append(object)
         for i, object in enumerate(objects):
-            if object.type != 'MESH':
-                objects.pop(i)
-                continue
             SwapID = ""
             try:
                 ID = object["Z_ObjectID"]

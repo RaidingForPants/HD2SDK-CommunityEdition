@@ -145,18 +145,9 @@ class StingrayMeshFile:
                     UnreversedData1_2Size = self.BoneInfoOffset-f.tell()
                 elif self.StreamInfoOffset > 0:
                     UnreversedData1_2Size = self.StreamInfoOffset-f.tell()
-                print(f.tell())
-                print(self.BoneInfoOffset)
             else:
                 UnreversedData1_2Size = len(self.UnreversedData1_2)
             f.seek(loc)
-            if f.IsWriting():
-                f.seek(self.TransformInfoOffset)
-                print(self.TransformInfo.NumTransforms)
-                f.SetReadMode()
-                print(f.uint32(self.TransformInfo.NumTransforms))
-                f.SetWriteMode()
-                f.seek(loc)
 
         # Unreversed data before transform info offset (may include customization info)
         # Unreversed data intersects other data we want to leave alone!
@@ -1460,6 +1451,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     # check option for saving bones
     # get armature object
     prev_obj = bpy.context.view_layer.objects.active
+    prev_objs = bpy.context.selected_objects
     prev_mode = prev_obj.mode
     armature_obj = None
     for modifier in og_object.modifiers:
@@ -1467,6 +1459,8 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             armature_obj = modifier.object
             break
     if armature_obj is not None:
+        was_hidden = armature_obj.hide_get()
+        armature_obj.hide_set(False)
         bpy.context.view_layer.objects.active = armature_obj
         bpy.ops.object.mode_set(mode='EDIT')
         for bone in armature_obj.data.edit_bones: # I'd like to use edit bones but it doesn't work for some reason
@@ -1506,6 +1500,9 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             else:
                 transform_local = StingrayLocalTransform()
                 transform_info.Transforms[transform_index] = transform_local
+        armature_obj.hide_set(was_hidden)
+        for obj in prev_objs:
+            obj.select_set(True)
         bpy.context.view_layer.objects.active = prev_obj
         bpy.ops.object.mode_set(mode=prev_mode)
     #bpy.ops.object.mode_set(mode='OBJECT')
@@ -1721,8 +1718,7 @@ def CreateModel(model, id, customization_info, bone_names, transform_info, bone_
                 new_vertex_group = new_object.vertex_groups.new(name=str(bone))
                 
         # -- || ADD BONES || -- #
-        
-        if bpy.context.scene.Hd2ToolPanelSettings.ImportArmature:
+        if bpy.context.scene.Hd2ToolPanelSettings.ImportArmature and mesh.LodIndex != -1:
             b_info = bone_info[mesh.LodIndex]
             if b_info.NumBones > 0:
                 skeletonObj = None
