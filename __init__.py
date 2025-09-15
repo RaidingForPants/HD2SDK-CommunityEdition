@@ -1041,7 +1041,11 @@ def LoadStingrayAnimation(ID, TocData, GpuData, StreamData, Reload, MakeBlendObj
     if MakeBlendObject: # To-do: create action for armature
         context = bpy.context
         armature = context.active_object
-        bones_entry = Global_TocManager.GetEntryByLoadArchive(int(armature['BonesID']), BoneID)
+        try:
+            bones_id = int(armature['BonesID'])
+        except ValueError:
+            raise Exception(f"\n\nCould not obtain custom property: BonesID from armature: {armature.name}. Please make sure this is a valid value")
+        bones_entry = Global_TocManager.GetEntryByLoadArchive(int(bones_id), BoneID)
         if not bones_entry.IsLoaded:
             bones_entry.Load()
         bones_data = bones_entry.TocData
