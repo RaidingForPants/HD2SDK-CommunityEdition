@@ -302,6 +302,7 @@ class StingrayAnimation:
             if not (entry.type == 0 and entry.subtype not in [4, 5, 6]):
                 self.entries.append(entry)
         
+        
     def save(self, tocFile):
         temp = 0
         temp_arr = []
@@ -336,6 +337,8 @@ class StingrayAnimation:
             byte_data[x] = reversed_byte
         #bit_array = BitArray(byte_data)
         tocFile.bytes(byte_data)
+        if tocFile.tell() % 2 == 1:
+            tocFile.seek(tocFile.tell()+1)
         for bone_state in self.initial_bone_states:
             if bone_state.compress_position:
                 for pos in AnimationBoneInitialState.compress_position(bone_state.position):
@@ -556,7 +559,7 @@ class StingrayAnimation:
             
             rotationQuaternion = [
                 x for x in curves if x[1] == "rotation_quaternion"]
-
+            '''
             for (curve, property, index) in rotationQuaternion:
 
                 keyframes = []
@@ -585,7 +588,38 @@ class StingrayAnimation:
                     new_entry.time =  int(1000 * frame_num / 30)
                     self.entries.append(new_entry)
                 break
-                    
+            
+            '''
+            
+            quat_vals = {}
+            count = 0
+            for (curve, property, index) in rotationQuaternion:
+                for x in curve.keyframe_points:
+                    if x.co[0] not in quat_vals:
+                        quat_vals[x.co[0]] = []
+                    quat_vals[x.co[0]].append(x.co[1])
+            bpy.ops.object.mode_set(mode="EDIT")
+            b = armature.data.edit_bones[target.name]
+            for frame, quat in quat_vals.items():
+                if frame > length_frames:
+                    length_frames = int(frame)
+                new_entry = AnimationEntry()
+                new_entry.bone = bone_to_index[target.name]
+                new_entry.type = 0
+                new_entry.subtype = 5
+                value = mathutils.Quaternion(quat)
+                if b.parent is not None:
+                    inv_parent = b.parent.matrix.to_3x3().inverted()
+                    rest_quat = (inv_parent @ b.matrix.to_3x3()).to_quaternion()
+                else:
+                    rest_quat = b.matrix.to_quaternion()
+                value = rest_quat @ value
+                new_entry.data2 = [value.x, value.y, value.z, value.w]
+                new_entry.time =  int(1000 * frame / 30)
+                self.entries.append(new_entry)
+            
+            bpy.ops.object.mode_set(mode="POSE")
+
             
         self.entries = sorted(self.entries, key=lambda e: e.time)            
         self.animation_length = length_frames / 30
