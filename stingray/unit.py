@@ -1062,14 +1062,14 @@ class BoneIndexException(Exception):
     pass
  
 def sign(n):
-    if n > 0:
+    if n >= 0:
         return 1
     if n < 0:
         return -1
-    return 0
     
 def octahedral_encode(x, y, z):
     l1_norm = abs(x) + abs(y) + abs(z)
+    if l1_norm == 0: return 0, 0
     x /= l1_norm
     y /= l1_norm
     if z < 0:
