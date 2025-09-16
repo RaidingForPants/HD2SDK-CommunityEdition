@@ -5,6 +5,9 @@ import mathutils
 from ..logger import PrettyPrint
 from ..memoryStream import MemoryStream
 
+class SkeletonMismatchException(Exception):
+    pass
+
 class AnimationEntry:
     def __init__(self):
         self.type = 0
@@ -634,7 +637,7 @@ class StingrayAnimation:
             if item != b'':
                 bone_names.append(item.decode('utf-8'))
         if len(self.initial_bone_states) != int.from_bytes(bones_data[0:4], "little"):
-            raise Exception("This animation is not for this armature")
+            raise SkeletonMismatchException("This animation is not for this armature")
         
         PrettyPrint(f"Creaing action with ID: {animation_id}")
         actions = bpy.data.actions
