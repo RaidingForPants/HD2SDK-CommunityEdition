@@ -1081,10 +1081,7 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
         if not bpy.context.scene.Hd2ToolPanelSettings.SaveTexturesWithMaterial:
             continue
         oldTexID = mat.TexIDs[TexIdx]
-        Entry = Global_TocManager.GetEntry(int(oldTexID), TexID, True)
-        EntryInPatch = False
-        if Entry: EntryInPatch = Global_TocManager.IsInPatch(Entry)
-        if mat.DEV_DDSPaths[TexIdx] != None and not EntryInPatch:
+        if mat.DEV_DDSPaths[TexIdx] != None:
             # get texture data
             StingrayTex = StingrayTexture()
             with open(mat.DEV_DDSPaths[TexIdx], 'r+b') as f:
@@ -1106,7 +1103,7 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
             Entry.SetData(Toc.Data, Gpu.Data, Stream.Data, False)
             Global_TocManager.AddNewEntryToPatch(Entry)
             mat.TexIDs[TexIdx] = TextureID
-        elif not EntryInPatch:
+        else:
             Global_TocManager.Load(int(oldTexID), TexID, False, True)
             Entry = Global_TocManager.GetEntry(int(oldTexID), TexID, True)
             if Entry != None:
@@ -1118,6 +1115,11 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
 
                 Entry.FileID = TextureID
                 Entry.IsCreated = True
+
+                ExistingEntry = Global_TocManager.GetEntry(Entry.FileID, Entry.TypeID)
+                if ExistingEntry:
+                    Global_TocManager.RemoveEntryFromPatch(ExistingEntry.FileID, ExistingEntry.TypeID)
+
                 Global_TocManager.AddNewEntryToPatch(Entry)
                 mat.TexIDs[TexIdx] = TextureID
                 
@@ -1126,9 +1128,7 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
             if not os.path.exists(path):
                 raise Exception(f"Could not find file at path: {path}")
             if not Entry:
-                PrettyPrint(f"Failed to generate a texture: {oldTexID} for material: {ID}. This may be due to renaming texture entries and can be intended.", "warn")
-                continue
-                # raise Exception(f"Could not find or generate texture entry ID: {int(mat.TexIDs[TexIdx])}")
+                raise Exception(f"Could not find or generate texture entry ID: {int(mat.TexIDs[TexIdx])}")
             
             if path.endswith(".dds"):
                 SaveImageDDS(path, Entry.FileID)
