@@ -1,5 +1,5 @@
 import bpy, bpy_types
-from math import ceil, sqrt
+from math import ceil, sqrt, isnan
 import mathutils
 
 from ..logger import PrettyPrint
@@ -242,6 +242,7 @@ class StingrayAnimation:
         self.bone_count = 0
         self.animation_length = 0
         self.file_size = 0
+        self.is_additive_animation = False
         
     def Serialize(self, tocFile):
         if tocFile.IsReading():
@@ -304,6 +305,10 @@ class StingrayAnimation:
             entry.Serialize(tocFile)
             if not (entry.type == 0 and entry.subtype not in [4, 5, 6]):
                 self.entries.append(entry)
+        for initial_state in self.initial_bone_states:
+            if isnan(initial_state.scale[0]):
+                self.is_additive_animation = True
+                break
         
         
     def save(self, tocFile):
@@ -655,7 +660,8 @@ class StingrayAnimation:
         curves = {}
         edit_bones = [b for b in armature.data.edit_bones if b.name in bone_names]
         bpy.ops.object.mode_set(mode="EDIT")
-        
+        additive_animation = self.is_additive_animation
+
         for bone_index, initial_state in enumerate(self.initial_bone_states):
             bone_name = index_to_bone[bone_index]
             if bone_name not in armature.data.edit_bones:
@@ -671,7 +677,7 @@ class StingrayAnimation:
                 translation = (bone.parent.matrix.inverted() @ bone.matrix).translation
             initial_bone_translation = mathutils.Vector(translation)
             translation_data = mathutils.Vector(initial_state.position)
-            translation_data = translation_data - initial_bone_translation
+            if not additive_animation: translation_data = translation_data - initial_bone_translation
             translation_data = bone.matrix.inverted().to_quaternion() @ translation_data
             StingrayAnimation.utilityAddKeyframe(location_curves[0], 0, translation_data[0], "LINEAR")
             StingrayAnimation.utilityAddKeyframe(location_curves[1], 0, translation_data[1], "LINEAR")
@@ -685,7 +691,8 @@ class StingrayAnimation:
                 inv_rest_quat = bone.matrix.to_quaternion().inverted()
             rotation_curves = [StingrayAnimation.utilityGetOrCreateCurve(fcurves, armature.data.edit_bones, bone_name, x) for x in [
                 ("rotation_quaternion", 0), ("rotation_quaternion", 1), ("rotation_quaternion", 2), ("rotation_quaternion", 3)]]
-            rotation = inv_rest_quat @ mathutils.Quaternion([initial_state.rotation[3], initial_state.rotation[0], initial_state.rotation[1], initial_state.rotation[2]])
+            if not additive_animation: rotation = inv_rest_quat @ mathutils.Quaternion([initial_state.rotation[3], initial_state.rotation[0], initial_state.rotation[1], initial_state.rotation[2]])
+            else: rotation = mathutils.Quaternion([initial_state.rotation[3], initial_state.rotation[0], initial_state.rotation[1], initial_state.rotation[2]])
             # Stingray is x, y, z, w
             # Blender is w, x, y, z
             StingrayAnimation.utilityAddKeyframe(rotation_curves[0], 0, rotation[0], "LINEAR") # w
@@ -711,7 +718,7 @@ class StingrayAnimation:
             initial_bone_translation = mathutils.Vector(translation)
             for keyframe, location_entry in enumerate(locations):
                 translation_data = mathutils.Vector(location_entry.data2)
-                translation_data = translation_data - initial_bone_translation # offset from edit bone location
+                if not additive_animation: translation_data = translation_data - initial_bone_translation # offset from edit bone location
                 translation_data = b.matrix.inverted().to_quaternion() @ translation_data
                 StingrayAnimation.utilityAddKeyframe(location_curves[0], 30 * location_entry.time / 1000, translation_data[0], "LINEAR")
                 StingrayAnimation.utilityAddKeyframe(location_curves[1], 30 * location_entry.time / 1000, translation_data[1], "LINEAR")
@@ -756,7 +763,8 @@ class StingrayAnimation:
             rotation_curves = [StingrayAnimation.utilityGetOrCreateCurve(fcurves, armature.data.edit_bones, bone, x) for x in [
                 ("rotation_quaternion", 0), ("rotation_quaternion", 1), ("rotation_quaternion", 2), ("rotation_quaternion", 3)]]
             for keyframe, rotation in enumerate(interpolated_rotations[bone]):
-                quat = inv_rest_quat @ rotation
+                if not additive_animation: quat = inv_rest_quat @ rotation
+                else: quat = rotation
                 StingrayAnimation.utilityAddKeyframe(rotation_curves[0], keyframe, quat[0], "LINEAR") # w
                 StingrayAnimation.utilityAddKeyframe(rotation_curves[1], keyframe, quat[1], "LINEAR") # x
                 StingrayAnimation.utilityAddKeyframe(rotation_curves[2], keyframe, quat[2], "LINEAR") # y
