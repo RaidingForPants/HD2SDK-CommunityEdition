@@ -615,9 +615,14 @@ class BoneInfo:
                     h = murmur32_hash(bone.encode("utf-8"))
                 try:
                     real_index = transform_info.NameHashes.index(h)
+                except ValueError: # bone not in transform info for unit, unrecoverable
+                    PrettyPrint(f"Bone '{bone}' does not exist in unit transform info, skipping...")
+                    continue
+                try:
                     r.append(self.RealIndices.index(real_index))
-                except:
-                    print(bone)
+                except ValueError:
+                    r.append(len(self.RealIndices))
+                    self.RealIndices.append(real_index)
                 
             self.Remaps.append(r)
                 
