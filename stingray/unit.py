@@ -1742,7 +1742,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                     armature = bpy.data.armatures.new(f"{id}_skeleton{mesh.LodIndex}")
                     armature.display_type = "STICK"
                     skeletonObj = bpy.data.objects.new(f"{id}_lod{mesh.LodIndex}_rig", armature)
-                    skeletonObj['Z_ObjectID'] = str(stingray_unit.BonesRef)
+                    skeletonObj['BonesID'] = str(stingray_unit.BonesRef)
                     skeletonObj.show_in_front = True
                     
                 if bpy.context.scene.Hd2ToolPanelSettings.MakeCollections:

@@ -483,7 +483,6 @@ class StingrayAnimation:
                 mat = poseBone.matrix
             (position, rotation, scale) = mat.decompose()
             rotation = (rotation[1], rotation[2], rotation[3], rotation[0])
-            #position /= 100
             position = list(position)
             scale = list(scale)
             initial_bone_data[poseBone.name] = {'position': position, 'rotation': rotation, 'scale': scale}
@@ -666,10 +665,11 @@ class StingrayAnimation:
 
         for bone_index, initial_state in enumerate(self.initial_bone_states):
             bone_name = index_to_bone[bone_index]
-            if bone_name not in armature.data.edit_bones:
+            try:
+                bone = armature.data.edit_bones[bone_name]
+            except KeyError:
+                PrettyPrint(f"Failed to find bone: {bone.name} in rig for animation. This may be intended", 'warn')
                 continue
-            bone = armature.data.edit_bones[bone_name]
-            
             # set initial position
             location_curves = [StingrayAnimation.utilityGetOrCreateCurve(fcurves, armature.data.edit_bones, bone_name, x) for x in [
                 ("location", 0), ("location", 1), ("location", 2)]]
@@ -710,7 +710,11 @@ class StingrayAnimation:
             if bone not in armature.data.edit_bones:
                 continue
             # create location curves for bone
-            b = armature.data.edit_bones[bone]
+            try:
+                b = armature.data.edit_bones[bone]
+            except KeyError:
+                PrettyPrint(f"Failed to find bone: {b.name} in rig for animation. This may be intended", 'warn')
+                continue
             if b.parent is None:
                 translation = b.matrix.translation
             else:
@@ -738,7 +742,11 @@ class StingrayAnimation:
             if bone not in armature.data.edit_bones:
                 continue
             i_rot = []
-            b = armature.data.edit_bones[bone]
+            try:
+                b = armature.data.edit_bones[bone]
+            except KeyError:
+                PrettyPrint(f"Failed to find bone: {b.name} in rig for animation. This may be intended", 'warn')
+                continue
             r = self.initial_bone_states[bone_to_index[bone]].rotation
             rotation = mathutils.Quaternion([r[3], r[0], r[1], r[2]])
             for rotation_entry in rotations:
@@ -755,7 +763,11 @@ class StingrayAnimation:
             if bone not in armature.data.edit_bones:
                 continue
             # create location curves for bone
-            b = armature.data.edit_bones[bone]
+            try:
+                b = armature.data.edit_bones[bone]
+            except KeyError:
+                PrettyPrint(f"Failed to find bone: {b.name} in rig for animation. This may be intended", 'warn')
+                continue
             #pose_bone.matrix_basis.identity()
             if b.parent is not None:
                 inv_parent = b.parent.matrix.to_3x3().inverted()

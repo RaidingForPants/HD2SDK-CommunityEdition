@@ -1041,7 +1041,11 @@ def LoadStingrayAnimation(ID, TocData, GpuData, StreamData, Reload, MakeBlendObj
     if MakeBlendObject: # To-do: create action for armature
         context = bpy.context
         armature = context.active_object
-        bones_entry = Global_TocManager.GetEntryByLoadArchive(int(armature['Z_ObjectID']), BoneID)
+        try:
+            bones_id = int(armature['BonesID'])
+        except ValueError:
+            raise Exception(f"\n\nCould not obtain custom property: BonesID from armature: {armature.name}. Please make sure this is a valid value")
+        bones_entry = Global_TocManager.GetEntryByLoadArchive(int(bones_id), BoneID)
         if not bones_entry.IsLoaded:
             bones_entry.Load()
         bones_data = bones_entry.TocData
@@ -1077,10 +1081,7 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
         if not bpy.context.scene.Hd2ToolPanelSettings.SaveTexturesWithMaterial:
             continue
         oldTexID = mat.TexIDs[TexIdx]
-        Entry = Global_TocManager.GetEntry(int(oldTexID), TexID, True)
-        EntryInPatch = False
-        if Entry: EntryInPatch = Global_TocManager.IsInPatch(Entry)
-        if mat.DEV_DDSPaths[TexIdx] != None and not EntryInPatch:
+        if mat.DEV_DDSPaths[TexIdx] != None:
             # get texture data
             StingrayTex = StingrayTexture()
             with open(mat.DEV_DDSPaths[TexIdx], 'r+b') as f:
@@ -1102,7 +1103,7 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
             Entry.SetData(Toc.Data, Gpu.Data, Stream.Data, False)
             Global_TocManager.AddNewEntryToPatch(Entry)
             mat.TexIDs[TexIdx] = TextureID
-        elif not EntryInPatch:
+        else:
             Global_TocManager.Load(int(oldTexID), TexID, False, True)
             Entry = Global_TocManager.GetEntry(int(oldTexID), TexID, True)
             if Entry != None:
@@ -1114,6 +1115,11 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
 
                 Entry.FileID = TextureID
                 Entry.IsCreated = True
+
+                ExistingEntry = Global_TocManager.GetEntry(Entry.FileID, Entry.TypeID)
+                if ExistingEntry:
+                    Global_TocManager.RemoveEntryFromPatch(ExistingEntry.FileID, ExistingEntry.TypeID)
+
                 Global_TocManager.AddNewEntryToPatch(Entry)
                 mat.TexIDs[TexIdx] = TextureID
                 
@@ -1122,9 +1128,7 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
             if not os.path.exists(path):
                 raise Exception(f"Could not find file at path: {path}")
             if not Entry:
-                PrettyPrint(f"Failed to generate a texture: {oldTexID} for material: {ID}. This may be due to renaming texture entries and can be intended.", "warn")
-                continue
-                # raise Exception(f"Could not find or generate texture entry ID: {int(mat.TexIDs[TexIdx])}")
+                raise Exception(f"Could not find or generate texture entry ID: {int(mat.TexIDs[TexIdx])}")
             
             if path.endswith(".dds"):
                 SaveImageDDS(path, Entry.FileID)
@@ -3134,10 +3138,10 @@ class SaveStingrayAnimationOperator(Operator):
         if entry_id.startswith("0x"):
             entry_id = hex_to_decimal(entry_id)
         try:
-            bones_id = object['Z_ObjectID']
+            bones_id = object['BonesID']
         except Exception as e:
             PrettyPrint(f"Encountered animation error: {e}", 'error')
-            self.report({'ERROR'}, f"Armature: {object.name} is missing HD2 custom property: Z_ObjectID")
+            self.report({'ERROR'}, f"Armature: {object.name} is missing HD2 custom property: BonesID")
             return{'CANCELLED'}
         PrettyPrint(f"Getting Animation Entry: {entry_id}")
         animation_entry = Global_TocManager.GetEntryByLoadArchive(int(entry_id), AnimationID)
