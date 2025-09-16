@@ -599,8 +599,8 @@ class StingrayAnimation:
         self.file_size = len(output_stream.Data)
         
     def utilityClearKeyframePoints(fcurve):
-        if utilityIsVersionAtLeast(4, 0):
-            return fcurve.keyframe_points.clear()
+        # if utilityIsVersionAtLeast(4, 0):
+        #     return fcurve.keyframe_points.clear()
 
         for keyframe in reversed(fcurve.keyframe_points.values()):
             fcurve.keyframe_points.remove(keyframe)

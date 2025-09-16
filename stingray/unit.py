@@ -5,8 +5,7 @@ import bpy
 import random
 import bmesh
 
-from ..memoryStream import MemoryStream
-from ..math import MakeTenBitUnsigned, TenBitUnsigned
+from ..memoryStream import MemoryStream, MakeTenBitUnsigned, TenBitUnsigned
 from ..logger import PrettyPrint
 from ..hashlists.hash import murmur32_hash
 
