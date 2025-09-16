@@ -559,37 +559,6 @@ class StingrayAnimation:
             
             rotationQuaternion = [
                 x for x in curves if x[1] == "rotation_quaternion"]
-            '''
-            for (curve, property, index) in rotationQuaternion:
-
-                keyframes = []
-                                      
-                keyframes = [int(x.co[0]) for x in curve.keyframe_points]
-
-                keyframes = sorted(list(set(keyframes)))
-
-                frames = [i for i in range(max(keyframes)+1)]
-
-                keyvalues = []
-
-                for frame in frames:
-                    context.scene.frame_set(frame)
-                    quat = StingrayAnimation.utilityGetQuatKeyValue(target)
-                    keyvalues.append((quat.x, quat.y, quat.z, quat.w))
-                # create rotation entry
-                for frame_num, value in zip(frames, keyvalues):
-                    if frame_num > length_frames:
-                        length_frames = frame_num
-                    new_entry = AnimationEntry()
-                    new_entry.bone = bone_to_index[target.name]
-                    new_entry.type = 0
-                    new_entry.subtype = 5
-                    new_entry.data2 = list(value)
-                    new_entry.time =  int(1000 * frame_num / 30)
-                    self.entries.append(new_entry)
-                break
-            
-            '''
             
             quat_vals = {}
             count = 0
@@ -656,6 +625,17 @@ class StingrayAnimation:
             
         
     def to_action(self, context, armature, bones_data, animation_id):
+        
+        idx = bones_data.index(b"StingrayEntityRoot")
+        temp = bones_data[idx:]
+        splits = temp.split(b"\x00")
+        bone_names = []
+        for item in splits:
+            if item != b'':
+                bone_names.append(item.decode('utf-8'))
+        if len(self.initial_bone_states) != int.from_bytes(bones_data[0:4], "little"):
+            raise Exception("This animation is not for this armature")
+        
         PrettyPrint(f"Creaing action with ID: {animation_id}")
         actions = bpy.data.actions
         action = actions.new(str(animation_id))
@@ -665,13 +645,6 @@ class StingrayAnimation:
         fcurves = action.fcurves
         for curve in fcurves:
             curve.keyframe_points.clear()
-        idx = bones_data.index(b"StingrayEntityRoot")
-        temp = bones_data[idx:]
-        splits = temp.split(b"\x00")
-        bone_names = []
-        for item in splits:
-            if item != b'':
-                bone_names.append(item.decode('utf-8'))
         bone_to_index = {bone: bone_names.index(bone) for bone in bone_names}
         index_to_bone = bone_names
         initial_bone_data = {}
