@@ -31,17 +31,3 @@ def NormalsFromPalette(normals):
     Global_CPPHelper.dll_NormalsFromPalette(c_output, c_normals, ctypes.c_uint32(len(normals)))
     F = MemoryStream(output, IOMode = "read")
     return [F.uint32(0) for normal in normals]
-
-def Hash32(string):
-    output    = bytearray(4)
-    c_output  = (ctypes.c_char * len(output)).from_buffer(output)
-    Global_CPPHelper.dll_Hash32(c_output, string.encode())
-    F = MemoryStream(output, IOMode = "read")
-    return F.uint32(0)
-
-def Hash64(string):
-    output    = bytearray(8)
-    c_output  = (ctypes.c_char * len(output)).from_buffer(output)
-    Global_CPPHelper.dll_Hash64(c_output, string.encode())
-    F = MemoryStream(output, IOMode = "read")
-    return F.uint64(0)

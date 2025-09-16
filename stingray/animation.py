@@ -5,6 +5,8 @@ import mathutils
 from ..logger import PrettyPrint
 from ..memoryStream import MemoryStream
 
+from bpy.types import Armature
+
 class AnimationEntry:
     def __init__(self):
         self.type = 0
@@ -470,7 +472,6 @@ class StingrayAnimation:
                 mat = poseBone.matrix
             (position, rotation, scale) = mat.decompose()
             rotation = (rotation[1], rotation[2], rotation[3], rotation[0])
-            position /= 100
             position = list(position)
             scale = list(scale)
             initial_bone_data[poseBone.name] = {'position': position, 'rotation': rotation, 'scale': scale}
@@ -621,11 +622,13 @@ class StingrayAnimation:
                                                                                   (bone.name, curve[0]), index=curve[1], action_group=bone.name)
             
         
-    def to_action(self, context, armature, bones_data, animation_id):
+    def to_action(self, context, armature: Armature, bones_data, animation_id):
         PrettyPrint(f"Creaing action with ID: {animation_id}")
         actions = bpy.data.actions
         action = actions.new(str(animation_id))
         action.use_fake_user = True
+        if armature.animation_data == None:
+            armature.animation_data_create()
         armature.animation_data.action = action
         
         fcurves = action.fcurves
@@ -648,7 +651,11 @@ class StingrayAnimation:
         
         for bone_index, initial_state in enumerate(self.initial_bone_states):
             bone_name = index_to_bone[bone_index]
-            bone = armature.data.edit_bones[bone_name]
+            try:
+                bone = armature.data.edit_bones[bone_name]
+            except KeyError:
+                PrettyPrint(f"Failed to find bone: {bone.name} in rig for animation. This may be intended", 'warn')
+                continue
             if bone.parent is not None:
                 inv_parent = bone.parent.matrix.to_3x3().inverted()
                 inv_rest_quat = (inv_parent @ bone.matrix.to_3x3()).to_quaternion().inverted()
@@ -661,9 +668,9 @@ class StingrayAnimation:
                 translation = bone.matrix.translation
             else:
                 translation = (bone.parent.matrix.inverted() @ bone.matrix).translation
-            translation[0] = 100*location[0] - translation[0]
-            translation[1] = 100*location[1] - translation[1]
-            translation[2] = 100*location[2] - translation[2]
+            translation[0] = location[0] - translation[0]
+            translation[1] = location[1] - translation[1]
+            translation[2] = location[2] - translation[2]
             StingrayAnimation.utilityAddKeyframe(location_curves[0], 0, translation[0], "LINEAR")
             StingrayAnimation.utilityAddKeyframe(location_curves[1], 0, translation[1], "LINEAR")
             StingrayAnimation.utilityAddKeyframe(location_curves[2], 0, translation[2], "LINEAR")
@@ -689,7 +696,11 @@ class StingrayAnimation:
         length_frames = 0
         for bone, locations in location_entries.items():
             # create location curves for bone
-            b = armature.data.edit_bones[bone]
+            try:
+                b = armature.data.edit_bones[bone]
+            except KeyError:
+                PrettyPrint(f"Failed to find bone: {b.name} in rig for animation. This may be intended", 'warn')
+                continue
             if b.parent is None:
                 translation = b.matrix.translation
             else:
@@ -698,9 +709,9 @@ class StingrayAnimation:
             ("location", 0), ("location", 1), ("location", 2)]]
             location = [0, 0, 0]
             for keyframe, location_entry in enumerate(locations):
-                location[0] = 100*location_entry.data2[0] - translation[0]
-                location[1] = 100*location_entry.data2[1] - translation[1]
-                location[2] = 100*location_entry.data2[2] - translation[2]
+                location[0] = location_entry.data2[0] - translation[0]
+                location[1] = location_entry.data2[1] - translation[1]
+                location[2] = location_entry.data2[2] - translation[2]
                 StingrayAnimation.utilityAddKeyframe(location_curves[0], 30 * location_entry.time / 1000, location[0], "LINEAR")
                 StingrayAnimation.utilityAddKeyframe(location_curves[1], 30 * location_entry.time / 1000, location[1], "LINEAR")
                 StingrayAnimation.utilityAddKeyframe(location_curves[2], 30 * location_entry.time / 1000, location[2], "LINEAR")
@@ -715,7 +726,11 @@ class StingrayAnimation:
         
         for bone, rotations in rotation_entries.items():
             i_rot = []
-            b = armature.data.edit_bones[bone]
+            try:
+                b = armature.data.edit_bones[bone]
+            except KeyError:
+                PrettyPrint(f"Failed to find bone: {b.name} in rig for animation. This may be intended", 'warn')
+                continue
             r = self.initial_bone_states[bone_to_index[bone]].rotation
             rotation = mathutils.Quaternion([r[3], r[0], r[1], r[2]])
             for rotation_entry in rotations:
@@ -730,7 +745,11 @@ class StingrayAnimation:
                 
         for bone, rotations in rotation_entries.items():
             # create location curves for bone
-            b = armature.data.edit_bones[bone]
+            try:
+                b = armature.data.edit_bones[bone]
+            except KeyError:
+                PrettyPrint(f"Failed to find bone: {b.name} in rig for animation. This may be intended", 'warn')
+                continue
             #pose_bone.matrix_basis.identity()
             if b.parent is not None:
                 inv_parent = b.parent.matrix.to_3x3().inverted()
