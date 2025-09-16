@@ -651,29 +651,28 @@ class StingrayAnimation:
             if bone_name not in armature.data.edit_bones:
                 continue
             bone = armature.data.edit_bones[bone_name]
+            
+            # set initial position
+            location_curves = [StingrayAnimation.utilityGetOrCreateCurve(fcurves, armature.data.edit_bones, bone_name, x) for x in [
+                ("location", 0), ("location", 1), ("location", 2)]]
+            if bone.parent is None:
+                translation = bone.matrix.translation
+            else:
+                translation = (bone.parent.matrix.inverted() @ bone.matrix).translation
+            initial_bone_translation = mathutils.Vector(translation)
+            translation_data = mathutils.Vector(initial_state.position)
+            translation_data = translation_data - initial_bone_translation
+            translation_data = bone.matrix.inverted().to_quaternion() @ translation_data
+            StingrayAnimation.utilityAddKeyframe(location_curves[0], 0, translation_data[0], "LINEAR")
+            StingrayAnimation.utilityAddKeyframe(location_curves[1], 0, translation_data[1], "LINEAR")
+            StingrayAnimation.utilityAddKeyframe(location_curves[2], 0, translation_data[2], "LINEAR")
+            
+            # set initial rotation
             if bone.parent is not None:
                 inv_parent = bone.parent.matrix.to_3x3().inverted()
                 inv_rest_quat = (inv_parent @ bone.matrix.to_3x3()).to_quaternion().inverted()
             else:
                 inv_rest_quat = bone.matrix.to_quaternion().inverted()
-            location_curves = [StingrayAnimation.utilityGetOrCreateCurve(fcurves, armature.data.edit_bones, bone_name, x) for x in [
-                ("location", 0), ("location", 1), ("location", 2)]]
-            location = [p for p in initial_state.position]
-            if bone.parent is None:
-                translation = bone.matrix.translation
-            else:
-                translation = (bone.parent.matrix.inverted() @ bone.matrix).translation
-            translation[0] = location[0] - translation[0]
-            translation[1] = location[1] - translation[1]
-            translation[2] = location[2] - translation[2]
-            if bone_to_index[bone_name] > 1:
-                StingrayAnimation.utilityAddKeyframe(location_curves[0], 0, translation[0], "LINEAR")
-                StingrayAnimation.utilityAddKeyframe(location_curves[1], 0, translation[1], "LINEAR")
-                StingrayAnimation.utilityAddKeyframe(location_curves[2], 0, translation[2], "LINEAR")
-            else:
-                StingrayAnimation.utilityAddKeyframe(location_curves[0], 0, translation[0], "LINEAR")
-                StingrayAnimation.utilityAddKeyframe(location_curves[1], 0, translation[1], "LINEAR")
-                StingrayAnimation.utilityAddKeyframe(location_curves[2], 0, translation[2], "LINEAR")
             rotation_curves = [StingrayAnimation.utilityGetOrCreateCurve(fcurves, armature.data.edit_bones, bone_name, x) for x in [
                 ("rotation_quaternion", 0), ("rotation_quaternion", 1), ("rotation_quaternion", 2), ("rotation_quaternion", 3)]]
             rotation = inv_rest_quat @ mathutils.Quaternion([initial_state.rotation[3], initial_state.rotation[0], initial_state.rotation[1], initial_state.rotation[2]])
@@ -684,12 +683,6 @@ class StingrayAnimation:
             StingrayAnimation.utilityAddKeyframe(rotation_curves[2], 0, rotation[2], "LINEAR") # y
             StingrayAnimation.utilityAddKeyframe(rotation_curves[3], 0, rotation[3], "LINEAR") # z
             
-            #rotation = mathutils.Quaternion([initial_state.rotation[3], initial_state.rotation[0], initial_state.rotation[1], initial_state.rotation[2]])
-            
-            #scale = initial_state.scale
-            #final_rot_mat = mathutils.Matrix.Translation(location) @ rotation.to_matrix().to_4x4() @ mathutils.Matrix.Scale(100, 4)
-            #final_rot_mat = mathutils.Matrix.Translation(location).to_4x4() @ rotation.to_matrix().to_4x4() @ mathutils.Matrix.Scale(1, 4).to_4x4()
-            #bone.matrix = final_rot_mat
         # sort animation entries by bone:
         location_entries = {index_to_bone[bone]: [entry for entry in self.entries if entry.bone == bone and (entry.type == 2 or entry.subtype == 4)] for bone in range(len(bone_names))}
         rotation_entries = {index_to_bone[bone]: [entry for entry in self.entries if entry.bone == bone and (entry.type == 3 or entry.subtype == 5)] for bone in range(len(bone_names))}
@@ -705,37 +698,14 @@ class StingrayAnimation:
                 translation = (b.parent.matrix.inverted() @ b.matrix).translation
             location_curves = [StingrayAnimation.utilityGetOrCreateCurve(fcurves, armature.data.edit_bones, bone, x) for x in [
             ("location", 0), ("location", 1), ("location", 2)]]
-            location = [0, 0, 0]
+            initial_bone_translation = mathutils.Vector(translation)
             for keyframe, location_entry in enumerate(locations):
-                location[0] = location_entry.data2[0] - translation[0]
-                location[1] = location_entry.data2[1] - translation[1]
-                location[2] = location_entry.data2[2] - translation[2]
-                #if b.name == "boss":
-                vec2 = mathutils.Vector(translation)
-                vec = mathutils.Vector(location_entry.data2)
-                if b.name == "boss":
-                    print(f"Original translation: {vec2}")
-                    print(f"animation data: {vec}")
-                    #vec = vec - vec2
-                    #print(f"Offset: {vec}")
-                vec = vec - vec2
-                if b.name == "boss":
-                    print(f"Offset: {vec}")
-                vec = b.matrix.to_quaternion().normalized() @ vec
-                if b.name == "boss":
-                    print(f"Rotated offet: {vec}")
-                location[0] = vec[0] #+ translation[0]
-                location[1] = vec[1] #+ translation[1]
-                location[2] = vec[2] #+ translation[2]
-                    #print(f"Final translation: {location}")
-                if bone_to_index[bone] > 1: # rotate coords. +Y is up instead of +Z. +Z is forwards instead of +Y. X is left-right but maybe flipped
-                    StingrayAnimation.utilityAddKeyframe(location_curves[0], 30 * location_entry.time / 1000, location[0], "LINEAR")
-                    StingrayAnimation.utilityAddKeyframe(location_curves[1], 30 * location_entry.time / 1000, location[1], "LINEAR")
-                    StingrayAnimation.utilityAddKeyframe(location_curves[2], 30 * location_entry.time / 1000, location[2], "LINEAR")
-                else:
-                    StingrayAnimation.utilityAddKeyframe(location_curves[0], 30 * location_entry.time / 1000, location[0], "LINEAR")
-                    StingrayAnimation.utilityAddKeyframe(location_curves[1], 30 * location_entry.time / 1000, location[1], "LINEAR")
-                    StingrayAnimation.utilityAddKeyframe(location_curves[2], 30 * location_entry.time / 1000, location[2], "LINEAR")
+                translation_data = mathutils.Vector(location_entry.data2)
+                translation_data = translation_data - initial_bone_translation # offset from edit bone location
+                translation_data = b.matrix.inverted().to_quaternion() @ translation_data
+                StingrayAnimation.utilityAddKeyframe(location_curves[0], 30 * location_entry.time / 1000, translation_data[0], "LINEAR")
+                StingrayAnimation.utilityAddKeyframe(location_curves[1], 30 * location_entry.time / 1000, translation_data[1], "LINEAR")
+                StingrayAnimation.utilityAddKeyframe(location_curves[2], 30 * location_entry.time / 1000, translation_data[2], "LINEAR")
                 length_frames = max([length_frames, int(30*location_entry.time/1000)])
                 
         # interpolate better than Blender's default interpolation:
