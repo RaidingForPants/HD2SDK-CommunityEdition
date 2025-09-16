@@ -28,7 +28,7 @@ from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy.props import StringProperty, BoolProperty, IntProperty, EnumProperty, PointerProperty, CollectionProperty
 from bpy.types import Panel, Operator, PropertyGroup, Scene, Menu, OperatorFileListElement
 
-from .stingray.animation import StingrayAnimation, SkeletonMismatchException
+from .stingray.animation import StingrayAnimation, AnimationException
 from .stingray.raw_dump import StingrayRawDump
 from .stingray.material import LoadShaderVariables, StingrayMaterial
 from .stingray.texture import StingrayTexture
@@ -3102,7 +3102,7 @@ class ImportStingrayAnimationOperator(Operator):
         animation_id = self.object_id
         try:
             Global_TocManager.Load(int(animation_id), AnimationID)
-        except SkeletonMismatchException as e:
+        except AnimationException as e:
             self.report({'ERROR'}, f"{e}")
             return {'CANCELLED'}
         except Exception as error:
@@ -3147,7 +3147,11 @@ class SaveStingrayAnimationOperator(Operator):
         if not animation_entry.IsLoaded: animation_entry.Load(True, False)
         bones_entry = Global_TocManager.GetEntryByLoadArchive(int(bones_id), BoneID)
         bones_data = bones_entry.TocData
-        animation_entry.LoadedData.load_from_armature(context, object, bones_data)
+        try:
+            animation_entry.LoadedData.load_from_armature(context, object, bones_data)
+        except AnimationException as e:
+            self.report({'ERROR'}, str(e))
+            return {'CANCELLED'}
         wasSaved = animation_entry.Save()
         if wasSaved:
             if not Global_TocManager.IsInPatch(animation_entry):
