@@ -37,7 +37,6 @@ from .stingray.bones import LoadBoneHashes, StingrayBones
 from .stingray.composite_unit import StingrayCompositeMesh
 from .stingray.unit import CreateModel, GetObjectsMeshData, StingrayMeshFile
 
-from .cpphelper import LoadNormalPalette, RegisterCPPHelper, UnregisterCPPHelper
 from .hashlists.hash import murmur64_hash
 
 # Local
@@ -4429,12 +4428,10 @@ classes = (
 Global_TocManager = TocManager()
 
 def register():
-    RegisterCPPHelper()
     if not os.path.exists(Global_texconvpath): raise Exception("Texconv is not found, please install Texconv in /deps/")
     CheckBlenderVersion()
     CheckAddonUpToDate()
     InitializeConfig()
-    LoadNormalPalette()
     UpdateArchiveHashes()
     LoadTypeHashes()
     LoadNameHashes()
@@ -4448,7 +4445,6 @@ def register():
     bpy.types.VIEW3D_MT_object_context_menu.append(CustomPropertyContext)
 
 def unregister():
-    UnregisterCPPHelper()
     bpy.utils.unregister_class(WM_MT_button_context)
     del Scene.Hd2ToolPanelSettings
     for cls in reversed(classes):

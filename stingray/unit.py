@@ -8,7 +8,6 @@ import bmesh
 from ..memoryStream import MemoryStream
 from ..math import MakeTenBitUnsigned, TenBitUnsigned
 from ..logger import PrettyPrint
-from ..cpphelper import LoadNormalPalette, NormalsFromPalette
 from ..hashlists.hash import murmur32_hash
 
 from ..constants import *
