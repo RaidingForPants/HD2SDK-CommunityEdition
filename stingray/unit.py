@@ -1097,6 +1097,34 @@ def encode_packed_oct_norm(x, y, z):
     x, y = octahedral_encode(x, y, z)
     return int((x+1)*(1023.0/2.0)) | (int((y+1)*(1023.0/2.0)) << 10)
 
+def diamond_encode(v):
+    norm = abs(v.x) + abs(v.y)
+    if norm == 0: return 0
+    x = v.x / norm
+    sign_y = sign(v.y)
+    return -sign_y * 0.25 * x + 0.5 + sign_y * 0.25
+    
+def diamond_decode(x):
+    sign_x = sign(x - 0.5)
+    x = -sign_x * 4.0 * x + 1 + x_sign * 2
+    y = sign_x * (1 - abs(x))
+    return mathutils.Vector([x, y]).normalized()
+    
+def encode_packed_tangent(v_norm, v_tan):
+    if abs(v_norm.y) > abs(v_norm.z):
+        t1 = mathutils.Vector([v_norm.y, -v_norm.x, 0])
+    else:
+        t1 = mathutils.Vector([v_norm.y, -v_norm.x, 0])
+    t1.normalize()
+    t2 = t1.cross(v_norm)
+    packed_tangent = mathutils.Vector([v_tan.dot(t1), v_tan.dot(t2)])
+    e = diamond_encode(packed_tangent)
+    return (int((e+1)*(1023.0/2.0)) << 20)
+    
+def decode_packed_tangent(v_norm, tan):
+    #Blender doesn't allow setting Tangents on a mesh so there is no need to implement this
+    pass
+
 class SerializeFunctions:
     
     def SerializePositionComponent(gpu, mesh, component, vidx):
@@ -1112,6 +1140,11 @@ class SerializeFunctions:
                 mesh.VertexNormals[vidx] = decode_packed_oct_norm(norm)
         else:
             norm = encode_packed_oct_norm(*mathutils.Vector(mesh.VertexNormals[vidx]).normalized().to_tuple())
+            norm = norm | encode_packed_tangent(mathutils.Vector(mesh.VertexNormals[vidx]), mathutils.Vector(mesh.VertexTangents[vidx]))
+            sign = int(mesh.VertexBiTangents[vidx])
+            if sign >= 0: sign = 1
+            if sign < 0: sign = 0
+            norm = norm | (sign << 30) | (sign << 31)
             norm = component.SerializeComponent(gpu, norm)
     
     def SerializeTangentComponent(gpu, mesh, component, vidx):
@@ -1355,11 +1388,13 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         if not mesh.has_custom_normals:
             mesh.create_normals_split()
         mesh.calc_normals_split()
+    mesh.calc_tangents()
         
     for loop in mesh.loops:
         normals[loop.vertex_index]    = loop.normal.normalized()
-        #tangents[loop.vertex_index]   = loop.tangent.normalized()
-        #bitangents[loop.vertex_index] = loop.bitangent.normalized()
+        tangents[loop.vertex_index]   = loop.tangent.normalized()
+        #bitangents[loop.vertex_index] = loop.bitangent.normalized() # apparently may be slow and should use bitangent_sign instead
+        bitangents[loop.vertex_index] = loop.bitangent_sign
     # if fuckywuckynormalwormal do this bullshit
     #LoadNormalPalette()
     #normals = NormalsFromPalette(normals)
