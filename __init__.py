@@ -28,7 +28,7 @@ from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy.props import StringProperty, BoolProperty, IntProperty, EnumProperty, PointerProperty, CollectionProperty
 from bpy.types import Panel, Operator, PropertyGroup, Scene, Menu, OperatorFileListElement
 
-from .stingray.animation import StingrayAnimation
+from .stingray.animation import StingrayAnimation, AnimationException
 from .stingray.raw_dump import StingrayRawDump
 from .stingray.material import LoadShaderVariables, StingrayMaterial
 from .stingray.texture import StingrayTexture
@@ -37,7 +37,6 @@ from .stingray.bones import LoadBoneHashes, StingrayBones
 from .stingray.composite_unit import StingrayCompositeMesh
 from .stingray.unit import CreateModel, GetObjectsMeshData, StingrayMeshFile
 
-from .cpphelper import LoadNormalPalette, RegisterCPPHelper, UnregisterCPPHelper
 from .hashlists.hash import murmur64_hash
 
 # Local
@@ -3104,12 +3103,15 @@ class ImportStingrayAnimationOperator(Operator):
             self.report({'ERROR'}, "Please select an armature to import the animation to")
             return {'CANCELLED'}
         animation_id = self.object_id
-        # try:
-        Global_TocManager.Load(int(animation_id), AnimationID)
-        # except Exception as error:
-        #     PrettyPrint(f"Encountered animation error: {error}", 'error')
-        #     self.report({'ERROR'}, f"Encountered an error whilst importing animation. See Console for more info.")
-        #     return {'CANCELLED'}
+        try:
+            Global_TocManager.Load(int(animation_id), AnimationID)
+        except AnimationException as e:
+            self.report({'ERROR'}, f"{e}")
+            return {'CANCELLED'}
+        except Exception as error:
+            PrettyPrint(f"Encountered unknown animation error: {error}", 'error')
+            self.report({'ERROR'}, f"Encountered an error whilst importing animation. See Console for more info.")
+            return {'CANCELLED'}
         return{'FINISHED'}
         
 class SaveStingrayAnimationOperator(Operator):
@@ -3148,7 +3150,11 @@ class SaveStingrayAnimationOperator(Operator):
         if not animation_entry.IsLoaded: animation_entry.Load(True, False)
         bones_entry = Global_TocManager.GetEntryByLoadArchive(int(bones_id), BoneID)
         bones_data = bones_entry.TocData
-        animation_entry.LoadedData.load_from_armature(context, object, bones_data)
+        try:
+            animation_entry.LoadedData.load_from_armature(context, object, bones_data)
+        except AnimationException as e:
+            self.report({'ERROR'}, str(e))
+            return {'CANCELLED'}
         wasSaved = animation_entry.Save()
         if wasSaved:
             if not Global_TocManager.IsInPatch(animation_entry):
@@ -4429,12 +4435,10 @@ classes = (
 Global_TocManager = TocManager()
 
 def register():
-    RegisterCPPHelper()
     if not os.path.exists(Global_texconvpath): raise Exception("Texconv is not found, please install Texconv in /deps/")
     CheckBlenderVersion()
     CheckAddonUpToDate()
     InitializeConfig()
-    LoadNormalPalette()
     UpdateArchiveHashes()
     LoadTypeHashes()
     LoadNameHashes()
@@ -4448,7 +4452,6 @@ def register():
     bpy.types.VIEW3D_MT_object_context_menu.append(CustomPropertyContext)
 
 def unregister():
-    UnregisterCPPHelper()
     bpy.utils.unregister_class(WM_MT_button_context)
     del Scene.Hd2ToolPanelSettings
     for cls in reversed(classes):
