@@ -838,28 +838,14 @@ class TransformInfo: # READ ONLY
             self.TransformEntries = [StingrayLocalTransform().SerializeTransformEntry(f) for n in range(self.NumTransforms)]
             self.NameHashes = [f.uint32(n) for n in range(self.NumTransforms)]
             PrettyPrint(f"hashes: {self.NameHashes}")
-            #for n in range(self.NumTransforms):
-            #    self.Transforms[n].pos = self.PositionTransforms[n].pos
         else:
-            print("Saving")
-            print(self.NumTransforms)
             self.NumTransforms = f.uint32(self.NumTransforms)
             f.seek(f.tell()+12)
             self.Transforms = [t.Serialize(f) for t in self.Transforms]
             self.TransformMatrices = [t.Serialize(f) for t in self.TransformMatrices]
             self.TransformEntries = [t.SerializeTransformEntry(f) for t in self.TransformEntries]
             self.NameHashes = [f.uint32(h) for h in self.NameHashes]
-            #PrettyPrint(f"hashes: {self.NameHashes}")
-            #for n in range(self.NumTransforms):
-            #    self.Transforms[n].pos = self.PositionTransforms[n].pos
         return self
-            
-    #def AddEntry(self, name_hash):
-    #    self.NumTransforms += 1
-    #    self.Transforms.append(StingrayLocalTransform())
-    #    self.PositionTransforms.append(StingrayLocalTransform())
-    #    self.TransformEntries.append(StingrayLocalTransform())
-    #    self.NameHashes.append(name_hash)
 
 class CustomizationInfo: # READ ONLY
     def __init__(self):
@@ -1052,24 +1038,20 @@ class RawMaterialClass:
                 try:
                     self.ShortID = Global_MaterialSlotNames[unit_id][self.MatID][index]
                 except KeyError:
-                    print(f"Unable to find material slot for material {name} with material count {index}, using random material slot name")
+                    print(f"Unable to find material slot for material {name} with material count {index} for unit {unit_id}, using random material slot name")
                     self.ShortID = random.randint(1, 0xffffffff)
-                
-                #self.ShortID = random.randint(1, 0xffffffff)
-                #if self.MatID == 7924776834995323303: # railgun charge material exception
-                #    self.ShortID = 2113163872
             except:
                 raise Exception("Material name must be a number")
 
 class BoneIndexException(Exception):
     pass
- 
+
 def sign(n):
     if n >= 0:
         return 1
     if n < 0:
         return -1
-    
+
 def octahedral_encode(x, y, z):
     l1_norm = abs(x) + abs(y) + abs(z)
     if l1_norm == 0: return 0, 0
@@ -1078,13 +1060,13 @@ def octahedral_encode(x, y, z):
     if z < 0:
         x, y = ((1-abs(y)) * sign(x)), ((1-abs(x)) * sign(y))
     return x, y
-    
+
 def octahedral_decode(x, y):
     z = 1 - abs(x) - abs(y)
     if z < 0:
         x, y = ((1-abs(y)) * sign(x)), ((1-abs(x)) * sign(y))
     return mathutils.Vector((x, y, z)).normalized().to_tuple()
-    
+
 def decode_packed_oct_norm(norm):
     r10 = norm & 0x3ff
     g10 = (norm >> 10) & 0x3ff
@@ -1092,7 +1074,7 @@ def decode_packed_oct_norm(norm):
         r10 * (2.0/1023.0) - 1,
         g10 * (2.0/1023.0) - 1
     )
-    
+
 def encode_packed_oct_norm(x, y, z):
     x, y = octahedral_encode(x, y, z)
     return int((x+1)*(1023.0/2.0)) | (int((y+1)*(1023.0/2.0)) << 10)
@@ -1684,9 +1666,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
         for i, h in enumerate(transform_info.NameHashes):
             try:
                 if i in bone_info[mesh.LodIndex].RealIndices:
-                    available_bones.append(Global_BoneNames[h])
-            except KeyError:
-                available_bones.append(str(h))
+                    available_bones.append(Global_BoneNames.get(h, str(h)))
             except IndexError:
                 pass
         vertex_to_material_index = [0]*len(mesh.VertexPositions)
@@ -1697,8 +1677,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
         for vertex_idx in range(len(mesh.VertexWeights)):
             weights      = mesh.VertexWeights[vertex_idx]
             index_groups = [Indices[vertex_idx] for Indices in mesh.VertexBoneIndices]
-            group_index  = 0
-            for indices in index_groups:
+            for group_index, indices in enumerate(index_groups):
                 if bpy.context.scene.Hd2ToolPanelSettings.ImportGroup0 and group_index != 0:
                     continue
                 if type(weights) != list:
@@ -1706,14 +1685,12 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 for weight_idx in range(len(weights)):
                     weight_value = weights[weight_idx]
                     bone_index   = indices[weight_idx]
-                    group_name = str(group_index) + "_" + str(bone_index)
                     if not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
                         hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index, vertex_to_material_index[vertex_idx])
                         boneHash = transform_info.NameHashes[hashIndex]
-                        if boneHash in Global_BoneNames:
-                            group_name = Global_BoneNames[boneHash]
-                        else:
-                            group_name = str(boneHash)
+                        group_name = Global_BoneNames.get(boneHash, str(boneHash))
+                    else:
+                        group_name = str(group_index) + "_" + str(bone_index)
                     if group_name not in created_groups:
                         created_groups.append(group_name)
                         try:
@@ -1723,7 +1700,6 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                         new_vertex_group = new_object.vertex_groups.new(name=str(group_name))
                     vertex_group_data = [vertex_idx]
                     new_object.vertex_groups[str(group_name)].add(vertex_group_data, weight_value, 'ADD')
-                group_index += 1
         if not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
             for bone in available_bones:
                 new_vertex_group = new_object.vertex_groups.new(name=str(bone))
@@ -1891,12 +1867,4 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 bm.verts.remove(vert)
         # convert bmesh to mesh
         bm.to_mesh(new_object.data)
-
-
-        # Create skeleton
-        if False:
-            if mesh.DEV_BoneInfo != None:
-                for Bone in mesh.DEV_BoneInfo.Bones:
-                    current_pos = [Bone.v[12], Bone.v[13], Bone.v[14]]
-                    bpy.ops.object.empty_add(type='SPHERE', radius=0.08, align='WORLD', location=(current_pos[0], current_pos[1], current_pos[2]), scale=(1, 1, 1))
                     
