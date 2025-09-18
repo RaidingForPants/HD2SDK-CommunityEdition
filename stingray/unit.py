@@ -471,7 +471,7 @@ class StingrayMeshFile:
             Stream_Info = self.StreamInfoArray[Mesh_Info.StreamIndex]
             NewMesh.MeshInfoIndex = n
             NewMesh.MeshID = Mesh_Info.MeshID
-            NewMesh.DEV_Transform = self.TransformInfo.Transforms[Mesh_Info.TransformIndex]
+            NewMesh.DEV_Transform = self.TransformInfo.TransformMatrices[Mesh_Info.TransformIndex]
             try:
                 NewMesh.DEV_BoneInfo  = self.BoneInfoArray[Mesh_Info.LodIndex]
             except: pass
@@ -756,6 +756,22 @@ class StingrayMatrix4x4: # Matrix4x4: https://help.autodesk.com/cloudhelp/ENU/St
     def Serialize(self, f: MemoryStream):
         self.v = [f.float32(value) for value in self.v]
         return self
+    def ToLocalTransform(self):
+        matrix = mathutils.Matrix([
+            [self.v[0], self.v[1], self.v[2], self.v[12]],
+            [self.v[4], self.v[5], self.v[6], self.v[13]],
+            [self.v[8], self.v[9], self.v[10], self.v[14]],
+            [self.v[3], self.v[7], self.v[11], self.v[15]]
+        ])
+        local_transform = StingrayLocalTransform()
+        loc, rot, scale = matrix.decompose()
+        rot = rot.to_matrix()
+        local_transform.pos = loc
+        local_transform.scale = scale
+        local_transform.rot.x = rot[0]
+        local_transform.rot.y = rot[1]
+        local_transform.rot.z = rot[2]
+        return local_transform
 
 class StingrayMatrix3x3: # Matrix3x3: https://help.autodesk.com/cloudhelp/ENU/Stingray-SDK-Help/engine_c/plugin__api__types_8h.html#line_84
     def __init__(self):
@@ -833,28 +849,14 @@ class TransformInfo: # READ ONLY
             self.TransformEntries = [StingrayLocalTransform().SerializeTransformEntry(f) for n in range(self.NumTransforms)]
             self.NameHashes = [f.uint32(n) for n in range(self.NumTransforms)]
             PrettyPrint(f"hashes: {self.NameHashes}")
-            #for n in range(self.NumTransforms):
-            #    self.Transforms[n].pos = self.PositionTransforms[n].pos
         else:
-            print("Saving")
-            print(self.NumTransforms)
             self.NumTransforms = f.uint32(self.NumTransforms)
             f.seek(f.tell()+12)
             self.Transforms = [t.Serialize(f) for t in self.Transforms]
             self.TransformMatrices = [t.Serialize(f) for t in self.TransformMatrices]
             self.TransformEntries = [t.SerializeTransformEntry(f) for t in self.TransformEntries]
             self.NameHashes = [f.uint32(h) for h in self.NameHashes]
-            #PrettyPrint(f"hashes: {self.NameHashes}")
-            #for n in range(self.NumTransforms):
-            #    self.Transforms[n].pos = self.PositionTransforms[n].pos
         return self
-            
-    #def AddEntry(self, name_hash):
-    #    self.NumTransforms += 1
-    #    self.Transforms.append(StingrayLocalTransform())
-    #    self.PositionTransforms.append(StingrayLocalTransform())
-    #    self.TransformEntries.append(StingrayLocalTransform())
-    #    self.NameHashes.append(name_hash)
 
 class CustomizationInfo: # READ ONLY
     def __init__(self):
@@ -1047,24 +1049,20 @@ class RawMaterialClass:
                 try:
                     self.ShortID = Global_MaterialSlotNames[unit_id][self.MatID][index]
                 except KeyError:
-                    print(f"Unable to find material slot for material {name} with material count {index}, using random material slot name")
+                    print(f"Unable to find material slot for material {name} with material count {index} for unit {unit_id}, using random material slot name")
                     self.ShortID = random.randint(1, 0xffffffff)
-                
-                #self.ShortID = random.randint(1, 0xffffffff)
-                #if self.MatID == 7924776834995323303: # railgun charge material exception
-                #    self.ShortID = 2113163872
             except:
                 raise Exception("Material name must be a number")
 
 class BoneIndexException(Exception):
     pass
- 
+
 def sign(n):
     if n >= 0:
         return 1
     if n < 0:
         return -1
-    
+
 def octahedral_encode(x, y, z):
     l1_norm = abs(x) + abs(y) + abs(z)
     if l1_norm == 0: return 0, 0
@@ -1073,13 +1071,13 @@ def octahedral_encode(x, y, z):
     if z < 0:
         x, y = ((1-abs(y)) * sign(x)), ((1-abs(x)) * sign(y))
     return x, y
-    
+
 def octahedral_decode(x, y):
     z = 1 - abs(x) - abs(y)
     if z < 0:
         x, y = ((1-abs(y)) * sign(x)), ((1-abs(x)) * sign(y))
     return mathutils.Vector((x, y, z)).normalized().to_tuple()
-    
+
 def decode_packed_oct_norm(norm):
     r10 = norm & 0x3ff
     g10 = (norm >> 10) & 0x3ff
@@ -1087,7 +1085,7 @@ def decode_packed_oct_norm(norm):
         r10 * (2.0/1023.0) - 1,
         g10 * (2.0/1023.0) - 1
     )
-    
+
 def encode_packed_oct_norm(x, y, z):
     x, y = octahedral_encode(x, y, z)
     return int((x+1)*(1023.0/2.0)) | (int((y+1)*(1023.0/2.0)) << 10)
@@ -1480,14 +1478,13 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 PrettyPrint(f"Failed to write data for bone: {bone.name}. This may be intended", 'warn')
                 continue
                 
-            m = bone.matrix.transposed()
-            PrettyPrint(m)
+            m = bone.matrix
             transform_matrix = StingrayMatrix4x4()
             transform_matrix.v = [
-                m[0][0], m[0][1], m[0][2], m[0][3],
-                m[1][0], m[1][1], m[1][2], m[1][3],
-                m[2][0], m[2][1], m[2][2], m[2][3],
-                m[3][0], m[3][1], m[3][2], m[3][3]
+                m[0][0], m[0][1], m[0][2], m[3][0],
+                m[1][0], m[1][1], m[1][2], m[3][1],
+                m[2][0], m[2][1], m[2][2], m[3][2],
+                m[0][3], m[1][3], m[2][3], m[3][3]
             ]
             transform_info.TransformMatrices[transform_index] = transform_matrix
             if bone.parent:
@@ -1622,16 +1619,11 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
         # make object from mesh
         new_object = bpy.data.objects.new(name, new_mesh)
         # set transform
-        PrettyPrint(f"scale: {mesh.DEV_Transform.scale}")
-        PrettyPrint(f"location: {mesh.DEV_Transform.pos}")
-        new_object.scale = (mesh.DEV_Transform.scale[0],mesh.DEV_Transform.scale[1],mesh.DEV_Transform.scale[2])
-        new_object.location = (mesh.DEV_Transform.pos[0],mesh.DEV_Transform.pos[1],mesh.DEV_Transform.pos[2])
-
-        # TODO: fix incorrect rotation
-        rot = mesh.DEV_Transform.rot
-        rotation_matrix = mathutils.Matrix([rot.x, rot.y, rot.z])
+        local_transform = mesh.DEV_Transform.ToLocalTransform()
+        new_object.scale = local_transform.scale
+        new_object.location = local_transform.pos
         new_object.rotation_mode = 'QUATERNION'
-        new_object.rotation_quaternion = rotation_matrix.to_quaternion()
+        new_object.rotation_quaternion = mathutils.Matrix([local_transform.rot.x, local_transform.rot.y, local_transform.rot.z]).to_quaternion()
 
         # set object properties
         new_object["MeshInfoIndex"] = mesh.MeshInfoIndex
@@ -1679,9 +1671,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
         for i, h in enumerate(transform_info.NameHashes):
             try:
                 if i in bone_info[mesh.LodIndex].RealIndices:
-                    available_bones.append(Global_BoneNames[h])
-            except KeyError:
-                available_bones.append(str(h))
+                    available_bones.append(Global_BoneNames.get(h, str(h)))
             except IndexError:
                 pass
         vertex_to_material_index = [0]*len(mesh.VertexPositions)
@@ -1692,8 +1682,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
         for vertex_idx in range(len(mesh.VertexWeights)):
             weights      = mesh.VertexWeights[vertex_idx]
             index_groups = [Indices[vertex_idx] for Indices in mesh.VertexBoneIndices]
-            group_index  = 0
-            for indices in index_groups:
+            for group_index, indices in enumerate(index_groups):
                 if bpy.context.scene.Hd2ToolPanelSettings.ImportGroup0 and group_index != 0:
                     continue
                 if type(weights) != list:
@@ -1701,14 +1690,12 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 for weight_idx in range(len(weights)):
                     weight_value = weights[weight_idx]
                     bone_index   = indices[weight_idx]
-                    group_name = str(group_index) + "_" + str(bone_index)
                     if not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
                         hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index, vertex_to_material_index[vertex_idx])
                         boneHash = transform_info.NameHashes[hashIndex]
-                        if boneHash in Global_BoneNames:
-                            group_name = Global_BoneNames[boneHash]
-                        else:
-                            group_name = str(boneHash)
+                        group_name = Global_BoneNames.get(boneHash, str(boneHash))
+                    else:
+                        group_name = str(group_index) + "_" + str(bone_index)
                     if group_name not in created_groups:
                         created_groups.append(group_name)
                         try:
@@ -1718,7 +1705,6 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                         new_vertex_group = new_object.vertex_groups.new(name=str(group_name))
                     vertex_group_data = [vertex_idx]
                     new_object.vertex_groups[str(group_name)].add(vertex_group_data, weight_value, 'ADD')
-                group_index += 1
         if not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
             for bone in available_bones:
                 new_vertex_group = new_object.vertex_groups.new(name=str(bone))
@@ -1814,25 +1800,19 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 
                 # pose all bones   
                 bpy.context.view_layer.objects.active = skeletonObj
-                bpy.ops.object.mode_set(mode='POSE')
                 
-                for i, bone in enumerate(skeletonObj.pose.bones):
-                    bone.matrix_basis.identity()
-                    
+                for i, bone in enumerate(armature.edit_bones):
                     try:
                         a = boneMatrices[bone.name]
                         mat = mathutils.Matrix.Identity(4)
-                        mat[0] = a.v[0:4]
-                        mat[1] = a.v[4:8]
-                        mat[2] = a.v[8:12]
-                        mat[3] = a.v[12:16]
-                        mat.transpose()
+                        mat[0] = [a.v[0], a.v[1], a.v[2], a.v[12]]
+                        mat[1] = [a.v[4], a.v[5], a.v[6], a.v[13]]
+                        mat[2] = [a.v[8], a.v[9], a.v[10], a.v[14]]
+                        mat[3] = [a.v[3], a.v[7], a.v[11], a.v[15]]
                         bone.matrix = mat
-                        bpy.context.view_layer.update()
                     except Exception as e:
                         PrettyPrint(f"Failed setting bone matricies for: {e}. This may be intended", 'warn')
                     
-                bpy.ops.pose.armature_apply()
                 bpy.ops.object.mode_set(mode='OBJECT')
                 
                 # assign armature modifier to the mesh object
@@ -1886,12 +1866,4 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 bm.verts.remove(vert)
         # convert bmesh to mesh
         bm.to_mesh(new_object.data)
-
-
-        # Create skeleton
-        if False:
-            if mesh.DEV_BoneInfo != None:
-                for Bone in mesh.DEV_BoneInfo.Bones:
-                    current_pos = [Bone.v[12], Bone.v[13], Bone.v[14]]
-                    bpy.ops.object.empty_add(type='SPHERE', radius=0.08, align='WORLD', location=(current_pos[0], current_pos[1], current_pos[2]), scale=(1, 1, 1))
                     
