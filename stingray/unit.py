@@ -1478,13 +1478,13 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 PrettyPrint(f"Failed to write data for bone: {bone.name}. This may be intended", 'warn')
                 continue
                 
-            m = bone.matrix
+            m = bone.matrix.transposed()
             transform_matrix = StingrayMatrix4x4()
             transform_matrix.v = [
-                m[0][0], m[0][1], m[0][2], m[3][0],
-                m[1][0], m[1][1], m[1][2], m[3][1],
-                m[2][0], m[2][1], m[2][2], m[3][2],
-                m[0][3], m[1][3], m[2][3], m[3][3]
+                m[0][0], m[0][1], m[0][2], m[0][3],
+                m[1][0], m[1][1], m[1][2], m[1][3],
+                m[2][0], m[2][1], m[2][2], m[2][3],
+                m[3][0], m[3][1], m[3][2], m[3][3]
             ]
             transform_info.TransformMatrices[transform_index] = transform_matrix
             if bone.parent:
@@ -1493,9 +1493,9 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 translation, rotation, scale = local_transform_matrix.decompose()
                 rotation = rotation.to_matrix()
                 transform_local = StingrayLocalTransform()
-                transform_local.rot.x = [rotation[0][0], rotation[0][1], rotation[0][2]]
-                transform_local.rot.y = [rotation[1][0], rotation[1][1], rotation[1][2]]
-                transform_local.rot.z = [rotation[2][0], rotation[2][1], rotation[2][2]]
+                transform_local.rot.x = [rotation[0][0], rotation[1][0], rotation[2][0]]
+                transform_local.rot.y = [rotation[0][1], rotation[1][1], rotation[2][1]]
+                transform_local.rot.z = [rotation[0][2], rotation[1][2], rotation[2][2]]
                 transform_local.pos = translation
                 transform_local.scale = scale
                 transform_info.Transforms[transform_index] = transform_local
@@ -1805,10 +1805,11 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                     try:
                         a = boneMatrices[bone.name]
                         mat = mathutils.Matrix.Identity(4)
-                        mat[0] = [a.v[0], a.v[1], a.v[2], a.v[12]]
-                        mat[1] = [a.v[4], a.v[5], a.v[6], a.v[13]]
-                        mat[2] = [a.v[8], a.v[9], a.v[10], a.v[14]]
-                        mat[3] = [a.v[3], a.v[7], a.v[11], a.v[15]]
+                        mat[0] = a.v[0:4]
+                        mat[1] = a.v[4:8]
+                        mat[2] = a.v[8:12]
+                        mat[3] = a.v[12:16]
+                        mat.transpose()
                         bone.matrix = mat
                     except Exception as e:
                         PrettyPrint(f"Failed setting bone matricies for: {e}. This may be intended", 'warn')
