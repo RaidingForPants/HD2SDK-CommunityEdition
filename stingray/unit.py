@@ -628,12 +628,11 @@ class BoneInfo:
         # I wonder if you can just take the transform component from the previous bone it was on
         # remap index should match the transform_info index!!!!!
         self.NumRemaps = len(remap_info)
-        self.RemapCounts = [len(bone_names) for bone_names in remap_info]
+        self.RemapCounts = [0] * self.NumRemaps
+        #self.RemapCounts = [len(bone_names) for bone_names in remap_info]
         self.Remaps = []
         self.RemapOffsets = [8*self.NumRemaps+4]
-        for i in range(1, self.NumRemaps):
-            self.RemapOffsets.append(self.RemapOffsets[i-1]+4*self.RemapCounts[i])
-        for bone_names in remap_info:
+        for i, bone_names in enumerate(remap_info):
             r = []
             for bone in bone_names:
                 try:
@@ -642,11 +641,18 @@ class BoneInfo:
                     h = murmur32_hash(bone.encode("utf-8"))
                 try:
                     real_index = transform_info.NameHashes.index(h)
+                except ValueError: # bone not in transform info for unit, unrecoverable
+                    PrettyPrint(f"Bone '{bone}' does not exist in unit transform info, skipping...")
+                    continue
+                try:
                     r.append(self.RealIndices.index(real_index))
-                except:
-                    print(bone)
-                
+                    self.RemapCounts[i] += 1
+                except ValueError:
+                    PrettyPrint(f"Bone '{bone}' does not exist in LOD bone info, skipping...")
             self.Remaps.append(r)
+            
+        for i in range(1, self.NumRemaps):
+            self.RemapOffsets.append(self.RemapOffsets[i-1]+4*self.RemapCounts[i])
                 
 class StreamInfo:
     def __init__(self):
@@ -1433,7 +1439,11 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                                 bpy.ops.object.mode_set(mode='OBJECT')
                                 bpy.data.objects.remove(object, do_unlink=True)
                             raise Exception(f"\n\nVertex Group: {vertex_group_name} is not a valid vertex group for the model.\nIf you are using legacy weight names, make sure you enable the option in the settings.\n\nValid vertex group names: {existing_names}")
-                        HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
+                        try:
+                            HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
+                        except ValueError: # bone index not in remap because the bone is not in the LOD bone data
+                            continue
+                            
                     # get real index from remapped index -> hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index); boneHash = transform_info.NameHashes[hashIndex]
                     # want to get remapped index from bone name
                     # hash = ...
