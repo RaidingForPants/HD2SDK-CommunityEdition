@@ -195,9 +195,15 @@ def CheckAddonUpToDate():
 
             global Global_addonUpToDate
             global Global_latestAddonVersion
-            Global_addonUpToDate = latestVersion == currentVersion
+            if latestVersion[0] > currentVersion[0]:
+                Global_addonUpToDate = False
+            elif latestVersion[0] == currentVersion[0] and latestVersion[1] > currentVersion[1]:
+                Global_addonUpToDate = False
+            elif latestVersion[0] == currentVersion[0] and latestVersion[1] == currentVersion[1] and latestVersion[2] > currentVersion[2]:
+                Global_addonUpToDate = False
+            else:
+                Global_addonUpToDate = True
             Global_latestAddonVersion = f"{latestVersion[0]}.{latestVersion[1]}.{latestVersion[2]}"
-
             if Global_addonUpToDate:
                 PrettyPrint("Addon is up to date!")
             else:
