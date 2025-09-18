@@ -1870,7 +1870,7 @@ class BulkLoadOperator(Operator, ImportHelper):
         return{'FINISHED'}
 
 class SearchByEntryIDOperator(Operator, ImportHelper):
-    bl_label = "Search By Entry ID"
+    bl_label = "Bulk Search By Entry ID"
     bl_idname = "helldiver2.search_by_entry"
     bl_description = "Search for Archives by their contained Entry IDs"
 
@@ -1895,16 +1895,13 @@ class SearchByEntryIDOperator(Operator, ImportHelper):
             if ID.upper() != ID.lower():
                 ID = hex_to_decimal(ID)
             ID = int(ID)
-            PrettyPrint(f"Searching for ID: {ID}")
-            for Archive in Global_TocManager.SearchArchives:
-                PrettyPrint(f"Searching Archive: {Archive.Name}")
-                if ID in Archive.fileIDs:
-                    PrettyPrint(f"Found ID: {ID} in Archive: {Archive.Name}")
-                    item = f"{Archive.Name} {ID} {name}"
-                    archives.append(item)
+           
+            Archives = SearchByEntryID(ID)
+            
+            if Archives and bpy.context.scene.Hd2ToolPanelSettings.LoadFoundArchives:
+                for Archive in Archives:
+                    Global_TocManager.LoadArchive(Archive.Path, True, False)
 
-                    if bpy.context.scene.Hd2ToolPanelSettings.LoadFoundArchives:
-                        Global_TocManager.LoadArchive(Archive.Path)
         curenttime = str(datetime.datetime.now()).replace(":", "-").replace(".", "_")
         outputfile = f"{Global_searchpath}output_{curenttime}.txt"
         PrettyPrint(f"Found {len(archives)} archives")
@@ -1916,6 +1913,45 @@ class SearchByEntryIDOperator(Operator, ImportHelper):
         self.report({'INFO'}, f"Found {len(archives)} archives with matching IDs.")
         PrettyPrint(f"Output file created at: {outputfile}")
         return {'FINISHED'}
+
+class SearchByEntryIDInput(Operator):
+    bl_label = "Search By Entry ID"
+    bl_idname = "helldiver2.search_by_entry_input"
+    bl_description = "Search for Archives by their contained Entry IDs"
+
+    entry_id: StringProperty(name="Entry ID")
+    def execute(self, context):
+            Archives = SearchByEntryID(int(self.entry_id))
+            for Archive in Archives:
+                Global_TocManager.LoadArchive(Archive.Path)
+
+            # Redraw
+            for area in context.screen.areas:
+                if area.type == "VIEW_3D": area.tag_redraw()
+            
+            return{'FINISHED'}
+    
+    def invoke(self, context, event):
+        if ArchivesNotLoaded(self):
+            return {'CANCELLED'}
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "entry_id")
+
+def SearchByEntryID(ID: int):
+    global Global_TocManager
+    archives = []
+    PrettyPrint(f"Searching for ID: {ID}")
+    for Archive in Global_TocManager.SearchArchives:
+        if ID in Archive.fileIDs:
+            PrettyPrint(f"Found ID: {ID} in Archive: {Archive.Name}")
+            archives.append(Archive)
+        
+    PrettyPrint(f"Found ID: {ID} in {len(archives)} unique archives")
+    PrettyPrint(archives)
+    return archives
 
 class CreatePatchFromActiveOperator(Operator):
     bl_label = "Create Patch"
@@ -3958,12 +3994,13 @@ class HellDivers2ToolsPanel(Panel):
                 row.prop(scene.Hd2ToolPanelSettings, "UnloadPatches")
                 row.prop(scene.Hd2ToolPanelSettings, "LoadFoundArchives")
                 #row.prop(scene.Hd2ToolPanelSettings, "DeleteOnLoadArchive")
-                col = box.grid_flow(columns=2)
-                col.operator("helldiver2.bulk_load", icon= 'IMPORT', text="Bulk Load")
-                col.operator("helldiver2.search_by_entry", icon= 'VIEWZOOM')
+                row = box.row()
+                row.operator("helldiver2.search_by_entry", icon= 'FILEBROWSER')
+                row.operator("helldiver2.bulk_load", icon= 'IMPORT', text="Bulk Load")
+                row.operator("helldiver2.search_by_entry_input", icon= 'VIEWZOOM')
                 #row = box.grid_flow(columns=1)
                 #row.operator("helldiver2.meshfixtool", icon='MODIFIER')
-                search = mainbox.row()
+                search = box.row()
                 search.label(text=Global_searchpath)
                 search.operator("helldiver2.change_searchpath", icon='FILEBROWSER')
                 mainbox.separator()
@@ -4430,6 +4467,7 @@ classes = (
     ImportStingrayParticleOperator,
     SaveStingrayParticleOperator,
     ImportDumpByIDOperator,
+    SearchByEntryIDInput,
 )
 
 Global_TocManager = TocManager()
