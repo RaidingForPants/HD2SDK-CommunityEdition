@@ -20,6 +20,7 @@ import json
 import struct
 import concurrent.futures
 import zipfile
+import shutil
 
 #import pyautogui 
 
@@ -3481,6 +3482,18 @@ class AutoUpdateOperator(Operator):
             return {'CANCELLED'}
         script_dir = os.path.dirname(os.path.abspath(__file__))
         zipfilepath = os.path.join(script_dir, "temp.zip")
+        for item in os.listdir(script_dir):
+            item = os.path.join(item, script_dir)
+            if os.path.isfile(item):
+                try:
+                    os.remove(item)
+                except:
+                    pass
+            elif os.path.isdir(item):
+                try:
+                    shutil.rmtree(item)
+                except:
+                    pass
         with open(zipfilepath, "wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
@@ -3497,7 +3510,6 @@ class AutoUpdateOperator(Operator):
                 try:
                     with z.open(member) as source, open(destination_path, 'wb') as target:
                         target.write(source.read())
-                    print(f"Extracted: {member} to {destination_path}")
                 except:
                     pass
         z.close()
