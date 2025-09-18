@@ -3483,7 +3483,7 @@ class AutoUpdateOperator(Operator):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         zipfilepath = os.path.join(script_dir, "temp.zip")
         for item in os.listdir(script_dir):
-            item = os.path.join(item, script_dir)
+            item = os.path.join(script_dir, item)
             if os.path.isfile(item):
                 try:
                     os.remove(item)
