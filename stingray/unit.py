@@ -758,11 +758,11 @@ class StingrayMatrix4x4: # Matrix4x4: https://help.autodesk.com/cloudhelp/ENU/St
         return self
     def ToLocalTransform(self):
         matrix = mathutils.Matrix([
-            self.v[0:4],
-            self.v[4:8],
-            self.v[8:12],
-            self.v[12:]
-        ]).transposed()
+            [self.v[0], self.v[1], self.v[2], self.v[12]],
+            [self.v[4], self.v[5], self.v[6], self.v[13]],
+            [self.v[8], self.v[9], self.v[10], self.v[14]],
+            [self.v[3], self.v[7], self.v[11], self.v[15]]
+        ])
         local_transform = StingrayLocalTransform()
         loc, rot, scale = matrix.decompose()
         rot = rot.to_matrix()
@@ -1478,14 +1478,13 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 PrettyPrint(f"Failed to write data for bone: {bone.name}. This may be intended", 'warn')
                 continue
                 
-            m = bone.matrix.transposed()
-            PrettyPrint(m)
+            m = bone.matrix
             transform_matrix = StingrayMatrix4x4()
             transform_matrix.v = [
-                m[0][0], m[0][1], m[0][2], m[0][3],
-                m[1][0], m[1][1], m[1][2], m[1][3],
-                m[2][0], m[2][1], m[2][2], m[2][3],
-                m[3][0], m[3][1], m[3][2], m[3][3]
+                m[0][0], m[0][1], m[0][2], m[3][0],
+                m[1][0], m[1][1], m[1][2], m[3][1],
+                m[2][0], m[2][1], m[2][2], m[3][2],
+                m[0][3], m[1][3], m[2][3], m[3][3]
             ]
             transform_info.TransformMatrices[transform_index] = transform_matrix
             if bone.parent:
@@ -1801,25 +1800,19 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 
                 # pose all bones   
                 bpy.context.view_layer.objects.active = skeletonObj
-                bpy.ops.object.mode_set(mode='POSE')
                 
-                for i, bone in enumerate(skeletonObj.pose.bones):
-                    bone.matrix_basis.identity()
-                    
+                for i, bone in enumerate(armature.edit_bones):
                     try:
                         a = boneMatrices[bone.name]
                         mat = mathutils.Matrix.Identity(4)
-                        mat[0] = a.v[0:4]
-                        mat[1] = a.v[4:8]
-                        mat[2] = a.v[8:12]
-                        mat[3] = a.v[12:16]
-                        mat.transpose()
+                        mat[0] = [a.v[0], a.v[1], a.v[2], a.v[12]]
+                        mat[1] = [a.v[4], a.v[5], a.v[6], a.v[13]]
+                        mat[2] = [a.v[8], a.v[9], a.v[10], a.v[14]]
+                        mat[3] = [a.v[3], a.v[7], a.v[11], a.v[15]]
                         bone.matrix = mat
-                        bpy.context.view_layer.update()
                     except Exception as e:
                         PrettyPrint(f"Failed setting bone matricies for: {e}. This may be intended", 'warn')
                     
-                bpy.ops.pose.armature_apply()
                 bpy.ops.object.mode_set(mode='OBJECT')
                 
                 # assign armature modifier to the mesh object
