@@ -471,7 +471,7 @@ class StingrayMeshFile:
             Stream_Info = self.StreamInfoArray[Mesh_Info.StreamIndex]
             NewMesh.MeshInfoIndex = n
             NewMesh.MeshID = Mesh_Info.MeshID
-            NewMesh.DEV_Transform = self.TransformInfo.Transforms[Mesh_Info.TransformIndex]
+            NewMesh.DEV_Transform = self.TransformInfo.TransformMatrices[Mesh_Info.TransformIndex]
             try:
                 NewMesh.DEV_BoneInfo  = self.BoneInfoArray[Mesh_Info.LodIndex]
             except: pass
@@ -761,6 +761,22 @@ class StingrayMatrix4x4: # Matrix4x4: https://help.autodesk.com/cloudhelp/ENU/St
     def Serialize(self, f: MemoryStream):
         self.v = [f.float32(value) for value in self.v]
         return self
+    def ToLocalTransform(self):
+        matrix = mathutils.Matrix([
+            self.v[0:4],
+            self.v[4:8],
+            self.v[8:12],
+            self.v[12:]
+        ]).transposed()
+        local_transform = StingrayLocalTransform()
+        loc, rot, scale = matrix.decompose()
+        rot = rot.to_matrix()
+        local_transform.pos = loc
+        local_transform.scale = scale
+        local_transform.rot.x = rot[0]
+        local_transform.rot.y = rot[1]
+        local_transform.rot.z = rot[2]
+        return local_transform
 
 class StingrayMatrix3x3: # Matrix3x3: https://help.autodesk.com/cloudhelp/ENU/Stingray-SDK-Help/engine_c/plugin__api__types_8h.html#line_84
     def __init__(self):
@@ -1609,16 +1625,11 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
         # make object from mesh
         new_object = bpy.data.objects.new(name, new_mesh)
         # set transform
-        PrettyPrint(f"scale: {mesh.DEV_Transform.scale}")
-        PrettyPrint(f"location: {mesh.DEV_Transform.pos}")
-        new_object.scale = (mesh.DEV_Transform.scale[0],mesh.DEV_Transform.scale[1],mesh.DEV_Transform.scale[2])
-        new_object.location = (mesh.DEV_Transform.pos[0],mesh.DEV_Transform.pos[1],mesh.DEV_Transform.pos[2])
-
-        # TODO: fix incorrect rotation
-        rot = mesh.DEV_Transform.rot
-        rotation_matrix = mathutils.Matrix([rot.x, rot.y, rot.z])
+        local_transform = mesh.DEV_Transform.ToLocalTransform()
+        new_object.scale = local_transform.scale
+        new_object.location = local_transform.pos
         new_object.rotation_mode = 'QUATERNION'
-        new_object.rotation_quaternion = rotation_matrix.to_quaternion()
+        new_object.rotation_quaternion = mathutils.Matrix([local_transform.rot.x, local_transform.rot.y, local_transform.rot.z]).to_quaternion()
 
         # set object properties
         new_object["MeshInfoIndex"] = mesh.MeshInfoIndex
