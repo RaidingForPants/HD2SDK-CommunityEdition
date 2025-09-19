@@ -488,15 +488,26 @@ class StingrayAnimation:
             initial_bone_data[poseBone.name] = {'position': position, 'rotation': rotation, 'scale': scale}
             
         for bone_name in bone_names:
-            bone = initial_bone_data[bone_name]
-            initial_state = AnimationBoneInitialState()
-            initial_state.compress_position = 0
-            initial_state.compress_rotation = 0
-            initial_state.compress_scale = 0
-            initial_state.position = bone['position']
-            initial_state.rotation = bone['rotation']
-            initial_state.scale = bone['scale']
-            self.initial_bone_states.append(initial_state)
+            try:
+                bone = initial_bone_data[bone_name]
+                initial_state = AnimationBoneInitialState()
+                initial_state.compress_position = 0
+                initial_state.compress_rotation = 0
+                initial_state.compress_scale = 0
+                initial_state.position = bone['position']
+                initial_state.rotation = bone['rotation']
+                initial_state.scale = bone['scale']
+                self.initial_bone_states.append(initial_state)
+            except KeyError:
+                initial_state = AnimationBoneInitialState()
+                initial_state.compress_position = 0
+                initial_state.compress_rotation = 0
+                initial_state.compress_scale = 0
+                initial_state.position = [0, 0, 0]
+                initial_state.rotation = [0, 0, 0, 1]
+                initial_state.scale = [1, 1, 1]
+                self.initial_bone_states.append(initial_state)
+            
             
         
             
