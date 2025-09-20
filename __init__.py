@@ -1079,6 +1079,13 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
     for TexIdx in range(len(mat.TexIDs)):
         if not bpy.context.scene.Hd2ToolPanelSettings.SaveTexturesWithMaterial:
             continue
+        if bpy.context.scene.Hd2ToolPanelSettings.OnlySaveCustomTextures:
+            template = TextureTypeLookup[self.MaterialTemplate]
+            PrettyPrint(f"template: {template}")
+            slot = template[TexIdx]
+            PrettyPrint(f"slot: {slot}")
+            if slot == '':
+                continue
         oldTexID = mat.TexIDs[TexIdx]
         if mat.DEV_DDSPaths[TexIdx] != None:
             # get texture data
@@ -3819,6 +3826,7 @@ class Hd2ToolPanelSettings(PropertyGroup):
     
     SaveTexturesWithMaterial: BoolProperty(name="Save Textures with Material", description="Save a material\'s referenced textures to the patch when said material is saved. When disabled, new random IDs will not be given each time the material is saved", default = True)
     GenerateRandomTextureIDs: BoolProperty(name="Generate Random Texture IDs", description="Give a material\'s referenced textures new random IDs when said material is saved", default = True)
+    OnlySaveCustomTextures:   BoolProperty(name="Save Only Custom Textures", description="Only save the labeled texture nodes on a material preset", default = True)
 
     def get_settings_dict(self):
         dict = {}
@@ -3974,6 +3982,7 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "SaveBonePositions")
             row.prop(scene.Hd2ToolPanelSettings, "SaveTexturesWithMaterial")
             row.prop(scene.Hd2ToolPanelSettings, "GenerateRandomTextureIDs")
+            row.prop(scene.Hd2ToolPanelSettings, "OnlySaveCustomTextures")
             row = mainbox.row(); row.separator(); row.label(text="Other Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "SaveNonSDKMaterials")
             row.prop(scene.Hd2ToolPanelSettings, "SaveUnsavedOnWrite")
