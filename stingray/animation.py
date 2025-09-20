@@ -52,7 +52,7 @@ class AnimationEntry:
             data2 = AnimationBoneInitialState.decompress_position([tocFile.uint16(temp) for _ in range(3)])
         elif type == 1:
             # scale data
-            data2 = AnimationBoneInitialState.decompress_scale(tocFile.vec3_half(temp_arr))
+            data2 = AnimationBoneInitialState.decompress_scale([tocFile.uint16(temp) for _ in range(3)])
         else:
             if subtype == 4:
                 # position data (uncompressed)
@@ -176,7 +176,7 @@ class AnimationBoneInitialState:
         return cmp_rotation
         
     def compress_scale(scale):
-        return scale
+        return AnimationBoneInitialState.compress_position(scale)
         
     def decompress_position(position): # vector of 3 uint16 -> vector of 3 float32
         return [(pos - 32767.0) * (10.0/32767.0) for pos in position]
@@ -196,8 +196,8 @@ class AnimationBoneInitialState:
         elif largest_idx == 3:
             return [first, second, third, largest_val]
         
-    def decompress_scale(scale): # vec3_float
-        return scale
+    def decompress_scale(scale): # vec3_float (should be vec of 3 uint16)
+        return AnimationBoneInitialState.decompress_position(scale)
         
     def __repr__(self):
         s = ""
@@ -293,7 +293,7 @@ class StingrayAnimation:
             else:
                 bone_state.rotation = [tocFile.float32(temp) for _ in range(4)]
             if bone_state.compress_scale:
-                bone_state.scale = AnimationBoneInitialState.decompress_scale(tocFile.vec3_half(temp_arr))
+                bone_state.scale = AnimationBoneInitialState.decompress_scale([tocFile.uint16(temp) for _ in range(3)])
             else:
                 bone_state.scale = tocFile.vec3_float(temp_arr)
             self.initial_bone_states.append(bone_state)
@@ -306,7 +306,7 @@ class StingrayAnimation:
             if not (entry.type == 0 and entry.subtype not in [4, 5, 6]):
                 self.entries.append(entry)
         for initial_state in self.initial_bone_states:
-            if isnan(initial_state.scale[0]):
+            if initial_state.scale[0] == 0:
                 self.is_additive_animation = True
                 break
         
