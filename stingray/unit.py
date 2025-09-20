@@ -167,9 +167,9 @@ class StingrayMeshFile:
         except:
             PrettyPrint(f"Could not set UnReversedData1", "ERROR")
         
-        if UnreversedData1_2Size > 0:
+        if self.TransformInfoOffset > 0:
             f.seek(UnreversedData1_2Start)
-            if self.TransformInfoOffset > 0:
+            if UnreversedData1_2Size > 0:
                 self.UnreversedData1_2 = f.bytes(self.UnreversedData1_2, UnreversedData1_2Size)
         
 
