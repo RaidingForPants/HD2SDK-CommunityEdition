@@ -440,6 +440,8 @@ class StingrayAnimation:
         self.entries.clear()
         self.initial_bone_states.clear()
         action = armature.animation_data.action
+        action = action.copy()
+        action.name = "temp_copy"
         action.use_fake_user = True
         idx = bones_data.index(b"StingrayEntityRoot")
         temp = bones_data[idx:]
@@ -454,6 +456,23 @@ class StingrayAnimation:
         bone_parents = {}
         curves = {}
         bpy.ops.object.mode_set(mode="POSE")
+        
+        # make keyframes for every frame
+        start, end = action.frame_range
+        for frame in range(ceil(start), ceil(end)+1):
+            context.scene.frame_set(frame)
+            for bone in armature.data.edit_bones:
+                bone_name = bone.name
+                location_curves = [StingrayAnimation.utilityGetOrCreateCurve(fcurves, armature.data.edit_bones, bone_name, x) for x in [
+                ("location", 0), ("location", 1), ("location", 2)]]
+                rotation_curves = [StingrayAnimation.utilityGetOrCreateCurve(fcurves, armature.data.edit_bones, bone_name, x) for x in [
+                ("rotation_quaternion", 0), ("rotation_quaternion", 1), ("rotation_quaternion", 2), ("rotation_quaternion", 3)]]
+                for curve in location_curves:
+                    curve.keyframe_insert(data_path="location")
+                for curve in rotation_curves:
+                    curve.keyframe_insert(data_path="rotation_quaternion")
+                #curve.keyframe_insert(data_path="scale")
+        
         context.scene.frame_set(0)
         # initial bone data = anim frame 0
         objects = bpy.data.objects
@@ -619,6 +638,7 @@ class StingrayAnimation:
         output_stream = MemoryStream(IOMode="write")
         self.Serialize(output_stream)
         self.file_size = len(output_stream.Data)
+        bpy.data.actions.remove(action)
         
     def utilityClearKeyframePoints(fcurve):
         # if utilityIsVersionAtLeast(4, 0):

@@ -1772,6 +1772,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 boneTransforms = {}
                 boneMatrices = {}
                 boneParents = [0] * b_info.NumBones
+                doPoseBone = {}
                 # create all bones
                 if mesh.LodIndex == 0:
                     bones = [None] * transform_info.NumTransforms
@@ -1787,6 +1788,9 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                         if newBone is None:
                             newBone = armature.edit_bones.new(boneName)
                             newBone.tail = 0, 0.0000025, 0
+                            doPoseBone[newBone.name] = True
+                        else:
+                            doPoseBone[newBone.name] = False
                         bones[i] = newBone
                         boneParents[i] = boneParent
                         boneTransforms[newBone.name] = transform_info.Transforms[i]
@@ -1809,6 +1813,9 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                         if newBone is None:
                             newBone = armature.edit_bones.new(boneName)
                             newBone.tail = 0, 0.0000025, 0
+                            doPoseBone[newBone.name] = True
+                        else:
+                            doPoseBone[newBone.name] = False
                         bones[i] = newBone
                         boneTransforms[newBone.name] = transform_info.Transforms[boneIndex]
                         boneMatrices[newBone.name] = transform_info.TransformMatrices[boneIndex]
@@ -1824,6 +1831,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 
                 for i, bone in enumerate(armature.edit_bones):
                     try:
+                        if not doPoseBone[bone.name]: continue
                         a = boneMatrices[bone.name]
                         mat = mathutils.Matrix.Identity(4)
                         mat[0] = a.v[0:4]
@@ -1937,6 +1945,7 @@ def CreateSkeleton(stingray_unit, id, Global_BoneNames):
         boneMatrices = {}
         bones = [None] * transform_info.NumTransforms
         boneParents = [0] * transform_info.NumTransforms
+        doPoseBone = {}
         # create all bones
         for i, transform in enumerate(transform_info.TransformEntries):
             boneParent = transform.ParentBone
@@ -1949,6 +1958,9 @@ def CreateSkeleton(stingray_unit, id, Global_BoneNames):
             if newBone is None:
                 newBone = armature.edit_bones.new(boneName)
                 newBone.tail = 0, 0.0000025, 0
+                doPoseBone[bone.name] = True
+            else:
+                doPoseBone[bone.name] = False
             bones[i] = newBone
             boneParents[i] = boneParent
             boneTransforms[newBone.name] = transform_info.Transforms[i]
@@ -1964,6 +1976,7 @@ def CreateSkeleton(stingray_unit, id, Global_BoneNames):
         
         for i, bone in enumerate(armature.edit_bones):
             try:
+                if not doPoseBone[bone.name]: continue
                 a = boneMatrices[bone.name]
                 mat = mathutils.Matrix.Identity(4)
                 mat[0] = a.v[0:4]
