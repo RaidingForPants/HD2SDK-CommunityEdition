@@ -1689,7 +1689,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                     available_bones.append(Global_BoneNames.get(h, str(h)))
             except IndexError:
                 pass
-        vertex_to_material_index = [0]*len(mesh.VertexPositions)
+        vertex_to_material_index = [5000]*len(mesh.VertexPositions)
         for mat_idx, mat in enumerate(mesh.Materials):
             for face in mesh.Indices[mat.StartIndex//3:(mat.StartIndex//3+mat.NumIndices//3)]:
                 for vert_idx in face:
@@ -1706,7 +1706,10 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                     weight_value = weights[weight_idx]
                     bone_index   = indices[weight_idx]
                     if not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
-                        hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index, vertex_to_material_index[vertex_idx])
+                        try:
+                            hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index, vertex_to_material_index[vertex_idx])
+                        except:
+                            continue
                         boneHash = transform_info.NameHashes[hashIndex]
                         group_name = Global_BoneNames.get(boneHash, str(boneHash))
                     else:
