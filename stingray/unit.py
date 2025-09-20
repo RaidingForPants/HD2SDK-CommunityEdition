@@ -276,7 +276,7 @@ class StingrayMeshFile:
             for i in range(self.NumMaterials):
                 if self.MaterialIDs[i] not in Global_MaterialSlotNames[id]: # probably going to have to save material slot names per LOD/mesh
                     Global_MaterialSlotNames[id][self.MaterialIDs[i]] = []
-                print(f"Saving material slot name {self.SectionsIDs[i]} for material {self.MaterialIDs[i]}")
+                PrettyPrint(f"Saving material slot name {self.SectionsIDs[i]} for material {self.MaterialIDs[i]}")
                 if self.SectionsIDs[i] not in Global_MaterialSlotNames[id][self.MaterialIDs[i]]:
                     Global_MaterialSlotNames[id][self.MaterialIDs[i]].append(self.SectionsIDs[i])
 
@@ -705,14 +705,17 @@ class StreamInfo:
         return self
 
 class MeshSectionInfo: # material info
-    def __init__(self, ID=0):
+    def __init__(self, material_slot_list=[]):
         self.MaterialIndex = self.VertexOffset=self.NumVertices=self.IndexOffset=self.NumIndices=self.unk2 = 0
         self.DEV_MeshInfoOffset=0 # helper var, not in file
-        self.ID = ID
+        self.material_slot_list = material_slot_list
+        self.ID = 0
         self.MaterialIndex = self.GroupIndex = 0
     def Serialize(self, f: MemoryStream):
         self.DEV_MeshInfoOffset = f.tell()
         self.MaterialIndex           = f.uint32(self.MaterialIndex)
+        if f.IsReading():
+            self.ID = self.material_slot_list[self.MaterialIndex]
         self.VertexOffset   = f.uint32(self.VertexOffset)
         self.NumVertices    = f.uint32(self.NumVertices)
         self.IndexOffset    = f.uint32(self.IndexOffset)
@@ -724,7 +727,7 @@ class MeshInfo:
     def __init__(self):
         self.unk1 = self.unk3 = self.unk4 = self.TransformIndex = self.LodIndex = self.StreamIndex = self.NumSections = self.unk7 = self.unk8 = self.unk9 = self.NumSections_unk = self.MeshID = 0
         self.unk2 = bytearray(32); self.unk6 = bytearray(40)
-        self.SectionIDs = self.Sections = []
+        self.MaterialIDs = self.Sections = []
         self.NumMaterials = 0
         self.MaterialOffset = 0
         self.SectionsOffset = 0
@@ -745,10 +748,10 @@ class MeshInfo:
         self.NumSections    = f.uint32(self.NumSections)
         if f.IsWriting(): self.SectionsOffset = self.MaterialOffset + 4*self.NumMaterials
         self.SectionsOffset  = f.uint32(self.SectionsOffset)
-        if f.IsReading(): self.SectionIDs  = [0 for n in range(self.NumSections)]
-        else:             self.SectionIDs  = [section.ID for section in self.Sections]
-        self.SectionIDs  = [f.uint32(ID) for ID in self.SectionIDs]
-        if f.IsReading(): self.Sections    = [MeshSectionInfo(self.SectionIDs[n]) for n in range(self.NumSections)]
+        if f.IsReading(): self.MaterialIDs  = [0 for n in range(self.NumMaterials)]
+        else:             self.MaterialIDs  = [section.ID for section in self.Sections]
+        self.MaterialIDs  = [f.uint32(ID) for ID in self.MaterialIDs]
+        if f.IsReading(): self.Sections    = [MeshSectionInfo(self.MaterialIDs) for n in range(self.NumSections)]
         self.Sections   = [Section.Serialize(f) for Section in self.Sections]
         return self
     def GetNumIndices(self):
@@ -1057,8 +1060,8 @@ class RawMaterialClass:
                 self.MatID   = int(name)
                 try:
                     self.ShortID = Global_MaterialSlotNames[unit_id][self.MatID][index]
-                except KeyError:
-                    print(f"Unable to find material slot for material {name} with material count {index} for unit {unit_id}, using random material slot name")
+                except (KeyError, IndexError):
+                    PrettyPrint(f"Unable to find material slot for material {name} with material count {index} for unit {unit_id}, using random material slot name")
                     self.ShortID = random.randint(1, 0xffffffff)
             except:
                 raise Exception("Material name must be a number")
@@ -1395,7 +1398,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             remap_info = [bone_names for _ in range(len(object.material_slots))]
             bone_info[lod_index].SetRemap(remap_info, transform_info)
         
-        vertex_to_material_index = [-1 for _ in range(len(mesh.vertices))]
+        vertex_to_material_index = [5000 for _ in range(len(mesh.vertices))]
         for polygon in mesh.polygons:
             for vertex in polygon.vertices:
                 vertex_to_material_index[vertex] = polygon.material_index
