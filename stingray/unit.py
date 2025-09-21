@@ -1447,7 +1447,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                             raise Exception(f"\n\nVertex Group: {vertex_group_name} is not a valid vertex group for the model.\nIf you are using legacy weight names, make sure you enable the option in the settings.\n\nValid vertex group names: {existing_names}")
                         try:
                             HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
-                        except ValueError: # bone index not in remap because the bone is not in the LOD bone data
+                        except (ValueError, IndexError): # bone index not in remap because the bone is not in the LOD bone data
                             continue
                             
                     # get real index from remapped index -> hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index); boneHash = transform_info.NameHashes[hashIndex]
@@ -1669,6 +1669,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
             new_mesh.polygons.foreach_set('use_smooth',  [True] * len(new_mesh.polygons))
             if not isinstance(mesh.VertexNormals[0], int):
                 new_mesh.normals_split_custom_set_from_vertices(mesh.VertexNormals)
+            
 
         # -- || ASSIGN VERTEX COLORS || -- #
         if len(mesh.VertexColors) == len(mesh.VertexPositions):
@@ -1894,6 +1895,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                     verticies.append(vert)
             for vert in verticies:
                 bm.verts.remove(vert)
+
         # convert bmesh to mesh
         bm.to_mesh(new_object.data)
                     
