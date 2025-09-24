@@ -26,7 +26,7 @@ import concurrent.futures
 import bpy
 from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy.props import StringProperty, BoolProperty, IntProperty, EnumProperty, PointerProperty, CollectionProperty
-from bpy.types import Panel, Operator, PropertyGroup, Scene, Menu, OperatorFileListElement
+from bpy.types import Panel, Operator, PropertyGroup, Scene, Menu, OperatorFileListElement, UIList
 
 from .stingray.animation import StingrayAnimation, AnimationException
 from .stingray.raw_dump import StingrayRawDump
@@ -803,6 +803,32 @@ class TocManager():
             else:
                 self.LoadedArchives.append(toc)
                 self.ActiveArchive = toc
+                bpy.context.scene.animation_list.clear()
+                bpy.context.scene.material_list.clear()
+                bpy.context.scene.unit_list.clear()
+                bpy.context.scene.particle_list.clear()
+                bpy.context.scene.texture_list.clear()
+                for Entry in toc.TocEntries:
+                    if Entry.TypeID == AnimationID:
+                        new_item = bpy.context.scene.animation_list.add()
+                        new_item.item_name = str(Entry.FileID)
+                        new_item.item_type = str(Entry.TypeID)
+                    elif Entry.TypeID == MaterialID:
+                        new_item = bpy.context.scene.material_list.add()
+                        new_item.item_name = str(Entry.FileID)
+                        new_item.item_type = str(Entry.TypeID)
+                    elif Entry.TypeID == MeshID:
+                        new_item = bpy.context.scene.unit_list.add()
+                        new_item.item_name = str(Entry.FileID)
+                        new_item.item_type = str(Entry.TypeID)
+                    elif Entry.TypeID == ParticleID:
+                        new_item = bpy.context.scene.particle_list.add()
+                        new_item.item_name = str(Entry.FileID)
+                        new_item.item_type = str(Entry.TypeID)
+                    elif Entry.TypeID == TexID:
+                        new_item = bpy.context.scene.texture_list.add()
+                        new_item.item_name = str(Entry.FileID)
+                        new_item.item_type = str(Entry.TypeID)
                 bpy.context.scene.Hd2ToolPanelSettings.LoadedArchives = archiveID
         elif SetActive and IsPatch:
             self.Patches.append(toc)
@@ -3828,6 +3854,88 @@ class Hd2ToolPanelSettings(PropertyGroup):
         dict["Force1Group"] = self.Force1Group
         dict["AutoLods"] = self.AutoLods
         return dict
+        
+class ListItem(PropertyGroup):
+    
+    item_name: StringProperty(
+        name="Name",
+        description = "id",
+        default = "0"
+    )
+    
+    item_type: StringProperty(
+        name="Type",
+        description="type",
+        default="0"
+    )
+    
+class MY_UL_List(UIList):
+    
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            entry_type = int(item.item_type)
+            if entry_type == MeshID:
+                type_icon = 'FILE_3D'
+            elif entry_type == TexID:
+                type_icon = 'FILE_IMAGE'
+            elif entry_type == MaterialID:
+                type_icon = 'MATERIAL' 
+            elif entry_type == ParticleID:
+                type_icon = 'PARTICLES'
+            elif entry_type == AnimationID: 
+                type_icon = 'ARMATURE_DATA'
+            layout.label(text=item.item_name, icon = type_icon)
+            if entry_type == MeshID:
+                layout.operator("helldiver2.archive_mesh_save", icon='FILE_BLEND', text="").object_id = item.item_name
+                layout.operator("helldiver2.archive_mesh_import", icon='IMPORT', text="").object_id = item.item_name
+            elif entry_type == TexID:
+                layout.operator("helldiver2.texture_saveblendimage", icon='FILE_BLEND', text="").object_id = item.item_name
+                layout.operator("helldiver2.texture_import", icon='IMPORT', text="").object_id = item.item_name
+            elif entry_type == MaterialID:
+                layout.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = item.item_name
+                layout.operator("helldiver2.material_import", icon='IMPORT', text="").object_id = item.item_name
+                #row.operator("helldiver2.material_showeditor", icon='MOD_LINEART', text="").object_id = str(Entry.FileID)
+                #self.draw_material_editor(Entry, box, row)
+            elif entry_type == AnimationID:
+                layout.operator("helldiver2.archive_animation_import", icon="IMPORT", text="").object_id = item.item_name
+            Entry = Global_TocManager.GetEntry(int(item.item_name), int(item.item_type))
+            if Entry is None:
+                return
+            if Global_TocManager.IsInPatch(Entry):
+                props = layout.operator("helldiver2.archive_removefrompatch", icon='FAKE_USER_ON', text="")
+                props.object_id     = item.item_name
+                props.object_typeid = item.item_type
+            else:
+                props = layout.operator("helldiver2.archive_addtopatch", icon='FAKE_USER_OFF', text="")
+                props.object_id     = item.item_name
+                props.object_typeid = item.item_type
+            if Entry.IsModified:
+                props = layout.operator("helldiver2.archive_undo_mod", icon='TRASH', text="")
+                props.object_id     = item.item_name
+                props.object_typeid = item.item_type
+        elif self.layout_type in {'GRID'}: 
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon = "FILE_IMAGE")
+            
+    def filter_items(self, context, data, propname):
+        # Get the filter string from a property, for example
+        # Assuming you have a StringProperty named 'filter_string' on your UILIST instance
+        data = getattr(data, propname)
+        flt_flags = []
+        flt_neworder = []
+        if self.filter_name:
+            filter_string = self.filter_name
+            if filter_string.startswith("0x"):
+                filter_string = str(hex_to_decimal(filter_string))
+            flt_flags = bpy.types.UI_UL_list.filter_items_by_name(filter_string, self.bitflag_filter_item, data, "item_name")
+        if not flt_flags:
+            flt_flags = [self.bitflag_filter_item] * len(data)
+        #flt_neworder = bpy.types.UI_UL_list.sort_items_by_name(data, "item_name")
+        
+        return flt_flags, flt_neworder
+            
+class LIST_OT_NewItem(Operator):
+    bl_idname = "my_list.new_item"
 
 class HellDivers2ToolsPanel(Panel):
     bl_label = f"Helldivers 2 SDK: Community Edition v{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}"
@@ -4165,51 +4273,62 @@ class HellDivers2ToolsPanel(Panel):
                 # Draw Add Material Button
                 
                 if typeName == "material": sub.operator("helldiver2.material_add", icon='FILE_NEW', text="")
+                if Type.TypeID == TexID:
+                    layout.template_list("MY_UL_List", "texture_list", scene, "texture_list", scene, "texture_index", rows=20)
+                elif Type.TypeID == AnimationID:
+                    layout.template_list("MY_UL_List", "animation_list", scene, "animation_list", scene, "animation_index", rows=20)
+                elif Type.TypeID == MeshID:
+                    layout.template_list("MY_UL_List", "unit_list", scene, "unit_list", scene, "unit_index", rows=20)
+                elif Type.TypeID == MaterialID:
+                    layout.template_list("MY_UL_List", "material_list", scene, "material_list", scene, "material_index", rows=20)
+                elif Type.TypeID == ParticleID:
+                    layout.template_list("MY_UL_List", "particle_list", scene, "particle_list", scene, "particle_index", rows=20)
+                else:
+                    # Draw Archive Entries
+                    col = box.column()
+                    for EntryInfo in DisplayTocEntries:
+                        continue
+                        Entry = EntryInfo[0]
+                        PatchOnly = EntryInfo[1]
+                        # Exclude entries that should not be drawn
+                        if Entry.TypeID != Type.TypeID: continue
+                        searchTerm = str(scene.Hd2ToolPanelSettings.SearchField)
+                        if searchTerm.startswith("0x"):
+                            searchTerm = str(hex_to_decimal(searchTerm))
+                        if str(Entry.FileID).find(searchTerm) == -1: continue
+                        # Deal with friendly names
+                        FriendlyName = str(Entry.FileID)
+                        if scene.Hd2ToolPanelSettings.FriendlyNames:
+                            if len(Global_TocManager.SavedFriendlyNameIDs) > len(DrawChain) and Global_TocManager.SavedFriendlyNameIDs[len(DrawChain)] == Entry.FileID:
+                                FriendlyName = Global_TocManager.SavedFriendlyNames[len(DrawChain)]
+                            else:
+                                try:
+                                    FriendlyName = Global_TocManager.SavedFriendlyNames[Global_TocManager.SavedFriendlyNameIDs.index(Entry.FileID)]
+                                    NewFriendlyNames.append(FriendlyName)
+                                    NewFriendlyIDs.append(Entry.FileID)
+                                except:
+                                    FriendlyName = GetFriendlyNameFromID(Entry.FileID)
+                                    NewFriendlyNames.append(FriendlyName)
+                                    NewFriendlyIDs.append(Entry.FileID)
 
-                # Draw Archive Entries
-                col = box.column()
-                for EntryInfo in DisplayTocEntries:
-                    Entry = EntryInfo[0]
-                    PatchOnly = EntryInfo[1]
-                    # Exclude entries that should not be drawn
-                    if Entry.TypeID != Type.TypeID: continue
-                    searchTerm = str(scene.Hd2ToolPanelSettings.SearchField)
-                    if searchTerm.startswith("0x"):
-                        searchTerm = str(hex_to_decimal(searchTerm))
-                    if str(Entry.FileID).find(searchTerm) == -1: continue
-                    # Deal with friendly names
-                    FriendlyName = str(Entry.FileID)
-                    if scene.Hd2ToolPanelSettings.FriendlyNames:
-                        if len(Global_TocManager.SavedFriendlyNameIDs) > len(DrawChain) and Global_TocManager.SavedFriendlyNameIDs[len(DrawChain)] == Entry.FileID:
-                            FriendlyName = Global_TocManager.SavedFriendlyNames[len(DrawChain)]
-                        else:
-                            try:
-                                FriendlyName = Global_TocManager.SavedFriendlyNames[Global_TocManager.SavedFriendlyNameIDs.index(Entry.FileID)]
-                                NewFriendlyNames.append(FriendlyName)
-                                NewFriendlyIDs.append(Entry.FileID)
-                            except:
-                                FriendlyName = GetFriendlyNameFromID(Entry.FileID)
-                                NewFriendlyNames.append(FriendlyName)
-                                NewFriendlyIDs.append(Entry.FileID)
 
+                        # Draw Entry
+                        PatchEntry = Global_TocManager.GetEntry(int(Entry.FileID), int(Entry.TypeID))
+                        PatchEntry.DEV_DrawIndex = len(DrawChain)
+                        
+                        previous_type_icon = type_icon
+                        if PatchEntry.MaterialTemplate != None:
+                            type_icon = "NODE_MATERIAL"
 
-                    # Draw Entry
-                    PatchEntry = Global_TocManager.GetEntry(int(Entry.FileID), int(Entry.TypeID))
-                    PatchEntry.DEV_DrawIndex = len(DrawChain)
-                    
-                    previous_type_icon = type_icon
-                    if PatchEntry.MaterialTemplate != None:
-                        type_icon = "NODE_MATERIAL"
-
-                    row = col.row(align=True); row.separator()
-                    props = row.operator("helldiver2.archive_entry", icon=type_icon, text=FriendlyName, emboss=PatchEntry.IsSelected, depress=PatchEntry.IsSelected)
-                    type_icon = previous_type_icon
-                    props.object_id     = str(Entry.FileID)
-                    props.object_typeid = str(Entry.TypeID)
-                    # Draw Entry Buttons
-                    self.draw_entry_buttons(col, row, PatchEntry, PatchOnly)
-                    # Update Draw Chain
-                    DrawChain.append(PatchEntry)
+                        row = col.row(align=True); row.separator()
+                        props = row.operator("helldiver2.archive_entry", icon=type_icon, text=FriendlyName, emboss=PatchEntry.IsSelected, depress=PatchEntry.IsSelected)
+                        type_icon = previous_type_icon
+                        props.object_id     = str(Entry.FileID)
+                        props.object_typeid = str(Entry.TypeID)
+                        # Draw Entry Buttons
+                        self.draw_entry_buttons(col, row, PatchEntry, PatchOnly)
+                        # Update Draw Chain
+                        DrawChain.append(PatchEntry)
             Global_TocManager.DrawChain = DrawChain
         if scene.Hd2ToolPanelSettings.FriendlyNames:  
             Global_TocManager.SavedFriendlyNames = NewFriendlyNames
@@ -4393,6 +4512,11 @@ class WM_MT_button_context(Menu):
             MaterialID = getattr(value, "material_id")
             TextureIndex = getattr(value, "texture_index")
             self.draw_material_editor_context_buttons(layout, FileID, MaterialID, TextureIndex)
+        elif menuName == "":
+            layout = self.layout
+            FileID = getattr(value, "object_id")
+            TypeID = getattr(value, "object_typeid")
+            self.draw_entry_buttons(layout, Global_TocManager.GetEntry(int(FileID), int(TypeID)))
             
 
 #endregion
@@ -4488,6 +4612,19 @@ def register():
     Scene.Hd2ToolPanelSettings = PointerProperty(type=Hd2ToolPanelSettings)
     bpy.utils.register_class(WM_MT_button_context)
     bpy.types.VIEW3D_MT_object_context_menu.append(CustomPropertyContext)
+    bpy.utils.register_class(MY_UL_List)
+    bpy.utils.register_class(ListItem)
+    bpy.types.Scene.texture_list = CollectionProperty(type = ListItem)
+    bpy.types.Scene.texture_index = IntProperty(name = "", default = 0)
+    bpy.types.Scene.material_list = CollectionProperty(type = ListItem)
+    bpy.types.Scene.material_index = IntProperty(name = "", default = 0)
+    bpy.types.Scene.animation_list = CollectionProperty(type = ListItem)
+    bpy.types.Scene.animation_index = IntProperty(name = "", default = 0)
+    bpy.types.Scene.particle_list = CollectionProperty(type = ListItem)
+    bpy.types.Scene.particle_index = IntProperty(name = "", default = 0)
+    bpy.types.Scene.unit_list = CollectionProperty(type = ListItem)
+    bpy.types.Scene.unit_index = IntProperty(name = "", default = 0)
+    
 
 def unregister():
     bpy.utils.unregister_class(WM_MT_button_context)
@@ -4495,7 +4632,18 @@ def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
     bpy.types.VIEW3D_MT_object_context_menu.remove(CustomPropertyContext)
-
+    del bpy.types.Scene.texture_list 
+    del bpy.types.Scene.texture_index
+    del bpy.types.Scene.material_list
+    del bpy.types.Scene.material_index
+    del bpy.types.Scene.animation_list
+    del bpy.types.Scene.animation_index
+    del bpy.types.Scene.particle_list
+    del bpy.types.Scene.particle_index
+    del bpy.types.Scene.unit_list
+    del bpy.types.Scene.unit_index
+    bpy.utils.unregister_class(MY_UL_List)
+    bpy.utils.unregister_class(ListItem)
 
 if __name__=="__main__":
     register()
