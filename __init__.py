@@ -2515,14 +2515,21 @@ class SaveStingrayUnitOperator(Operator):
         except:
             self.report({'INFO'}, f"{object.name} has no HD2 Swap ID. Skipping Swap.")
         global Global_BoneNames
-        model = GetObjectsMeshData(Global_TocManager, Global_BoneNames)
-        BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
         Entry = Global_TocManager.GetEntryByLoadArchive(int(ID), UnitID)
         if Entry is None:
             self.report({'ERROR'},
                 f"Archive for entry being saved is not loaded. Could not find custom property object at ID: {ID}")
             return{'CANCELLED'}
-        if not Entry.IsLoaded: Entry.Load(True, False)
+        Entry.Load(True, False, True)
+        if Global_TocManager.IsInPatch(Entry):
+            Global_TocManager.RemoveEntryFromPatch(int(ID), UnitID)
+        Entry = Global_TocManager.AddEntryToPatch(int(ID), UnitID)
+        model = GetObjectsMeshData(Global_TocManager, Global_BoneNames)
+        BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
+        if Entry is None:
+            self.report({'ERROR'},
+                f"Archive for entry being saved is not loaded. Could not find custom property object at ID: {ID}")
+            return{'CANCELLED'}
         m = model[ID]
         meshes = model[ID]
         for mesh_index, mesh in meshes.items():
@@ -2546,10 +2553,7 @@ class SaveStingrayUnitOperator(Operator):
                             f"MeshInfoIndex for {object[0].name} exceeds the number of meshes")
                 return{'CANCELLED'}
         wasSaved = Entry.Save(BlenderOpts=BlenderOpts)
-        if wasSaved:
-            if not Global_TocManager.IsInPatch(Entry):
-                Entry = Global_TocManager.AddEntryToPatch(int(ID), UnitID)
-        else:
+        if not wasSaved:
             self.report({"ERROR"}, f"Failed to save unit {bpy.context.selected_objects[0].name}.")
             return{'CANCELLED'}
         self.report({'INFO'}, f"Saved Unit Object ID: {self.object_id}")
