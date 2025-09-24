@@ -52,7 +52,7 @@ class AnimationEntry:
             data2 = AnimationBoneInitialState.decompress_position([tocFile.uint16(temp) for _ in range(3)])
         elif type == 1:
             # scale data
-            data2 = AnimationBoneInitialState.decompress_scale(tocFile.vec3_half(temp_arr))
+            data2 = AnimationBoneInitialState.decompress_scale([tocFile.uint16(temp) for _ in range(3)])
         else:
             if subtype == 4:
                 # position data (uncompressed)
@@ -176,7 +176,7 @@ class AnimationBoneInitialState:
         return cmp_rotation
         
     def compress_scale(scale):
-        return scale
+        return AnimationBoneInitialState.compress_position(scale)
         
     def decompress_position(position): # vector of 3 uint16 -> vector of 3 float32
         return [(pos - 32767.0) * (10.0/32767.0) for pos in position]
@@ -196,8 +196,8 @@ class AnimationBoneInitialState:
         elif largest_idx == 3:
             return [first, second, third, largest_val]
         
-    def decompress_scale(scale): # vec3_float
-        return scale
+    def decompress_scale(scale): # vec3_float (should be vec of 3 uint16)
+        return AnimationBoneInitialState.decompress_position(scale)
         
     def __repr__(self):
         s = ""
@@ -235,6 +235,7 @@ class StingrayAnimation:
         self.entries = []
         self.hashes = []
         self.hashes2 = []
+        self.hashes_floats = []
         self.hashes_count = 0
         self.hashes2_count = 0
         self.unk = 0
@@ -293,10 +294,12 @@ class StingrayAnimation:
             else:
                 bone_state.rotation = [tocFile.float32(temp) for _ in range(4)]
             if bone_state.compress_scale:
-                bone_state.scale = AnimationBoneInitialState.decompress_scale(tocFile.vec3_half(temp_arr))
+                bone_state.scale = AnimationBoneInitialState.decompress_scale([tocFile.uint16(temp) for _ in range(3)])
             else:
                 bone_state.scale = tocFile.vec3_float(temp_arr)
             self.initial_bone_states.append(bone_state)
+        for _ in range(self.hashes_count):
+            self.hashes_floats.append(tocFile.float32(temp))
         count = 1
         while tocFile.uint16(temp) != 3:
             count += 1
@@ -306,7 +309,7 @@ class StingrayAnimation:
             if not (entry.type == 0 and entry.subtype not in [4, 5, 6]):
                 self.entries.append(entry)
         for initial_state in self.initial_bone_states:
-            if isnan(initial_state.scale[0]):
+            if initial_state.scale[0] == 0:
                 self.is_additive_animation = True
                 break
         
@@ -362,6 +365,8 @@ class StingrayAnimation:
                 tocFile.vec3_half(AnimationBoneInitialState.compress_scale(bone_state.scale))
             else:
                 tocFile.vec3_float(bone_state.scale)
+        for value in self.hashes_floats:
+            tocFile.float32(value)
         count = 1
         for entry in self.entries:
             count += 1
@@ -383,6 +388,8 @@ class StingrayAnimation:
             tocFile.uint64(value)
         tocFile.uint16(self.unk2)
         tocFile.bytes(byte_data)
+        if tocFile.tell() % 2 == 1:
+            tocFile.seek(tocFile.tell()+1)
         for bone_state in self.initial_bone_states:
             if bone_state.compress_position:
                 for pos in AnimationBoneInitialState.compress_position(bone_state.position):
@@ -398,6 +405,8 @@ class StingrayAnimation:
                 tocFile.vec3_half(AnimationBoneInitialState.compress_scale(bone_state.scale))
             else:
                 tocFile.vec3_float(bone_state.scale)
+        for value in self.hashes_floats:
+            tocFile.float32(value)
         count = 1
         for entry in self.entries:
             count += 1
