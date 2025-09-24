@@ -235,6 +235,7 @@ class StingrayAnimation:
         self.entries = []
         self.hashes = []
         self.hashes2 = []
+        self.hashes_floats = []
         self.hashes_count = 0
         self.hashes2_count = 0
         self.unk = 0
@@ -297,6 +298,8 @@ class StingrayAnimation:
             else:
                 bone_state.scale = tocFile.vec3_float(temp_arr)
             self.initial_bone_states.append(bone_state)
+        for _ in range(self.hashes_count):
+            self.hashes_floats.append(tocFile.float32(temp))
         count = 1
         while tocFile.uint16(temp) != 3:
             count += 1
@@ -362,6 +365,8 @@ class StingrayAnimation:
                 tocFile.vec3_half(AnimationBoneInitialState.compress_scale(bone_state.scale))
             else:
                 tocFile.vec3_float(bone_state.scale)
+        for value in self.hashes_floats:
+            tocFile.float32(value)
         count = 1
         for entry in self.entries:
             count += 1
@@ -383,6 +388,8 @@ class StingrayAnimation:
             tocFile.uint64(value)
         tocFile.uint16(self.unk2)
         tocFile.bytes(byte_data)
+        if tocFile.tell() % 2 == 1:
+            tocFile.seek(tocFile.tell()+1)
         for bone_state in self.initial_bone_states:
             if bone_state.compress_position:
                 for pos in AnimationBoneInitialState.compress_position(bone_state.position):
@@ -398,6 +405,8 @@ class StingrayAnimation:
                 tocFile.vec3_half(AnimationBoneInitialState.compress_scale(bone_state.scale))
             else:
                 tocFile.vec3_float(bone_state.scale)
+        for value in self.hashes_floats:
+            tocFile.float32(value)
         count = 1
         for entry in self.entries:
             count += 1
