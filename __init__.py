@@ -529,17 +529,17 @@ class TocEntry:
     # -- Load Data -- #
     def Load(self, Reload=False, MakeBlendObject=True, LoadMaterialSlotNames=False):
         callback = None
-        if self.TypeID == MeshID: callback = LoadStingrayMesh
+        if self.TypeID == UnitID: callback = LoadStingrayUnit
         if self.TypeID == TexID: callback = LoadStingrayTexture
         if self.TypeID == MaterialID: callback = LoadStingrayMaterial
         if self.TypeID == ParticleID: callback = LoadStingrayParticle
-        if self.TypeID == CompositeMeshID: callback = LoadStingrayCompositeMesh
+        if self.TypeID == CompositeUnitID: callback = LoadStingrayCompositeUnit
         if self.TypeID == BoneID: callback = LoadStingrayBones
         if self.TypeID == AnimationID: callback = LoadStingrayAnimation
         if callback == None: callback = LoadStingrayDump
 
         if callback != None:
-            if self.TypeID == MeshID:
+            if self.TypeID == UnitID:
                 self.LoadedData = callback(self.FileID, self.TocData, self.GpuData, self.StreamData, Reload, MakeBlendObject, LoadMaterialSlotNames)
             else:
                 self.LoadedData = callback(self.FileID, self.TocData, self.GpuData, self.StreamData, Reload, MakeBlendObject)
@@ -549,7 +549,7 @@ class TocEntry:
     # -- Write Data -- #
     def Save(self, **kwargs):
         if not self.IsLoaded: self.Load(True, False)
-        if self.TypeID == MeshID: callback = SaveStingrayMesh
+        if self.TypeID == UnitID: callback = SaveStingrayUnit
         if self.TypeID == TexID: callback = SaveStingrayTexture
         if self.TypeID == MaterialID: callback = SaveStingrayMaterial
         if self.TypeID == ParticleID: callback = SaveStingrayParticle
@@ -557,7 +557,7 @@ class TocEntry:
         if callback == None: callback = SaveStingrayDump
 
         if self.IsLoaded:
-            if self.TypeID == MeshID:
+            if self.TypeID == UnitID:
                 BlenderOpts = kwargs.get("BlenderOpts")
                 data = callback(self, self.FileID, self.TocData, self.GpuData, self.StreamData, self.LoadedData, BlenderOpts)
             else:
@@ -844,18 +844,18 @@ class TocManager():
     def ArchiveNotEmpty(self, toc):
         hasMaterials = False
         hasTextures = False
-        hasMeshes = False
+        hasUnits = False
         for Entry in toc.TocEntries:
             type = Entry.TypeID
             if type == MaterialID:
                 hasMaterials = True
-            elif type == MeshID:
-                hasMeshes = True
+            elif type == UnitID:
+                hasUnits = True
             elif type == TexID:
                 hasTextures = True
-            elif type == CompositeMeshID:
-                hasMeshes = True
-        return hasMaterials or hasTextures or hasMeshes
+            elif type == CompositeUnitID:
+                hasUnits = True
+        return hasMaterials or hasTextures or hasUnits
 
     def UnloadArchives(self):
         # TODO: Make sure all data gets unloaded...
@@ -1079,6 +1079,13 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
     for TexIdx in range(len(mat.TexIDs)):
         if not bpy.context.scene.Hd2ToolPanelSettings.SaveTexturesWithMaterial:
             continue
+        if bpy.context.scene.Hd2ToolPanelSettings.OnlySaveCustomTextures:
+            template = TextureTypeLookup[self.MaterialTemplate]
+            PrettyPrint(f"template: {template}")
+            slot = template[TexIdx]
+            PrettyPrint(f"slot: {slot}")
+            if slot == '':
+                continue
         oldTexID = mat.TexIDs[TexIdx]
         if mat.DEV_DDSPaths[TexIdx] != None:
             # get texture data
@@ -1502,8 +1509,8 @@ def LoadStingrayBones(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject)
     StingrayBonesData.Serialize(MemoryStream(TocData))
     return StingrayBonesData
 
-def LoadStingrayCompositeMesh(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
-    raise Exception("Composite Meshes Are Not Yet Supported")
+def LoadStingrayCompositeUnit(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
+    raise Exception("Composite Units Are Not Yet Supported")
     StingrayCompositeMeshData = StingrayCompositeMesh()
     StingrayCompositeMeshData.Serialize(MemoryStream(TocData), MemoryStream(GpuData))
     return StingrayCompositeMeshData
@@ -1533,7 +1540,7 @@ def SaveStingrayDump(self, ID, TocData, GpuData, StreamData, LoadedData):
 
     return [Toc.Data, Gpu.Data, Stream.Data]
 
-def LoadStingrayMesh(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject, LoadMaterialSlotNames=False):
+def LoadStingrayUnit(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject, LoadMaterialSlotNames=False):
     toc  = MemoryStream(TocData)
     gpu  = MemoryStream(GpuData)
         
@@ -1547,7 +1554,7 @@ def LoadStingrayMesh(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject, 
     if MakeBlendObject: CreateModel(StingrayMesh, str(ID), Global_BoneNames)
     return StingrayMesh
 
-def SaveStingrayMesh(self, ID, TocData, GpuData, StreamData, StingrayMesh, BlenderOpts=None):
+def SaveStingrayUnit(self, ID, TocData, GpuData, StreamData, StingrayMesh, BlenderOpts=None):
     if BlenderOpts and BlenderOpts.get("AutoLods"):
         lod0 = None
         for mesh in StingrayMesh.RawMeshes:
@@ -1628,7 +1635,7 @@ def HasZeroVerticies(self, objects):
             return True
     return False
 
-def MeshNotValidToSave(self):
+def UnitNotValidToSave(self):
     objects = bpy.context.selected_objects
     for i, obj in enumerate(objects):
         if obj.type != 'MESH':
@@ -2447,10 +2454,10 @@ def ImportDump(self: Operator, Entry: TocEntry, filepath: str):
 
 #region Operators: Meshes
 
-class ImportStingrayMeshOperator(Operator):
-    bl_label = "Import Archive Mesh"
-    bl_idname = "helldiver2.archive_mesh_import"
-    bl_description = "Loads Mesh into Blender Scene"
+class ImportStingrayUnitOperator(Operator):
+    bl_label = "Import Archive Unit"
+    bl_idname = "helldiver2.archive_unit_import"
+    bl_description = "Loads Unit into Blender Scene"
 
     object_id: StringProperty()
     def execute(self, context):
@@ -2458,10 +2465,10 @@ class ImportStingrayMeshOperator(Operator):
         Errors = []
         for EntryID in EntriesIDs:
             if len(EntriesIDs) == 1:
-                Global_TocManager.Load(EntryID, MeshID)
+                Global_TocManager.Load(EntryID, UnitID)
             else:
                 # try:
-                Global_TocManager.Load(EntryID, MeshID)
+                Global_TocManager.Load(EntryID, UnitID)
                 # except Exception as error:
                 #     Errors.append([EntryID, error])
 
@@ -2475,10 +2482,10 @@ class ImportStingrayMeshOperator(Operator):
         #     raise Exception("One or more meshes failed to load")
         return{'FINISHED'}
 
-class SaveStingrayMeshOperator(Operator):
-    bl_label  = "Save Mesh"
-    bl_idname = "helldiver2.archive_mesh_save"
-    bl_description = "Saves Mesh"
+class SaveStingrayUnitOperator(Operator):
+    bl_label  = "Save Unit"
+    bl_idname = "helldiver2.archive_unit_save"
+    bl_description = "Saves Unit"
     bl_options = {'REGISTER', 'UNDO'} 
 
     object_id: StringProperty()
@@ -2487,7 +2494,7 @@ class SaveStingrayMeshOperator(Operator):
         if mode != 'OBJECT':
             self.report({'ERROR'}, f"You are Not in OBJECT Mode. Current Mode: {mode}")
             return {'CANCELLED'}
-        if MeshNotValidToSave(self):
+        if UnitNotValidToSave(self):
             return {'CANCELLED'}
         object = None
         object = bpy.context.active_object
@@ -2510,7 +2517,7 @@ class SaveStingrayMeshOperator(Operator):
         global Global_BoneNames
         model = GetObjectsMeshData(Global_TocManager, Global_BoneNames)
         BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
-        Entry = Global_TocManager.GetEntryByLoadArchive(int(ID), MeshID)
+        Entry = Global_TocManager.GetEntryByLoadArchive(int(ID), UnitID)
         if Entry is None:
             self.report({'ERROR'},
                 f"Archive for entry being saved is not loaded. Could not find custom property object at ID: {ID}")
@@ -2541,27 +2548,27 @@ class SaveStingrayMeshOperator(Operator):
         wasSaved = Entry.Save(BlenderOpts=BlenderOpts)
         if wasSaved:
             if not Global_TocManager.IsInPatch(Entry):
-                Entry = Global_TocManager.AddEntryToPatch(int(ID), MeshID)
+                Entry = Global_TocManager.AddEntryToPatch(int(ID), UnitID)
         else:
-            self.report({"ERROR"}, f"Failed to save mesh {bpy.context.selected_objects[0].name}.")
+            self.report({"ERROR"}, f"Failed to save unit {bpy.context.selected_objects[0].name}.")
             return{'CANCELLED'}
-        self.report({'INFO'}, f"Saved Mesh Object ID: {self.object_id}")
+        self.report({'INFO'}, f"Saved Unit Object ID: {self.object_id}")
         if SwapID != "" and SwapID.isnumeric():
                 self.report({'INFO'}, f"Swapping Entry ID: {Entry.FileID} to: {SwapID}")
-                Global_TocManager.RemoveEntryFromPatch(int(SwapID), MeshID)
+                Global_TocManager.RemoveEntryFromPatch(int(SwapID), UnitID)
                 Entry.FileID = int(SwapID)
         return{'FINISHED'}
 
-class BatchSaveStingrayMeshOperator(Operator):
-    bl_label  = "Save Meshes"
-    bl_idname = "helldiver2.archive_mesh_batchsave"
-    bl_description = "Saves Meshes"
+class BatchSaveStingrayUnitOperator(Operator):
+    bl_label  = "Save Units"
+    bl_idname = "helldiver2.archive_unit_batchsave"
+    bl_description = "Saves Units"
     bl_options = {'REGISTER', 'UNDO'} 
 
     def execute(self, context):
         start = time.time()
         errors = False
-        if MeshNotValidToSave(self):
+        if UnitNotValidToSave(self):
             return {'CANCELLED'}
 
         o = bpy.context.selected_objects
@@ -2619,7 +2626,7 @@ class BatchSaveStingrayMeshOperator(Operator):
         for IDitem in IDs:
             ID = IDitem[0]
             SwapID = IDitem[1]
-            Entry = Global_TocManager.GetEntryByLoadArchive(int(ID), MeshID)
+            Entry = Global_TocManager.GetEntryByLoadArchive(int(ID), UnitID)
             if Entry is None:
                 self.report({'ERROR'}, f"Archive for entry being saved is not loaded. Could not find custom property object at ID: {ID}")
                 errors = True
@@ -2628,8 +2635,8 @@ class BatchSaveStingrayMeshOperator(Operator):
                 continue
             Entry.Load(True, False, True)
             if Global_TocManager.IsInPatch(Entry):
-                Global_TocManager.RemoveEntryFromPatch(int(ID), MeshID)
-            Entry = Global_TocManager.AddEntryToPatch(int(ID), MeshID)
+                Global_TocManager.RemoveEntryFromPatch(int(ID), UnitID)
+            Entry = Global_TocManager.AddEntryToPatch(int(ID), UnitID)
             entries.append(Entry)
         MeshData = GetObjectsMeshData(Global_TocManager, Global_BoneNames)    
         for i, IDitem in enumerate(IDs):
@@ -2644,29 +2651,29 @@ class BatchSaveStingrayMeshOperator(Operator):
                     Entry.LoadedData.RawMeshes[mesh_index] = mesh
                 except IndexError:
                     excpectedLength = len(Entry.LoadedData.RawMeshes) - 1
-                    self.report({'ERROR'},f"MeshInfoIndex of {mesh_index} for {object.name} exceeds the number of meshes. Expected maximum MeshInfoIndex is: {excpectedLength}. Please change the custom properties to match this value and resave the mesh.")
+                    self.report({'ERROR'},f"MeshInfoIndex of {mesh_index} for {object.name} exceeds the number of meshes. Expected maximum MeshInfoIndex is: {excpectedLength}. Please change the custom properties to match this value and resave the unit.")
                     errors = True
                     num_meshes -= 1
             wasSaved = Entry.Save(BlenderOpts=BlenderOpts)
             if wasSaved:
                 if SwapID != "" and SwapID.isnumeric():
                     self.report({'INFO'}, f"Swapping Entry ID: {Entry.FileID} to: {SwapID}")
-                    Global_TocManager.RemoveEntryFromPatch(int(SwapID), MeshID)
+                    Global_TocManager.RemoveEntryFromPatch(int(SwapID), UnitID)
                     Entry.FileID = int(SwapID)
             else:
-                self.report({"ERROR"}, f"Failed to save mesh with ID {ID}.")
+                self.report({"ERROR"}, f"Failed to save unit with ID {ID}.")
                 num_meshes -= len(MeshData[ID])
                 continue
-        PrettyPrint("Saving mesh materials")
+        PrettyPrint("Saving unit materials")
         SaveMeshMaterials(objects)
-        self.report({'INFO'}, f"Saved {num_meshes}/{num_initially_selected} selected Meshes")
+        self.report({'INFO'}, f"Saved {num_meshes}/{num_initially_selected} selected Units")
         if errors:
-            self.report({'ERROR'}, f"Errors occurred while saving meshes. Click here to view.")
-        PrettyPrint(f"Time to save meshes: {time.time()-start}")
+            self.report({'ERROR'}, f"Errors occurred while saving units. Click here to view.")
+        PrettyPrint(f"Time to save units: {time.time()-start}")
         return{'FINISHED'}
 
 def SaveMeshMaterials(objects):
-    if not bpy.context.scene.Hd2ToolPanelSettings.AutoSaveMeshMaterials:
+    if not bpy.context.scene.Hd2ToolPanelSettings.AutoSaveUnitMaterials:
         PrettyPrint(f"Skipping saving of materials as setting is disabled")
         return
     PrettyPrint(f"Saving materials for {len(objects)} objects")
@@ -3404,11 +3411,11 @@ class ImportAllOfTypeOperator(Operator):
             DisplayEntry = Global_TocManager.GetEntry(Entry.FileID, Entry.TypeID)
             objectid = str(DisplayEntry.FileID)
 
-            if DisplayEntry.TypeID == MeshID or DisplayEntry.TypeID == CompositeMeshID:
+            if DisplayEntry.TypeID == UnitID or DisplayEntry.TypeID == CompositeUnitID:
                 EntriesIDs = IDsFromString(objectid)
                 for EntryID in EntriesIDs:
                     try:
-                        Global_TocManager.Load(EntryID, MeshID)
+                        Global_TocManager.Load(EntryID, UnitID)
                     except Exception as error:
                         self.report({'ERROR'},[EntryID, error])
 
@@ -3546,7 +3553,7 @@ def RepatchMeshes(self, path):
         numMeshesRepatched = 0
         failed = False
         for entry in Global_TocManager.ActivePatch.TocEntries:
-            if entry.TypeID != MeshID:
+            if entry.TypeID != UnitID:
                 PrettyPrint(f"Skipping {entry.FileID} as it is not a mesh entry")
                 continue
             PrettyPrint(f"Repatching {entry.FileID}")
@@ -3690,7 +3697,7 @@ def CustomPropertyContext(self, context):
     layout.operator("helldiver2.paste_custom_properties", icon= 'PASTEDOWN')
     layout.separator()
     layout.operator("helldiver2.archive_animation_save", icon='ARMATURE_DATA')
-    layout.operator("helldiver2.archive_mesh_batchsave", icon= 'FILE_BLEND')
+    layout.operator("helldiver2.archive_unit_batchsave", icon= 'FILE_BLEND')
 
 class CopyArchiveIDOperator(Operator):
     bl_label = "Copy Archive ID"
@@ -3811,7 +3818,7 @@ class Hd2ToolPanelSettings(PropertyGroup):
     UnloadPatches         : BoolProperty(name="Unload Previous Patches", description="Unload Previous Patches when bulk loading")
     LoadFoundArchives     : BoolProperty(name="Load Found Archives", description="Load the archives found when search by entry ID", default=True)
 
-    AutoSaveMeshMaterials : BoolProperty(name="Autosave Mesh Materials", description="Save unsaved material entries applied to meshes when the mesh is saved", default = True)
+    AutoSaveUnitMaterials : BoolProperty(name="Autosave Unit Materials", description="Save unsaved material entries applied to meshes when the unit is saved", default = True)
     SaveNonSDKMaterials   : BoolProperty(name="Save Non-SDK Materials", description="Toggle if non-SDK materials should be autosaved when saving a mesh", default = False)
     SaveUnsavedOnWrite    : BoolProperty(name="Save Unsaved on Write", description="Save all entries that are unsaved when writing a patch", default = True)
     PatchBaseArchiveOnly  : BoolProperty(name="Patch Base Archive Only", description="When enabled, it will allow patched to only be created if the base archive is selected. This is helpful for new users.", default = True)
@@ -3819,6 +3826,7 @@ class Hd2ToolPanelSettings(PropertyGroup):
     
     SaveTexturesWithMaterial: BoolProperty(name="Save Textures with Material", description="Save a material\'s referenced textures to the patch when said material is saved. When disabled, new random IDs will not be given each time the material is saved", default = True)
     GenerateRandomTextureIDs: BoolProperty(name="Generate Random Texture IDs", description="Give a material\'s referenced textures new random IDs when said material is saved", default = True)
+    OnlySaveCustomTextures:   BoolProperty(name="Save Only Custom Textures", description="Only save the labeled texture nodes on a material preset", default = True)
 
     def get_settings_dict(self):
         dict = {}
@@ -3879,9 +3887,9 @@ class HellDivers2ToolsPanel(Panel):
                         ColorPicker.variable_index = i
 
     def draw_entry_buttons(self, box, row, Entry, PatchOnly):
-        if Entry.TypeID == MeshID:
-            row.operator("helldiver2.archive_mesh_save", icon='FILE_BLEND', text="").object_id = str(Entry.FileID)
-            row.operator("helldiver2.archive_mesh_import", icon='IMPORT', text="").object_id = str(Entry.FileID)
+        if Entry.TypeID == UnitID:
+            row.operator("helldiver2.archive_unit_save", icon='FILE_BLEND', text="").object_id = str(Entry.FileID)
+            row.operator("helldiver2.archive_unit_import", icon='IMPORT', text="").object_id = str(Entry.FileID)
         elif Entry.TypeID == TexID:
             row.operator("helldiver2.texture_saveblendimage", icon='FILE_BLEND', text="").object_id = str(Entry.FileID)
             row.operator("helldiver2.texture_import", icon='IMPORT', text="").object_id = str(Entry.FileID)
@@ -3974,10 +3982,11 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "SaveBonePositions")
             row.prop(scene.Hd2ToolPanelSettings, "SaveTexturesWithMaterial")
             row.prop(scene.Hd2ToolPanelSettings, "GenerateRandomTextureIDs")
+            row.prop(scene.Hd2ToolPanelSettings, "OnlySaveCustomTextures")
             row = mainbox.row(); row.separator(); row.label(text="Other Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "SaveNonSDKMaterials")
             row.prop(scene.Hd2ToolPanelSettings, "SaveUnsavedOnWrite")
-            row.prop(scene.Hd2ToolPanelSettings, "AutoSaveMeshMaterials")
+            row.prop(scene.Hd2ToolPanelSettings, "AutoSaveUnitMaterials")
             row.prop(scene.Hd2ToolPanelSettings, "PatchBaseArchiveOnly")
             row.prop(scene.Hd2ToolPanelSettings, "LegacyWeightNames")
             row.prop(scene.Hd2ToolPanelSettings, "MergeArmatures")
@@ -4111,7 +4120,7 @@ class HellDivers2ToolsPanel(Panel):
                 showExtras = scene.Hd2ToolPanelSettings.ShowExtras
                 EntryNum = 0
                 global Global_Foldouts
-                if Type.TypeID == MeshID:
+                if Type.TypeID == UnitID:
                     type_icon = 'FILE_3D'
                 elif Type.TypeID == TexID:
                     type_icon = 'FILE_IMAGE'
@@ -4139,7 +4148,7 @@ class HellDivers2ToolsPanel(Panel):
                         break
                 if show == None:
                     fold = False
-                    if Type.TypeID == MaterialID or Type.TypeID == TexID or Type.TypeID == MeshID: fold = True
+                    if Type.TypeID == MaterialID or Type.TypeID == TexID or Type.TypeID == UnitID: fold = True
                     foldout = [str(Type.TypeID), fold]
                     Global_Foldouts.append(foldout)
                     PrettyPrint(f"Adding Foldout ID: {foldout}")
@@ -4229,7 +4238,7 @@ class WM_MT_button_context(Menu):
             FileIDStr += str(SelectedEntry.FileID)+","
             TypeIDStr += str(SelectedEntry.TypeID)+","
         # Get common class
-        AreAllMeshes    = True
+        AreAllUnits    = True
         AreAllTextures  = True
         AreAllMaterials = True
         AreAllParticles = True
@@ -4238,31 +4247,31 @@ class WM_MT_button_context(Menu):
         if len(Global_TocManager.SelectedEntries) > 1:
             SingleEntry = False
         for SelectedEntry in Global_TocManager.SelectedEntries:
-            if SelectedEntry.TypeID == MeshID:
+            if SelectedEntry.TypeID == UnitID:
                 AreAllTextures = False
                 AreAllMaterials = False
                 AreAllParticles = False
             elif SelectedEntry.TypeID == TexID:
-                AreAllMeshes = False
+                AreAllUnits = False
                 AreAllMaterials = False
                 AreAllParticles = False
             elif SelectedEntry.TypeID == MaterialID:
                 AreAllTextures = False
-                AreAllMeshes = False
+                AreAllUnits = False
                 AreAllParticles = False
             elif SelectedEntry.TypeID == ParticleID:
                 AreAllTextures = False
-                AreAllMeshes = False
+                AreAllUnits = False
                 AreAllMaterials = False
             else:
-                AreAllMeshes = False
+                AreAllUnits = False
                 AreAllTextures = False
                 AreAllMaterials = False
                 AreAllParticles = False
         
         RemoveFromPatchName = "Remove From Patch" if SingleEntry else f"Remove {NumSelected} From Patch"
         AddToPatchName = "Add To Patch" if SingleEntry else f"Add {NumSelected} To Patch"
-        ImportMeshName = "Import Mesh" if SingleEntry else f"Import {NumSelected} Meshes"
+        ImportUnitName = "Import Unit" if SingleEntry else f"Import {NumSelected} Units"
         ImportTextureName = "Import Texture" if SingleEntry else f"Import {NumSelected} Textures"
         ImportMaterialName = "Import Material" if SingleEntry else f"Import {NumSelected} Materials"
         ImportParticleName = "Import Particle" if SingleEntry else f"Import {NumSelected} Particles"
@@ -4303,8 +4312,8 @@ class WM_MT_button_context(Menu):
         # Draw import buttons
         # TODO: Add generic import buttons
         row.separator()
-        if AreAllMeshes:
-            row.operator("helldiver2.archive_mesh_import", icon='IMPORT', text=ImportMeshName).object_id = FileIDStr
+        if AreAllUnits:
+            row.operator("helldiver2.archive_unit_import", icon='IMPORT', text=ImportUnitName).object_id = FileIDStr
         elif AreAllTextures:
             row.operator("helldiver2.texture_import", icon='IMPORT', text=ImportTextureName).object_id = FileIDStr
         elif AreAllMaterials:
@@ -4324,11 +4333,11 @@ class WM_MT_button_context(Menu):
         # if AreAllMaterials and SingleEntry: row.operator("helldiver2.archive_object_dump_import", icon="IMPORT", text="Import Raw Dump").object_id = FileIDStr
         # Draw save buttons
         row.separator()
-        if AreAllMeshes:
+        if AreAllUnits:
             if SingleEntry:
-                row.operator("helldiver2.archive_mesh_save", icon='FILE_BLEND', text="Save Mesh").object_id = str(Entry.FileID)
+                row.operator("helldiver2.archive_unit_save", icon='FILE_BLEND', text="Save Unit").object_id = str(Entry.FileID)
             else:
-              row.operator("helldiver2.archive_mesh_batchsave", icon='FILE_BLEND', text=f"Save {NumSelected} Meshes")
+              row.operator("helldiver2.archive_unit_batchsave", icon='FILE_BLEND', text=f"Save {NumSelected} Units")
         elif AreAllTextures:
             row.operator("helldiver2.texture_saveblendimage", icon='FILE_BLEND', text=SaveTextureName).object_id = FileIDStr
             row.separator()
@@ -4400,8 +4409,8 @@ class WM_MT_button_context(Menu):
 classes = (
     LoadArchiveOperator,
     PatchArchiveOperator,
-    ImportStingrayMeshOperator,
-    SaveStingrayMeshOperator,
+    ImportStingrayUnitOperator,
+    SaveStingrayUnitOperator,
     ImportStingrayAnimationOperator,
     SaveStingrayAnimationOperator,
     ImportMaterialOperator,
@@ -4432,7 +4441,7 @@ classes = (
     RemoveEntryFromPatchOperator,
     CopyTextOperator,
     BatchExportTextureOperator,
-    BatchSaveStingrayMeshOperator,
+    BatchSaveStingrayUnitOperator,
     SelectAllOfTypeOperator,
     RenamePatchEntryOperator,
     DuplicateEntryOperator,
