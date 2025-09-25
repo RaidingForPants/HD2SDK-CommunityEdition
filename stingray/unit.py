@@ -305,7 +305,6 @@ class StingrayMeshFile:
             return self
 
         # Serialize Data
-        #if self.CompositeRef == 0:
         self.SerializeGpuData(gpu, Global_TocManager, BlenderOpts)
 
         # TODO: update offsets only instead of re-writing entire file
