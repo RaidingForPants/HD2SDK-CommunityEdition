@@ -88,7 +88,8 @@ class StingrayMeshFile:
         # serialize file
         self.UnkRef1            = f.uint64(self.UnkRef1)
         self.BonesRef           = f.uint64(self.BonesRef)
-        self.CompositeRef       = f.uint64(self.CompositeRef)
+        if f.IsWriting():         f.uint64(0)
+        else: self.CompositeRef = f.uint64(self.CompositeRef)
         self.HeaderData1        = f.bytes(self.HeaderData1, 28)
         self.TransformInfoOffset= f.uint32(self.TransformInfoOffset)
         self.HeaderData2        = f.bytes(self.HeaderData2, 20)
@@ -107,17 +108,6 @@ class StingrayMeshFile:
 
         if f.IsReading() and (self.StreamInfoOffset == 0 and self.CompositeRef == 0):
             raise Exception("Unsupported Mesh Format (No buffer stream)")
-
-        # Get composite file
-        if f.IsReading() and self.CompositeRef != 0:
-            pass
-            #Entry = Global_TocManager.GetEntry(self.CompositeRef, CompositeMeshID)
-            #if Entry != None:
-            #    Global_TocManager.Load(Entry.FileID, Entry.TypeID)
-            #    self.StreamInfoArray = Entry.LoadedData.StreamInfoArray
-            #    gpu = Entry.LoadedData.GpuData
-            #else:
-            #    raise Exception(f"Composite mesh file {self.CompositeRef} could not be found")
 
         # Get bones file
         if f.IsReading() and self.BonesRef != 0:
@@ -258,6 +248,31 @@ class StingrayMeshFile:
             if f.IsReading(): f.seek(self.MeshInfoOffset+self.MeshInfoOffsets[mesh_idx])
             else            : self.MeshInfoOffsets[mesh_idx] = f.tell() - self.MeshInfoOffset
             self.MeshInfoArray[mesh_idx] = self.MeshInfoArray[mesh_idx].Serialize(f)
+            
+        # Get geometry group
+        if f.IsReading() and self.CompositeRef != 0:
+            Entry = Global_TocManager.GetEntry(self.CompositeRef, CompositeUnitID)
+            if Entry != None:
+                Global_TocManager.Load(Entry.FileID, Entry.TypeID)
+                geometry_group = Entry.LoadedData
+                unit_index = geometry_group.UnitHashes.index(int(self.NameHash))
+                c_mesh_info = geometry_group.MeshInfos[unit_index]
+                self.StreamInfoArray = Entry.LoadedData.StreamInfoArray
+                self.NumStreams = len(self.StreamInfoArray)
+                for i, mesh_info_item in enumerate(self.MeshInfoArray):
+                    mesh_index = c_mesh_info.Meshes.index(mesh_info_item.MeshID)
+                    c_mesh_info_item = c_mesh_info.MeshInfoItems[mesh_index]
+                    mesh_info_item.StreamIndex      = c_mesh_info_item.MeshLayoutIdx
+                    mesh_info_item.NumMaterials     = c_mesh_info_item.NumMaterials
+                    mesh_info_item.MaterialOffset   = c_mesh_info_item.MaterialsOffset + 0x50
+                    mesh_info_item.Sections         = c_mesh_info_item.Groups
+                    mesh_info_item.MaterialIDs      = c_mesh_info_item.Materials
+                    mesh_info_item.SectionsOffset   = c_mesh_info_item.GroupsOffset + 0x50
+                    mesh_info_item.NumSections      = c_mesh_info_item.NumGroups
+                self.StreamInfoOffset = 1
+                gpu = Entry.LoadedData.GpuData
+            else:
+                raise Exception(f"Composite mesh file {self.CompositeRef} could not be found")
 
         # Materials
         if f.IsReading(): f.seek(self.MaterialsOffset)
@@ -290,8 +305,7 @@ class StingrayMeshFile:
             return self
 
         # Serialize Data
-        if self.CompositeRef == 0:
-            self.SerializeGpuData(gpu, Global_TocManager, BlenderOpts)
+        self.SerializeGpuData(gpu, Global_TocManager, BlenderOpts)
 
         # TODO: update offsets only instead of re-writing entire file
         if f.IsWriting() and not redo_offsets:
@@ -1599,8 +1613,6 @@ def NameFromMesh(mesh, id, customization_info, bone_names, use_sufix=True):
     return name
 
 def CreateModel(stingray_unit, id, Global_BoneNames):
-    if stingray_unit.CompositeRef != 0:
-        return CreateSkeleton(stingray_unit, id, Global_BoneNames)
     model, customization_info, bone_names, transform_info, bone_info = stingray_unit.RawMeshes, stingray_unit.CustomizationInfo, stingray_unit.BoneNames, stingray_unit.TransformInfo, stingray_unit.BoneInfoArray
     if len(model) < 1: return
     # Make collection
@@ -1898,114 +1910,3 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
 
         # convert bmesh to mesh
         bm.to_mesh(new_object.data)
-                    
-def CreateSkeleton(stingray_unit, id, Global_BoneNames):
-    model, customization_info, bone_names, transform_info, bone_info = stingray_unit.RawMeshes, stingray_unit.CustomizationInfo, stingray_unit.BoneNames, stingray_unit.TransformInfo, stingray_unit.BoneInfoArray
-    old_collection = bpy.context.collection
-    if bpy.context.scene.Hd2ToolPanelSettings.MakeCollections:
-        new_collection = bpy.data.collections.new(NameFromMesh(model[0], id, customization_info, bone_names, False))
-        old_collection.children.link(new_collection)
-    else:
-        new_collection = old_collection
-    # -- || ADD BONES || -- #
-    if bpy.context.scene.Hd2ToolPanelSettings.ImportArmature:
-        skeletonObj = None
-        armature = None
-        if len(bpy.context.selected_objects) > 0:
-            skeletonObj = bpy.context.selected_objects[0]
-        if skeletonObj and skeletonObj.type == 'ARMATURE':
-            armature = skeletonObj.data
-        if bpy.context.scene.Hd2ToolPanelSettings.MergeArmatures and armature != None:
-            PrettyPrint(f"Merging to previous skeleton: {skeletonObj.name}")
-        else:
-            PrettyPrint(f"Creaing New Skeleton")
-            armature = bpy.data.armatures.new(f"{id}_skeleton")
-            armature.display_type = "STICK"
-            skeletonObj = bpy.data.objects.new(f"{id}_rig", armature)
-            skeletonObj['BonesID'] = str(stingray_unit.BonesRef)
-            skeletonObj.show_in_front = True
-            
-        if bpy.context.scene.Hd2ToolPanelSettings.MakeCollections:
-            if 'skeletons' not in bpy.data.collections:
-                collection = bpy.data.collections.new("skeletons")
-                bpy.context.scene.collection.children.link(collection)
-            else:
-                collection = bpy.data.collections['skeletons']
-        else:
-            collection = bpy.context.collection
-
-        try:
-            collection.objects.link(skeletonObj)
-        except Exception as e:
-            PrettyPrint(f"{e}", 'warn')
-
-        #bpy.context.active_object = skeletonObj
-        bpy.context.view_layer.objects.active = skeletonObj
-        bpy.ops.object.mode_set(mode='EDIT')
-        
-        boneTransforms = {}
-        boneMatrices = {}
-        bones = [None] * transform_info.NumTransforms
-        boneParents = [0] * transform_info.NumTransforms
-        doPoseBone = {}
-        # create all bones
-        for i, transform in enumerate(transform_info.TransformEntries):
-            boneParent = transform.ParentBone
-            boneHash = transform_info.NameHashes[i]
-            if boneHash in Global_BoneNames: # name of bone
-                boneName = Global_BoneNames[boneHash]
-            else:
-                boneName = str(boneHash)
-            newBone = armature.edit_bones.get(boneName)
-            if newBone is None:
-                newBone = armature.edit_bones.new(boneName)
-                newBone.tail = 0, 0.0000025, 0
-                doPoseBone[newBone.name] = True
-            else:
-                doPoseBone[newBone.name] = False
-            bones[i] = newBone
-            boneParents[i] = boneParent
-            boneTransforms[newBone.name] = transform_info.Transforms[i]
-            boneMatrices[newBone.name] = transform_info.TransformMatrices[i]
-            
-        # parent all bones
-        for i, bone in enumerate(bones):
-            if boneParents[i] > -1:
-                bone.parent = bones[boneParents[i]]
-        
-        # pose all bones   
-        bpy.context.view_layer.objects.active = skeletonObj
-        
-        for i, bone in enumerate(armature.edit_bones):
-            try:
-                if not doPoseBone[bone.name]: continue
-                a = boneMatrices[bone.name]
-                mat = mathutils.Matrix.Identity(4)
-                mat[0] = a.v[0:4]
-                mat[1] = a.v[4:8]
-                mat[2] = a.v[8:12]
-                mat[3] = a.v[12:16]
-                mat.transpose()
-                bone.matrix = mat
-            except Exception as e:
-                PrettyPrint(f"Failed setting bone matricies for: {e}. This may be intended", 'warn')
-            
-        bpy.ops.object.mode_set(mode='OBJECT')
-        
-        # assign armature modifier to the mesh object
-        #modifier = new_object.modifiers.get("ARMATURE")
-        #if (modifier == None):
-        #    modifier = new_object.modifiers.new("Armature", "ARMATURE")
-        #    modifier.object = skeletonObj
-
-        #if bpy.context.scene.Hd2ToolPanelSettings.ParentArmature:
-        #    new_object.parent = skeletonObj
-        
-        # select the armature at the end so we can chain import when merging
-        for obj in bpy.context.selected_objects:
-            obj.select_set(False)
-        skeletonObj.select_set(True)
-        
-        # create empty animation data if it does not exist
-        if not skeletonObj.animation_data:
-          skeletonObj.animation_data_create()
