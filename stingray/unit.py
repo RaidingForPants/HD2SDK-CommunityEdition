@@ -88,7 +88,8 @@ class StingrayMeshFile:
         # serialize file
         self.UnkRef1            = f.uint64(self.UnkRef1)
         self.BonesRef           = f.uint64(self.BonesRef)
-        self.CompositeRef       = f.uint64(self.CompositeRef)
+        if f.IsWriting():         f.uint64(0)
+        else: self.CompositeRef = f.uint64(self.CompositeRef)
         self.HeaderData1        = f.bytes(self.HeaderData1, 28)
         self.TransformInfoOffset= f.uint32(self.TransformInfoOffset)
         self.HeaderData2        = f.bytes(self.HeaderData2, 20)
@@ -255,20 +256,20 @@ class StingrayMeshFile:
                 Global_TocManager.Load(Entry.FileID, Entry.TypeID)
                 geometry_group = Entry.LoadedData
                 unit_index = geometry_group.UnitHashes.index(int(self.NameHash))
-                mesh_info = geometry_group.MeshInfos[unit_index]
+                c_mesh_info = geometry_group.MeshInfos[unit_index]
                 self.StreamInfoArray = Entry.LoadedData.StreamInfoArray
                 self.NumStreams = len(self.StreamInfoArray)
-                self.NumMeshes = 1
-                temp_mesh_info = self.MeshInfoArray[0]
-                mesh_info_item = mesh_info.MeshInfoItems[0]
-                temp_mesh_info.StreamIndex = mesh_info_item.MeshLayoutIdx
-                temp_mesh_info.NumMaterials = mesh_info_item.NumMaterials
-                temp_mesh_info.MaterialOffset = mesh_info_item.MaterialsOffset
-                temp_mesh_info.Sections = mesh_info_item.Groups
-                temp_mesh_info.MaterialIDs = mesh_info_item.Materials
-                temp_mesh_info.SectionsOffset = mesh_info_item.GroupsOffset
-                temp_mesh_info.NumSections = mesh_info_item.NumGroups
-                self.MeshInfoArray = [temp_mesh_info]
+                for i, mesh_info_item in enumerate(self.MeshInfoArray):
+                    mesh_index = c_mesh_info.Meshes.index(mesh_info_item.MeshID)
+                    c_mesh_info_item = c_mesh_info.MeshInfoItems[mesh_index]
+                    mesh_info_item.StreamIndex      = c_mesh_info_item.MeshLayoutIdx
+                    mesh_info_item.NumMaterials     = c_mesh_info_item.NumMaterials
+                    mesh_info_item.MaterialOffset   = c_mesh_info_item.MaterialsOffset + 0x50
+                    mesh_info_item.Sections         = c_mesh_info_item.Groups
+                    mesh_info_item.MaterialIDs      = c_mesh_info_item.Materials
+                    mesh_info_item.SectionsOffset   = c_mesh_info_item.GroupsOffset + 0x50
+                    mesh_info_item.NumSections      = c_mesh_info_item.NumGroups
+                self.StreamInfoOffset = 1
                 gpu = Entry.LoadedData.GpuData
             else:
                 raise Exception(f"Composite mesh file {self.CompositeRef} could not be found")
