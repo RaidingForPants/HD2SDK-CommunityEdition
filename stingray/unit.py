@@ -108,17 +108,6 @@ class StingrayMeshFile:
         if f.IsReading() and (self.StreamInfoOffset == 0 and self.CompositeRef == 0):
             raise Exception("Unsupported Mesh Format (No buffer stream)")
 
-        # Get composite file
-        if f.IsReading() and self.CompositeRef != 0:
-            pass
-            #Entry = Global_TocManager.GetEntry(self.CompositeRef, CompositeMeshID)
-            #if Entry != None:
-            #    Global_TocManager.Load(Entry.FileID, Entry.TypeID)
-            #    self.StreamInfoArray = Entry.LoadedData.StreamInfoArray
-            #    gpu = Entry.LoadedData.GpuData
-            #else:
-            #    raise Exception(f"Composite mesh file {self.CompositeRef} could not be found")
-
         # Get bones file
         if f.IsReading() and self.BonesRef != 0:
             Entry = Global_TocManager.GetEntry(self.BonesRef, BoneID)
@@ -258,6 +247,31 @@ class StingrayMeshFile:
             if f.IsReading(): f.seek(self.MeshInfoOffset+self.MeshInfoOffsets[mesh_idx])
             else            : self.MeshInfoOffsets[mesh_idx] = f.tell() - self.MeshInfoOffset
             self.MeshInfoArray[mesh_idx] = self.MeshInfoArray[mesh_idx].Serialize(f)
+            
+        # Get geometry group
+        if f.IsReading() and self.CompositeRef != 0:
+            Entry = Global_TocManager.GetEntry(self.CompositeRef, CompositeUnitID)
+            if Entry != None:
+                Global_TocManager.Load(Entry.FileID, Entry.TypeID)
+                geometry_group = Entry.LoadedData
+                unit_index = geometry_group.UnitHashes.index(int(self.NameHash))
+                mesh_info = geometry_group.MeshInfos[unit_index]
+                self.StreamInfoArray = Entry.LoadedData.StreamInfoArray
+                self.NumStreams = len(self.StreamInfoArray)
+                self.NumMeshes = 1
+                temp_mesh_info = self.MeshInfoArray[0]
+                mesh_info_item = mesh_info.MeshInfoItems[0]
+                temp_mesh_info.StreamIndex = mesh_info_item.MeshLayoutIdx
+                temp_mesh_info.NumMaterials = mesh_info_item.NumMaterials
+                temp_mesh_info.MaterialOffset = mesh_info_item.MaterialsOffset
+                temp_mesh_info.Sections = mesh_info_item.Groups
+                temp_mesh_info.MaterialIDs = mesh_info_item.Materials
+                temp_mesh_info.SectionsOffset = mesh_info_item.GroupsOffset
+                temp_mesh_info.NumSections = mesh_info_item.NumGroups
+                self.MeshInfoArray = [temp_mesh_info]
+                gpu = Entry.LoadedData.GpuData
+            else:
+                raise Exception(f"Composite mesh file {self.CompositeRef} could not be found")
 
         # Materials
         if f.IsReading(): f.seek(self.MaterialsOffset)
@@ -290,8 +304,8 @@ class StingrayMeshFile:
             return self
 
         # Serialize Data
-        if self.CompositeRef == 0:
-            self.SerializeGpuData(gpu, Global_TocManager, BlenderOpts)
+        #if self.CompositeRef == 0:
+        self.SerializeGpuData(gpu, Global_TocManager, BlenderOpts)
 
         # TODO: update offsets only instead of re-writing entire file
         if f.IsWriting() and not redo_offsets:
@@ -1599,8 +1613,8 @@ def NameFromMesh(mesh, id, customization_info, bone_names, use_sufix=True):
     return name
 
 def CreateModel(stingray_unit, id, Global_BoneNames):
-    if stingray_unit.CompositeRef != 0:
-        return CreateSkeleton(stingray_unit, id, Global_BoneNames)
+    #if stingray_unit.CompositeRef != 0:
+    #    return CreateSkeleton(stingray_unit, id, Global_BoneNames)
     model, customization_info, bone_names, transform_info, bone_info = stingray_unit.RawMeshes, stingray_unit.CustomizationInfo, stingray_unit.BoneNames, stingray_unit.TransformInfo, stingray_unit.BoneInfoArray
     if len(model) < 1: return
     # Make collection

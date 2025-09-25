@@ -540,6 +540,8 @@ class TocEntry:
 
         if callback != None:
             if self.TypeID == UnitID:
+                
+                PrettyPrint(f"LoadMaterialSlotNames: {LoadMaterialSlotNames}")
                 self.LoadedData = callback(self.FileID, self.TocData, self.GpuData, self.StreamData, Reload, MakeBlendObject, LoadMaterialSlotNames)
             else:
                 self.LoadedData = callback(self.FileID, self.TocData, self.GpuData, self.StreamData, Reload, MakeBlendObject)
@@ -1510,7 +1512,7 @@ def LoadStingrayBones(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject)
     return StingrayBonesData
 
 def LoadStingrayCompositeUnit(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
-    raise Exception("Composite Units Are Not Yet Supported")
+    #raise Exception("Composite Units Are Not Yet Supported")
     StingrayCompositeMeshData = StingrayCompositeMesh()
     StingrayCompositeMeshData.Serialize(MemoryStream(TocData), MemoryStream(GpuData))
     return StingrayCompositeMeshData
@@ -2530,6 +2532,7 @@ class SaveStingrayUnitOperator(Operator):
             self.report({'ERROR'},
                 f"Archive for entry being saved is not loaded. Could not find custom property object at ID: {ID}")
             return{'CANCELLED'}
+        #if not Entry.IsLoaded: Entry.Load(True, False)
         m = model[ID]
         meshes = model[ID]
         for mesh_index, mesh in meshes.items():
