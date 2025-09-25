@@ -1928,7 +1928,11 @@ class SearchByEntryIDInput(Operator):
 
     entry_id: StringProperty(name="Entry ID")
     def execute(self, context):
-            Archives = SearchByEntryID(int(self.entry_id))
+            ID = self.entry_id
+            if ID.upper() != ID.lower():
+                ID = hex_to_decimal(self.entry_id)
+
+            Archives = SearchByEntryID(int(ID))
             for Archive in Archives:
                 Global_TocManager.LoadArchive(Archive.Path)
 
