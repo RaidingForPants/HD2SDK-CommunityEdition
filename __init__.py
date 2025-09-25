@@ -1080,12 +1080,13 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
         if not bpy.context.scene.Hd2ToolPanelSettings.SaveTexturesWithMaterial:
             continue
         if bpy.context.scene.Hd2ToolPanelSettings.OnlySaveCustomTextures:
-            template = TextureTypeLookup[self.MaterialTemplate]
-            PrettyPrint(f"template: {template}")
-            slot = template[TexIdx]
-            PrettyPrint(f"slot: {slot}")
-            if slot == '':
-                continue
+            if self.MaterialTemplate != None:
+                template = TextureTypeLookup[self.MaterialTemplate]
+                PrettyPrint(f"template: {template}")
+                slot = template[TexIdx]
+                PrettyPrint(f"slot: {slot}")
+                if slot == '':
+                    continue
         oldTexID = mat.TexIDs[TexIdx]
         if mat.DEV_DDSPaths[TexIdx] != None:
             # get texture data
@@ -3829,7 +3830,7 @@ class Hd2ToolPanelSettings(PropertyGroup):
     
     SaveTexturesWithMaterial: BoolProperty(name="Save Textures with Material", description="Save a material\'s referenced textures to the patch when said material is saved. When disabled, new random IDs will not be given each time the material is saved", default = True)
     GenerateRandomTextureIDs: BoolProperty(name="Generate Random Texture IDs", description="Give a material\'s referenced textures new random IDs when said material is saved", default = True)
-    OnlySaveCustomTextures:   BoolProperty(name="Save Only Custom Textures", description="Only save the labeled texture nodes on a material preset", default = True)
+    OnlySaveCustomTextures:   BoolProperty(name="Save Only Custom Textures", description="Only save the labeled texture nodes on a SDK material preset", default = True)
 
     def get_settings_dict(self):
         dict = {}
