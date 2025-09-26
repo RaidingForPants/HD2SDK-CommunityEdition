@@ -1334,9 +1334,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     object = PrepareMesh(og_object)
     bpy.context.view_layer.objects.active = object
     mesh = object.data
-    
-    bm = bmesh.new()
-    bm.from_mesh(mesh)
+
     c = {}
     for i, uvlayer in enumerate(object.data.uv_layers):
         
@@ -1360,60 +1358,56 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         print(f"Conflicting vertices: {len(conflicts.keys())}")
         print(list(conflicts.keys()))
         c = conflicts
-    #bm.verts.ensure_lookup_table()
-    #bm.faces.ensure_lookup_table()
-    #bm.edges.ensure_lookup_table()
-    new_verts = []
-    new_faces = []
-    old_face_idxs = []
-    old_faces = set()
-    old_verts = set()
-    face_mapping = {}
     for vert_idx in c.keys():
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action="DESELECT")
+        
         print(f"resolving conflict for vertex {vert_idx}")
-        bm.verts.ensure_lookup_table()
-        vert = bm.verts[vert_idx]
-        vertex_coordinates = vert.co
-        vertex_normal = vert.normal
-        old_verts.add(vert)
-        for uv_coord, faces in vert_uvs[vert_idx].items():
-            new_vertex = bm.verts.new(vertex_coordinates)
-            new_vertex.normal = vertex_normal
-            new_vertex.normal_update()
-            bm.verts.index_update()
-            #new_vertex.copy_from(vert) # for some reason this makes it considered to be removed?????
-            new_verts.append(new_vertex)
+        # new plan: get each group of faces that is on 1 UV, and separate it from the mesh
+        # select all the vertices that ARENT the vertex in question (and their splits) and merge by distance
+        # now we have a new duplicated vertex with less messing around with creating/deleting faces
+        for j, uv_coord in enumerate(vert_uvs[vert_idx].keys()):
+            faces = vert_uvs[vert_idx][uv_coord]
+            selected_verts = set()
+            #print(faces)
+            bpy.ops.object.mode_set(mode='OBJECT')
             for face_idx in faces:
-                if face_idx in face_mapping:
-                    face_idx = face_mapping[face_idx]
-                bm.faces.ensure_lookup_table()
-                face = bm.faces[face_idx]
-                old_faces.add(face)
-                _vertices = []
-                for v in face.verts:
-                    if v.index != vert_idx:
-                        _vertices.append(v)
-                    else:
-                        _vertices.append(new_vertex)
-                print(new_vertex)
-                #vertices = [v for v in face.verts if v.index != vert_idx]
-                #vertices.append(new_vertex)
-                new_face = bm.faces.new(_vertices)
-                bm.faces.index_update()
-                new_face.normal_update()
-                face_mapping[face_idx] = new_face.index
-                new_faces.append(new_face)
-                old_face_idxs.append(face_idx)
-    old_face_list = list(old_faces)
-    old_vert_list = list(old_verts)
-    #print(old_face_list)
-    bmesh.ops.dissolve_faces(bm, faces=old_face_list)
-    print(old_vert_list)
-    old_vert_list = [vert for vert in old_vert_list if vert.is_valid]
-    bmesh.ops.dissolve_verts(bm, verts=old_vert_list)
-    bm.to_mesh(mesh)
-    mesh.update()
-    bm.free()
+                face = mesh.polygons[face_idx]
+                face.select = True
+                for v in face.vertices:
+                    vert = mesh.vertices[v]
+                    vert.select = True
+            #selected_verts.remove(vert_idx)
+            bpy.ops.object.mode_set(mode='EDIT')
+            print("pre separate")
+            vert_idcs = [v.index for v in mesh.vertices if v.select]
+            bpy.ops.mesh.split()
+            print(len(mesh.vertices))
+            print("post separate")
+            vert_idcs = [v.index for v in mesh.vertices if v.select]
+            print(vert_idcs)
+            bpy.ops.mesh.select_all(action="DESELECT")
+            bpy.ops.object.mode_set(mode='OBJECT')
+            print(len(mesh.vertices))
+            for i, idx in enumerate(vert_idcs):
+                vert = mesh.vertices[idx]
+                if idx != vert_idx: vert.select = True
+                vert = mesh.vertices[-(i+1)]
+                vert.select = True
+            bpy.ops.object.mode_set(mode='EDIT')
+            # deselect the vert in question
+            # and select the verts made by separating
+            vert_idcs = [v.index for v in mesh.vertices if v.select]
+            print(vert_idcs)
+            bpy.ops.mesh.remove_doubles(use_unselected=False)
+            #bpy.ops.object.mode_set(mode='OBJECT')
+            #for vert in selected_verts:
+            #    if vert.index != vert_idx:
+            #        vert.select = True
+            #bpy.ops.object.mode_set(mode='EDIT')
+            #selected_verts = [v for v in mesh.vertices if v.select]
+            #print(selected_verts)
+            #bpy.ops.mesh.remove_doubles(use_unselected=True)
 
     vertices    = [ [vert.co[0], vert.co[1], vert.co[2]] for vert in mesh.vertices]
     normals     = [ [vert.normal[0], vert.normal[1], vert.normal[2]] for vert in mesh.vertices]
