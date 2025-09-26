@@ -1529,6 +1529,19 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 transform_local.pos = translation
                 transform_local.scale = scale
                 transform_info.Transforms[transform_index] = transform_local
+                
+                # bone reparenting
+                try:
+                    parent_name_hash = int(bone.parent.name)
+                except ValueError:
+                    parent_name_hash = murmur32_hash(bone.parent.name.encode("utf-8"))
+                try:
+                    parent_transform_index = transform_info.NameHashes.index(parent_name_hash)
+                    transform_info.TransformEntries[transform_index].ParentBone = parent_transform_index
+                except ValueError:
+                    PrettyPrint(f"Failed to reparent bone: {bone.name}.", 'warn')
+                    continue
+                
             else:
                 transform_local = StingrayLocalTransform()
                 transform_info.Transforms[transform_index] = transform_local
