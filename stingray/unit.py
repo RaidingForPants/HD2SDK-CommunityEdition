@@ -1350,13 +1350,17 @@ def PrepareMesh(og_object):
     
     mesh = object.data
     mode = bpy.context.object.mode
+    uv_count = 0
     while True:
         bpy.context.view_layer.objects.active = object
         bpy.ops.object.mode_set(mode=mode)
         bpy.context.view_layer.objects.active = object
-        conflicts, vert_uvs = CheckUVConflicts(mesh, mesh.uv_layers[0])
+        conflicts, vert_uvs = CheckUVConflicts(mesh, mesh.uv_layers[uv_count])
         if not conflicts:
-            break
+            uv_count += 1
+            if uv_count == len(mesh.uv_layers):
+                break
+            continue
         vert_idx = list(conflicts.keys())[0]
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action="DESELECT")
