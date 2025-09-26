@@ -1328,7 +1328,7 @@ def PrepareMesh(og_object):
     bmesh.ops.split_edges(bm, edges=boundary_seams)
     # update mesh
     bm.to_mesh(object.data)
-    bm.clear()
+    bm.free()
     # transfer normals
     modifier = object.modifiers.new("EXPORT_NORMAL_TRANSFER", 'DATA_TRANSFER')
     bpy.context.object.modifiers[modifier.name].data_types_loops = {'CUSTOM_NORMAL'}
@@ -1450,19 +1450,13 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     #LoadNormalPalette()
     #normals = NormalsFromPalette(normals)
     # get uvs
-    
-    #return
     for uvlayer in object.data.uv_layers:
         if len(uvs) >= 3:
             break
         texCoord = [[0,0] for vert in mesh.vertices]
         for face in object.data.polygons:
             for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):
-                data = [uvlayer.data[loop_idx].uv[0], uvlayer.data[loop_idx].uv[1]*-1 + 1]
-                if texCoord[vert_idx] != [0, 0] and texCoord[vert_idx] != data:
-                    pass
-                else:
-                    texCoord[vert_idx] = [uvlayer.data[loop_idx].uv[0], uvlayer.data[loop_idx].uv[1]*-1 + 1]
+                texCoord[vert_idx] = [uvlayer.data[loop_idx].uv[0], uvlayer.data[loop_idx].uv[1]*-1 + 1]
         uvs.append(texCoord)
 
     # get weights
