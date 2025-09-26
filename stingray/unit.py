@@ -1334,6 +1334,86 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     object = PrepareMesh(og_object)
     bpy.context.view_layer.objects.active = object
     mesh = object.data
+    
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    c = {}
+    for i, uvlayer in enumerate(object.data.uv_layers):
+        
+        if i >= 3:
+            break
+        conflicts = {}
+        vert_uvs = {}
+        texCoord = [[0,0] for vert in mesh.vertices]
+        loop_idxs = [0 for vert in mesh.vertices]
+        for face_idx, face in enumerate(object.data.polygons):
+            for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):
+                data = (uvlayer.data[loop_idx].uv[0], uvlayer.data[loop_idx].uv[1]*-1 + 1)
+                if vert_idx not in vert_uvs:
+                    vert_uvs[vert_idx] = {}
+                if data not in vert_uvs[vert_idx]:
+                    vert_uvs[vert_idx][data] = []
+                vert_uvs[vert_idx][data].append(face_idx)
+        for vert_idx in vert_uvs.keys():
+            if len(vert_uvs[vert_idx]) > 1:
+                conflicts[vert_idx] = True
+        print(f"Conflicting vertices: {len(conflicts.keys())}")
+        print(list(conflicts.keys()))
+        c = conflicts
+    #bm.verts.ensure_lookup_table()
+    #bm.faces.ensure_lookup_table()
+    #bm.edges.ensure_lookup_table()
+    new_verts = []
+    new_faces = []
+    old_face_idxs = []
+    old_faces = set()
+    old_verts = set()
+    face_mapping = {}
+    for vert_idx in c.keys():
+        print(f"resolving conflict for vertex {vert_idx}")
+        bm.verts.ensure_lookup_table()
+        vert = bm.verts[vert_idx]
+        vertex_coordinates = vert.co
+        vertex_normal = vert.normal
+        old_verts.add(vert)
+        for uv_coord, faces in vert_uvs[vert_idx].items():
+            new_vertex = bm.verts.new(vertex_coordinates)
+            new_vertex.normal = vertex_normal
+            new_vertex.normal_update()
+            bm.verts.index_update()
+            #new_vertex.copy_from(vert) # for some reason this makes it considered to be removed?????
+            new_verts.append(new_vertex)
+            for face_idx in faces:
+                if face_idx in face_mapping:
+                    face_idx = face_mapping[face_idx]
+                bm.faces.ensure_lookup_table()
+                face = bm.faces[face_idx]
+                old_faces.add(face)
+                _vertices = []
+                for v in face.verts:
+                    if v.index != vert_idx:
+                        _vertices.append(v)
+                    else:
+                        _vertices.append(new_vertex)
+                print(new_vertex)
+                #vertices = [v for v in face.verts if v.index != vert_idx]
+                #vertices.append(new_vertex)
+                new_face = bm.faces.new(_vertices)
+                bm.faces.index_update()
+                new_face.normal_update()
+                face_mapping[face_idx] = new_face.index
+                new_faces.append(new_face)
+                old_face_idxs.append(face_idx)
+    old_face_list = list(old_faces)
+    old_vert_list = list(old_verts)
+    #print(old_face_list)
+    bmesh.ops.dissolve_faces(bm, faces=old_face_list)
+    print(old_vert_list)
+    old_vert_list = [vert for vert in old_vert_list if vert.is_valid]
+    bmesh.ops.dissolve_verts(bm, verts=old_vert_list)
+    bm.to_mesh(mesh)
+    mesh.update()
+    bm.free()
 
     vertices    = [ [vert.co[0], vert.co[1], vert.co[2]] for vert in mesh.vertices]
     normals     = [ [vert.normal[0], vert.normal[1], vert.normal[2]] for vert in mesh.vertices]
@@ -1383,13 +1463,19 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     #LoadNormalPalette()
     #normals = NormalsFromPalette(normals)
     # get uvs
+    
+    #return
     for uvlayer in object.data.uv_layers:
         if len(uvs) >= 3:
             break
         texCoord = [[0,0] for vert in mesh.vertices]
         for face in object.data.polygons:
             for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):
-                texCoord[vert_idx] = [uvlayer.data[loop_idx].uv[0], uvlayer.data[loop_idx].uv[1]*-1 + 1]
+                data = [uvlayer.data[loop_idx].uv[0], uvlayer.data[loop_idx].uv[1]*-1 + 1]
+                if texCoord[vert_idx] != [0, 0] and texCoord[vert_idx] != data:
+                    pass
+                else:
+                    texCoord[vert_idx] = [uvlayer.data[loop_idx].uv[0], uvlayer.data[loop_idx].uv[1]*-1 + 1]
         uvs.append(texCoord)
 
     # get weights
@@ -1471,7 +1557,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                     # remap = bone_info[mesh.LodIndex].GetRemappedIndex(real_index)
                     if HDGroupIndex+1 > len(boneIndices):
                         dif = HDGroupIndex+1 - len(boneIndices)
-                        boneIndices.extend([[[0,0,0,0] for n in range(len(vertices))]]*dif)
+                        boneIndices.extend([[[0,0,0,0] for n in range(len(mesh.vertices))]]*dif)
                     boneIndices[HDGroupIndex][vert_idx][group_idx] = HDBoneIndex
                     weights[vert_idx][group_idx] = group.weight
                     group_idx += 1
@@ -1910,3 +1996,4 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
 
         # convert bmesh to mesh
         bm.to_mesh(new_object.data)
+        bm.free()
