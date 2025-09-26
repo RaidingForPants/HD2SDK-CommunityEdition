@@ -1299,8 +1299,6 @@ def CheckUVConflicts(mesh, uvlayer):
     for vert_idx in vert_uvs.keys():
         if len(vert_uvs[vert_idx]) > 1:
             conflicts[vert_idx] = True
-    print(f"Conflicting vertices: {len(conflicts.keys())}")
-    print(list(conflicts.keys()))
     if len(conflicts.keys()) > 0:
         return conflicts, vert_uvs
     else:
@@ -1363,7 +1361,6 @@ def PrepareMesh(og_object):
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action="DESELECT")
         
-        print(f"resolving conflict for vertex {vert_idx}")
         # new plan: get each group of faces that is on 1 UV, and separate it from the mesh
         # select all the vertices that ARENT the vertex in question (and their splits) and merge by distance
         # now we have a new duplicated vertex with less messing around with creating/deleting faces
