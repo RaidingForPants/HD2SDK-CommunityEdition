@@ -1283,6 +1283,29 @@ def duplicate(obj, data=True, actions=True, collection=None):
     bpy.context.collection.objects.link(obj_copy)
     return obj_copy
 
+def CheckUVConflicts(mesh, uvlayer):
+    conflicts = {}
+    vert_uvs = {}
+    texCoord = [[0,0] for vert in mesh.vertices]
+    loop_idxs = [0 for vert in mesh.vertices]
+    for face_idx, face in enumerate(mesh.polygons):
+        for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):
+            data = (uvlayer.data[loop_idx].uv[0], uvlayer.data[loop_idx].uv[1]*-1 + 1)
+            if vert_idx not in vert_uvs:
+                vert_uvs[vert_idx] = {}
+            if data not in vert_uvs[vert_idx]:
+                vert_uvs[vert_idx][data] = []
+            vert_uvs[vert_idx][data].append(face_idx)
+    for vert_idx in vert_uvs.keys():
+        if len(vert_uvs[vert_idx]) > 1:
+            conflicts[vert_idx] = True
+    print(f"Conflicting vertices: {len(conflicts.keys())}")
+    print(list(conflicts.keys()))
+    if len(conflicts.keys()) > 0:
+        return conflicts, vert_uvs
+    else:
+        return None, None
+
 def PrepareMesh(og_object):
     object = duplicate(og_object)
     bpy.ops.object.select_all(action='DESELECT')
@@ -1326,37 +1349,7 @@ def PrepareMesh(og_object):
         bpy.ops.object.vertex_group_normalize_all(lock_active=False)
         bpy.ops.object.vertex_group_limit_total(group_select_mode='ALL', limit=4)
     except: pass
-
-    return object
     
-def CheckUVConflicts(mesh, uvlayer):
-    conflicts = {}
-    vert_uvs = {}
-    texCoord = [[0,0] for vert in mesh.vertices]
-    loop_idxs = [0 for vert in mesh.vertices]
-    for face_idx, face in enumerate(mesh.polygons):
-        for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):
-            data = (uvlayer.data[loop_idx].uv[0], uvlayer.data[loop_idx].uv[1]*-1 + 1)
-            if vert_idx not in vert_uvs:
-                vert_uvs[vert_idx] = {}
-            if data not in vert_uvs[vert_idx]:
-                vert_uvs[vert_idx][data] = []
-            vert_uvs[vert_idx][data].append(face_idx)
-    for vert_idx in vert_uvs.keys():
-        if len(vert_uvs[vert_idx]) > 1:
-            conflicts[vert_idx] = True
-    print(f"Conflicting vertices: {len(conflicts.keys())}")
-    print(list(conflicts.keys()))
-    if len(conflicts.keys()) > 0:
-        return conflicts, vert_uvs
-    else:
-        return None, None
-    
-
-def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
-    global Global_palettepath
-    object = PrepareMesh(og_object)
-    bpy.context.view_layer.objects.active = object
     mesh = object.data
     mode = bpy.context.object.mode
     while True:
@@ -1399,6 +1392,14 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         # deselect the vert in question
         # and select the verts made by separating
         bpy.ops.mesh.remove_doubles(use_unselected=False)
+
+    return object
+
+def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
+    global Global_palettepath
+    object = PrepareMesh(og_object)
+    bpy.context.view_layer.objects.active = object
+    mesh = object.data
 
     vertices    = [ [vert.co[0], vert.co[1], vert.co[2]] for vert in mesh.vertices]
     normals     = [ [vert.normal[0], vert.normal[1], vert.normal[2]] for vert in mesh.vertices]
