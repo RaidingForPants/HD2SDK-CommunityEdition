@@ -413,35 +413,6 @@ class StingrayAnimation:
             entry.Serialize(tocFile)
         tocFile.uint16(0x03)
         tocFile.uint32(size)
-        
-    def get_initial_bone_data(self, context, armature):
-        pass
-        
-    def utilityGetQuatKeyValue(object):
-        if object.parent is not None:
-            return (object.parent.matrix.to_3x3().inverted() @ object.matrix.to_3x3()).to_quaternion()
-        else:
-            return object.matrix.to_quaternion()
-            
-    def utilityResolveObjectTarget(objects, path):
-        for object in objects:
-            try:
-                return (object, object.path_resolve(path, False))
-            except:
-                continue
-
-        return None
-
-
-    def utilityGetSimpleKeyValue(object, property):
-        if property == "location":
-            if object.parent is not None:
-                return object.parent.matrix.inverted() @ object.matrix.translation
-            else:
-                return object.matrix_basis.translation
-        elif property == "scale":
-            return object.scale
-        return None
 
     def load_from_armature(self, context, armature, bones_data):
         if self.is_additive_animation:
@@ -449,9 +420,6 @@ class StingrayAnimation:
         self.entries.clear()
         self.initial_bone_states.clear()
         action = armature.animation_data.action
-        action = action.copy()
-        action.name = "temp_copy"
-        action.use_fake_user = True
         idx = bones_data.index(b"StingrayEntityRoot")
         temp = bones_data[idx:]
         splits = temp.split(b"\x00")
@@ -465,55 +433,23 @@ class StingrayAnimation:
         bone_parents = {}
         curves = {}
         bpy.ops.object.mode_set(mode="POSE")
-        
-        # make keyframes for every frame
         start, end = action.frame_range
-        for frame in range(ceil(start), ceil(end)+1):
-            context.scene.frame_set(frame)
-            for bone in armature.data.edit_bones:
-                bone_name = bone.name
-                location_curves = [StingrayAnimation.utilityGetOrCreateCurve(fcurves, armature.data.edit_bones, bone_name, x) for x in [
-                ("location", 0), ("location", 1), ("location", 2)]]
-                rotation_curves = [StingrayAnimation.utilityGetOrCreateCurve(fcurves, armature.data.edit_bones, bone_name, x) for x in [
-                ("rotation_quaternion", 0), ("rotation_quaternion", 1), ("rotation_quaternion", 2), ("rotation_quaternion", 3)]]
-                for curve in location_curves:
-                    curve.keyframe_insert(data_path="location")
-                for curve in rotation_curves:
-                    curve.keyframe_insert(data_path="rotation_quaternion")
-                #curve.keyframe_insert(data_path="scale")
         
         context.scene.frame_set(0)
         # initial bone data = anim frame 0
-        objects = bpy.data.objects
-        for curve in action.fcurves:
-            result = StingrayAnimation.utilityResolveObjectTarget(objects, curve.data_path)
-
-            if result is None:
-                continue
+        
+        for bone in armature.pose.bones:
+            if bone.parent is not None:
+                bone_parents[bone.name] = bone.parent.name
+                mat = (bone.parent.matrix.inverted() @ bone.matrix)
             else:
-                (object, target) = result
-
-            # Right now, only support bone keys. Eventually, we will also check for BlendShape keys, and visibility keys.
-            if type(target.data) != bpy_types.PoseBone:
-                continue
-
-            poseBone = target.data
-            
-            #position = StingrayAnimation.utilityGetSimpleKeyValue(
-            #                target, "location") * 0.01
-            #quat = StingrayAnimation.utilityGetQuatKeyValue(target)
-
-            if poseBone.parent is not None:
-                bone_parents[poseBone.name] = poseBone.parent.name
-                mat = (poseBone.parent.matrix.inverted() @ poseBone.matrix)
-            else:
-                bone_parents[poseBone.name] = ""
-                mat = poseBone.matrix
+                bone_parents[bone.name] = ""
+                mat = bone.matrix
             (position, rotation, scale) = mat.decompose()
             rotation = (rotation[1], rotation[2], rotation[3], rotation[0])
             position = list(position)
             scale = list(scale)
-            initial_bone_data[poseBone.name] = {'position': position, 'rotation': rotation, 'scale': scale}
+            initial_bone_data[bone.name] = {'position': position, 'rotation': rotation, 'scale': scale}
             
         for bone_name in bone_names:
             try:
@@ -535,108 +471,38 @@ class StingrayAnimation:
                 initial_state.rotation = [0, 0, 0, 1]
                 initial_state.scale = [1, 1, 1]
                 self.initial_bone_states.append(initial_state)
-            
-            
-        
-            
-        for curve in action.fcurves:
-            result = StingrayAnimation.utilityResolveObjectTarget(objects, curve.data_path)
 
-            if result is None:
-                continue
-            else:
-                (object, target) = result
-
-            # Right now, only support bone keys. Eventually, we will also check for BlendShape keys, and visibility keys.
-            if type(target.data) != bpy_types.PoseBone:
-                continue
-
-            poseBone = target.data
-
-            if target == poseBone.location.owner:
-                result = curves.get(poseBone, [])
-                result.append(
-                    (curve, "location", curve.array_index))
-                curves[poseBone] = result
-            elif target == poseBone.rotation_quaternion.owner or target == poseBone.rotation_euler.owner:
-                result = curves.get(poseBone, [])
-                result.append(
-                    (curve, "rotation_quaternion", curve.array_index))
-                curves[poseBone] = result
-            elif target == poseBone.scale.owner:
-                result = curves.get(poseBone, [])
-                result.append(
-                    (curve, "scale", curve.array_index))
-                curves[poseBone] = result
-        length_frames = 0
+        length_frames = int(end - start)
         # Iterate on the target/curves and generate the proper cast curves.
-        for target, curves in curves.items():
-            if target.name not in bone_names:
-                continue
-            # We must handle quaternions separately, and key them together.
-            if context.scene.Hd2ToolPanelSettings.SaveBonePositions:
-                locations = [x for x in curves if x[1] == "location"]
+        for frame in range(ceil(start), ceil(end)+1):
+            context.scene.frame_set(frame)
+            for bone in armature.pose.bones:
+                if bone.name not in bone_names:
+                    continue
+                if bone.parent:
+                    local_transform = bone.parent.matrix.inverted() @ bone.matrix
+                else:
+                    local_transform = bone.matrix
+                translation, rotation, scale = local_transform.decompose()
                 
-                for (curve, property, index) in locations:
-
-                    keyframes = [int(x.co[0]) for x in curve.keyframe_points]
-                    keyframes = sorted(list(set(keyframes)))
-
-                    keyvalues = []
-                    scale = 1
+                # save translation
+                if context.scene.Hd2ToolPanelSettings.SaveBonePositions:
+                    new_entry = AnimationEntry()
+                    new_entry.bone = bone_to_index[bone.name]
+                    new_entry.type = 0
+                    new_entry.subtype = 4
+                    new_entry.data2 = list(translation)
+                    new_entry.time =  int(1000 * frame / 30)
+                    self.entries.append(new_entry)
                     
-                    frames = [i for i in range(max(keyframes)+1)]
-
-                    for frame in frames:
-                        context.scene.frame_set(frame)
-                        keyvalues.append(StingrayAnimation.utilityGetSimpleKeyValue(
-                            target, property) * scale)
-                            
-                    # create position entry
-                    for frame_num, value in zip(frames, keyvalues):
-                        if frame_num > length_frames:
-                            length_frames = frame_num
-                        new_entry = AnimationEntry()
-                        new_entry.bone = bone_to_index[target.name]
-                        new_entry.type = 0
-                        new_entry.subtype = 4
-                        new_entry.data2 = value
-                        new_entry.time =  int(1000 * frame_num / 30)
-                        self.entries.append(new_entry)
-                    break
-            
-            rotationQuaternion = [
-                x for x in curves if x[1] == "rotation_quaternion"]
-            
-            quat_vals = {}
-            count = 0
-            for (curve, property, index) in rotationQuaternion:
-                for x in curve.keyframe_points:
-                    if x.co[0] not in quat_vals:
-                        quat_vals[x.co[0]] = []
-                    quat_vals[x.co[0]].append(x.co[1])
-            bpy.ops.object.mode_set(mode="EDIT")
-            b = armature.data.edit_bones[target.name]
-            for frame, quat in quat_vals.items():
-                if frame > length_frames:
-                    length_frames = int(frame)
+                # save rotation
                 new_entry = AnimationEntry()
-                new_entry.bone = bone_to_index[target.name]
+                new_entry.bone = bone_to_index[bone.name]
                 new_entry.type = 0
                 new_entry.subtype = 5
-                value = mathutils.Quaternion(quat)
-                if b.parent is not None:
-                    inv_parent = b.parent.matrix.to_3x3().inverted()
-                    rest_quat = (inv_parent @ b.matrix.to_3x3()).to_quaternion()
-                else:
-                    rest_quat = b.matrix.to_quaternion()
-                value = rest_quat @ value
-                new_entry.data2 = [value.x, value.y, value.z, value.w]
+                new_entry.data2 = [rotation.x, rotation.y, rotation.z, rotation.w]
                 new_entry.time =  int(1000 * frame / 30)
                 self.entries.append(new_entry)
-            
-            bpy.ops.object.mode_set(mode="POSE")
-
             
         self.entries = sorted(self.entries, key=lambda e: e.time)            
         self.animation_length = length_frames / 30
@@ -647,7 +513,6 @@ class StingrayAnimation:
         output_stream = MemoryStream(IOMode="write")
         self.Serialize(output_stream)
         self.file_size = len(output_stream.Data)
-        bpy.data.actions.remove(action)
         
     def utilityClearKeyframePoints(fcurve):
         # if utilityIsVersionAtLeast(4, 0):
