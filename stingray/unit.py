@@ -1599,6 +1599,21 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             else:
                 transform_local = StingrayLocalTransform()
                 transform_info.Transforms[transform_index] = transform_local
+                
+            # matrices in bone_info are the inverted joint matrices (for some reason)
+            for b in bone_info:
+                if transform_index in b.RealIndices:
+                    b_index = b.RealIndices.index(transform_index)
+                    m = bone.matrix.inverted().transposed()
+                    transform_matrix = StingrayMatrix4x4()
+                    transform_matrix.v = [
+                        m[0][0], m[0][1], m[0][2], m[0][3],
+                        m[1][0], m[1][1], m[1][2], m[1][3],
+                        m[2][0], m[2][1], m[2][2], m[2][3],
+                        m[3][0], m[3][1], m[3][2], m[3][3]
+                    ]
+                    b.Bones[b_index] = transform_matrix
+                
         armature_obj.hide_set(was_hidden)
         for obj in prev_objs:
             obj.select_set(True)
