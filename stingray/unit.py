@@ -1283,6 +1283,27 @@ def duplicate(obj, data=True, actions=True, collection=None):
     bpy.context.collection.objects.link(obj_copy)
     return obj_copy
 
+def CheckUVConflicts(mesh, uvlayer):
+    conflicts = {}
+    vert_uvs = {}
+    texCoord = [[0,0] for vert in mesh.vertices]
+    loop_idxs = [0 for vert in mesh.vertices]
+    for face_idx, face in enumerate(mesh.polygons):
+        for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):
+            data = (uvlayer.data[loop_idx].uv[0], uvlayer.data[loop_idx].uv[1]*-1 + 1)
+            if vert_idx not in vert_uvs:
+                vert_uvs[vert_idx] = {}
+            if data not in vert_uvs[vert_idx]:
+                vert_uvs[vert_idx][data] = []
+            vert_uvs[vert_idx][data].append(face_idx)
+    for vert_idx in vert_uvs.keys():
+        if len(vert_uvs[vert_idx]) > 1:
+            conflicts[vert_idx] = True
+    if len(conflicts.keys()) > 0:
+        return conflicts, vert_uvs
+    else:
+        return None, None
+
 def PrepareMesh(og_object):
     object = duplicate(og_object)
     bpy.ops.object.select_all(action='DESELECT')
@@ -1307,7 +1328,7 @@ def PrepareMesh(og_object):
     bmesh.ops.split_edges(bm, edges=boundary_seams)
     # update mesh
     bm.to_mesh(object.data)
-    bm.clear()
+    bm.free()
     # transfer normals
     modifier = object.modifiers.new("EXPORT_NORMAL_TRANSFER", 'DATA_TRANSFER')
     bpy.context.object.modifiers[modifier.name].data_types_loops = {'CUSTOM_NORMAL'}
@@ -1326,6 +1347,52 @@ def PrepareMesh(og_object):
         bpy.ops.object.vertex_group_normalize_all(lock_active=False)
         bpy.ops.object.vertex_group_limit_total(group_select_mode='ALL', limit=4)
     except: pass
+    
+    mesh = object.data
+    mode = bpy.context.object.mode
+    uv_count = 0
+    while True:
+        bpy.context.view_layer.objects.active = object
+        bpy.ops.object.mode_set(mode=mode)
+        bpy.context.view_layer.objects.active = object
+        conflicts, vert_uvs = CheckUVConflicts(mesh, mesh.uv_layers[uv_count])
+        if not conflicts:
+            uv_count += 1
+            if uv_count == len(mesh.uv_layers):
+                break
+            continue
+        vert_idx = list(conflicts.keys())[0]
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action="DESELECT")
+        
+        # new plan: get each group of faces that is on 1 UV, and separate it from the mesh
+        # select all the vertices that ARENT the vertex in question (and their splits) and merge by distance
+        # now we have a new duplicated vertex with less messing around with creating/deleting faces
+        uv_coord = list(vert_uvs[vert_idx].keys())[0]
+        #for j, uv_coord in enumerate(vert_uvs[vert_idx].keys()):
+        faces = vert_uvs[vert_idx][uv_coord]
+        #print(faces)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        for face_idx in faces:
+            face = mesh.polygons[face_idx]
+            face.select = True
+            for v in face.vertices:
+                vert = mesh.vertices[v]
+                vert.select = True
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.split()
+        vert_idcs = [v.index for v in mesh.vertices if v.select]
+        bpy.ops.mesh.select_all(action="DESELECT")
+        bpy.ops.object.mode_set(mode='OBJECT')
+        for i, idx in enumerate(vert_idcs):
+            vert = mesh.vertices[idx]
+            if idx != vert_idx: vert.select = True
+            vert = mesh.vertices[-(i+1)]
+            vert.select = True
+        bpy.ops.object.mode_set(mode='EDIT')
+        # deselect the vert in question
+        # and select the verts made by separating
+        bpy.ops.mesh.remove_doubles(use_unselected=False)
 
     return object
 
@@ -1471,7 +1538,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                     # remap = bone_info[mesh.LodIndex].GetRemappedIndex(real_index)
                     if HDGroupIndex+1 > len(boneIndices):
                         dif = HDGroupIndex+1 - len(boneIndices)
-                        boneIndices.extend([[[0,0,0,0] for n in range(len(vertices))]]*dif)
+                        boneIndices.extend([[[0,0,0,0] for n in range(len(mesh.vertices))]]*dif)
                     boneIndices[HDGroupIndex][vert_idx][group_idx] = HDBoneIndex
                     weights[vert_idx][group_idx] = group.weight
                     group_idx += 1
@@ -1925,3 +1992,4 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
 
         # convert bmesh to mesh
         bm.to_mesh(new_object.data)
+        bm.free()
