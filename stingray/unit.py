@@ -1773,7 +1773,8 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 else:
                     PrettyPrint(f"Creaing New Skeleton")
                     armature = bpy.data.armatures.new(f"{id}_skeleton{mesh.LodIndex}")
-                    armature.display_type = "STICK"
+                    armature.display_type = "OCTAHEDRAL"
+                    armature.show_names = True
                     skeletonObj = bpy.data.objects.new(f"{id}_lod{mesh.LodIndex}_rig", armature)
                     skeletonObj['BonesID'] = str(stingray_unit.BonesRef)
                     skeletonObj.show_in_front = True
@@ -1815,7 +1816,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                         newBone = armature.edit_bones.get(boneName)
                         if newBone is None:
                             newBone = armature.edit_bones.new(boneName)
-                            newBone.tail = 0, 0.0000025, 0
+                            newBone.tail = 0, 0.05, 0
                             doPoseBone[newBone.name] = True
                         else:
                             doPoseBone[newBone.name] = False
@@ -1840,7 +1841,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                         newBone = armature.edit_bones.get(boneName)
                         if newBone is None:
                             newBone = armature.edit_bones.new(boneName)
-                            newBone.tail = 0, 0.0000025, 0
+                            newBone.tail = 0, 0.05, 0
                             doPoseBone[newBone.name] = True
                         else:
                             doPoseBone[newBone.name] = False
