@@ -1601,10 +1601,15 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 transform_info.Transforms[transform_index] = transform_local
                 
             # matrices in bone_info are the inverted joint matrices (for some reason)
+            # and also relative to the mesh transform
+            mesh_info_index = og_object["MeshInfoIndex"]
+            mesh_info = stingray_mesh_entry.MeshInfoArray[mesh_info_index]
+            origin_transform = transform_info.TransformMatrices[mesh_info.TransformIndex].ToLocalTransform()
+            origin_transform_matrix = mathutils.Matrix.LocRotScale(origin_transform.pos, mathutils.Matrix([origin_transform.rot.x, origin_transform.rot.y, origin_transform.rot.z]), origin_transform.scale).inverted()
             for b in bone_info:
                 if transform_index in b.RealIndices:
                     b_index = b.RealIndices.index(transform_index)
-                    m = bone.matrix.inverted().transposed()
+                    m = (origin_transform_matrix @ bone.matrix).inverted().transposed()
                     transform_matrix = StingrayMatrix4x4()
                     transform_matrix.v = [
                         m[0][0], m[0][1], m[0][2], m[0][3],
