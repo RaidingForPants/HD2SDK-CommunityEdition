@@ -2650,9 +2650,13 @@ class BatchSaveStingrayUnitOperator(Operator):
                 entries.append(None)
                 continue
             Entry.Load(True, False, True)
-            if Global_TocManager.IsInPatch(Entry):
-                Global_TocManager.RemoveEntryFromPatch(int(ID), UnitID)
+            dest_id = int(ID)
+            if SwapID and SwapID.isnumeric():
+                dest_id = int(SwapID)
+            if Global_TocManager.ActivePatch.GetEntry(dest_id, UnitID):
+                Global_TocManager.RemoveEntryFromPatch(dest_id, UnitID)
             Entry = Global_TocManager.AddEntryToPatch(int(ID), UnitID)
+            Entry.FileID = dest_id
             entries.append(Entry)
         MeshData = GetObjectsMeshData(Global_TocManager, Global_BoneNames)    
         for i, IDitem in enumerate(IDs):
@@ -2671,12 +2675,7 @@ class BatchSaveStingrayUnitOperator(Operator):
                     errors = True
                     num_meshes -= 1
             wasSaved = Entry.Save(BlenderOpts=BlenderOpts)
-            if wasSaved:
-                if SwapID != "" and SwapID.isnumeric():
-                    self.report({'INFO'}, f"Swapping Entry ID: {Entry.FileID} to: {SwapID}")
-                    Global_TocManager.RemoveEntryFromPatch(int(SwapID), UnitID)
-                    Entry.FileID = int(SwapID)
-            else:
+            if not wasSaved:
                 self.report({"ERROR"}, f"Failed to save unit with ID {ID}.")
                 num_meshes -= len(MeshData[ID])
                 continue

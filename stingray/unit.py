@@ -1462,7 +1462,10 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     # get weights
     vert_idx = 0
     numInfluences = 4
-    stingray_mesh_entry = Global_TocManager.GetEntry(int(og_object["Z_ObjectID"]), int(UnitID), IgnorePatch=False, SearchAll=True)
+    entry_id = int(og_object["Z_ObjectID"])
+    if og_object["Z_SwapID"]:
+        entry_id = int(og_object["Z_SwapID"])
+    stingray_mesh_entry = Global_TocManager.GetEntry(entry_id, int(UnitID), IgnorePatch=False, SearchAll=True)
     if stingray_mesh_entry:
         if not stingray_mesh_entry.IsLoaded: stingray_mesh_entry.Load(True, False)
         stingray_mesh_entry = stingray_mesh_entry.LoadedData
