@@ -138,6 +138,8 @@ class StingrayMeshFile:
                     UnreversedData1_2Size = self.BoneInfoOffset-f.tell()
                 elif self.StreamInfoOffset > 0:
                     UnreversedData1_2Size = self.StreamInfoOffset-f.tell()
+                elif self.MeshInfoOffset > 0:
+                    UnreversedData1_2Size = self.MeshInfoOffset-f.tell()
             else:
                 UnreversedData1_2Size = len(self.UnreversedData1_2)
             f.seek(loc)
@@ -151,6 +153,8 @@ class StingrayMeshFile:
                 UnreversedData1Size = self.BoneInfoOffset-f.tell()
             elif self.StreamInfoOffset > 0:
                 UnreversedData1Size = self.StreamInfoOffset-f.tell()
+            elif self.MeshInfoOffset > 0:
+                UnreversedData1Size = self.MeshInfoOffset-f.tell()
         else: UnreversedData1Size = len(self.UnReversedData1)
         try:
             self.UnReversedData1    = f.bytes(self.UnReversedData1, UnreversedData1Size)
@@ -161,7 +165,6 @@ class StingrayMeshFile:
             f.seek(UnreversedData1_2Start)
             if UnreversedData1_2Size > 0:
                 self.UnreversedData1_2 = f.bytes(self.UnreversedData1_2, UnreversedData1_2Size)
-        
 
         # Bone Info
         if f.IsReading(): f.seek(self.BoneInfoOffset)
