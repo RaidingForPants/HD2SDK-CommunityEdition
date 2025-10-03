@@ -2650,9 +2650,13 @@ class BatchSaveStingrayUnitOperator(Operator):
                 entries.append(None)
                 continue
             Entry.Load(True, False, True)
-            if Global_TocManager.IsInPatch(Entry):
-                Global_TocManager.RemoveEntryFromPatch(int(ID), UnitID)
+            dest_id = int(ID)
+            if SwapID and SwapID.isnumeric():
+                dest_id = int(SwapID)
+            if Global_TocManager.ActivePatch.GetEntry(dest_id, UnitID):
+                Global_TocManager.RemoveEntryFromPatch(dest_id, UnitID)
             Entry = Global_TocManager.AddEntryToPatch(int(ID), UnitID)
+            Entry.FileID = dest_id
             entries.append(Entry)
         MeshData = GetObjectsMeshData(Global_TocManager, Global_BoneNames)    
         for i, IDitem in enumerate(IDs):
@@ -2671,12 +2675,7 @@ class BatchSaveStingrayUnitOperator(Operator):
                     errors = True
                     num_meshes -= 1
             wasSaved = Entry.Save(BlenderOpts=BlenderOpts)
-            if wasSaved:
-                if SwapID != "" and SwapID.isnumeric():
-                    self.report({'INFO'}, f"Swapping Entry ID: {Entry.FileID} to: {SwapID}")
-                    Global_TocManager.RemoveEntryFromPatch(int(SwapID), UnitID)
-                    Entry.FileID = int(SwapID)
-            else:
+            if not wasSaved:
                 self.report({"ERROR"}, f"Failed to save unit with ID {ID}.")
                 num_meshes -= len(MeshData[ID])
                 continue
@@ -3876,7 +3875,7 @@ class Hd2ToolPanelSettings(PropertyGroup):
     Force1Group      : BoolProperty(name="Force 1 Group", description = "Force mesh to only have 1 vertex group", default = True)
     AutoLods         : BoolProperty(name="Auto LODs", description = "Automatically generate LOD entries based on LOD0, does not actually reduce the quality of the mesh", default = True)
     RemoveGoreMeshes : BoolProperty(name="Remove Gore Meshes", description = "Automatically delete all of the verticies with the gore material when loading a model", default = False)
-    SaveBonePositions: BoolProperty(name="Save Bone Positions", description = "Include bone positions in animation (may mess with additive animations being applied)", default = False)
+    SaveBonePositions: BoolProperty(name="Save Animation Bone Positions", description = "Include bone positions in animation (may mess with additive animations being applied)", default = True)
     ImportArmature   : BoolProperty(name="Import Armatures", description = "Import unit armature data", default = True)
     MergeArmatures   : BoolProperty(name="Merge Armatures", description = "Merge new armatures to the selected armature", default = True)
     ParentArmature   : BoolProperty(name="Parent Armatures", description = "Make imported armatures the parent of the imported mesh", default = True)

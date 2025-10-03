@@ -138,6 +138,8 @@ class StingrayMeshFile:
                     UnreversedData1_2Size = self.BoneInfoOffset-f.tell()
                 elif self.StreamInfoOffset > 0:
                     UnreversedData1_2Size = self.StreamInfoOffset-f.tell()
+                elif self.MeshInfoOffset > 0:
+                    UnreversedData1_2Size = self.MeshInfoOffset-f.tell()
             else:
                 UnreversedData1_2Size = len(self.UnreversedData1_2)
             f.seek(loc)
@@ -151,6 +153,8 @@ class StingrayMeshFile:
                 UnreversedData1Size = self.BoneInfoOffset-f.tell()
             elif self.StreamInfoOffset > 0:
                 UnreversedData1Size = self.StreamInfoOffset-f.tell()
+            elif self.MeshInfoOffset > 0:
+                UnreversedData1Size = self.MeshInfoOffset-f.tell()
         else: UnreversedData1Size = len(self.UnReversedData1)
         try:
             self.UnReversedData1    = f.bytes(self.UnReversedData1, UnreversedData1Size)
@@ -161,6 +165,9 @@ class StingrayMeshFile:
             f.seek(UnreversedData1_2Start)
             if UnreversedData1_2Size > 0:
                 self.UnreversedData1_2 = f.bytes(self.UnreversedData1_2, UnreversedData1_2Size)
+                
+        print(UnreversedData1_2Start)
+        print(self.UnreversedData1_2)
         
 
         # Bone Info
@@ -1462,7 +1469,10 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     # get weights
     vert_idx = 0
     numInfluences = 4
-    stingray_mesh_entry = Global_TocManager.GetEntry(int(og_object["Z_ObjectID"]), int(UnitID), IgnorePatch=False, SearchAll=True)
+    entry_id = int(og_object["Z_ObjectID"])
+    if og_object["Z_SwapID"]:
+        entry_id = int(og_object["Z_SwapID"])
+    stingray_mesh_entry = Global_TocManager.GetEntry(entry_id, int(UnitID), IgnorePatch=False, SearchAll=True)
     if stingray_mesh_entry:
         if not stingray_mesh_entry.IsLoaded: stingray_mesh_entry.Load(True, False)
         stingray_mesh_entry = stingray_mesh_entry.LoadedData
@@ -1831,138 +1841,137 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 new_vertex_group = new_object.vertex_groups.new(name=str(bone))
                 
         # -- || ADD BONES || -- #
-        if bpy.context.scene.Hd2ToolPanelSettings.ImportArmature and mesh.LodIndex != -1:
-            b_info = bone_info[mesh.LodIndex]
-            if b_info.NumBones > 0:
-                skeletonObj = None
-                armature = None
-                if len(bpy.context.selected_objects) > 0:
-                    skeletonObj = bpy.context.selected_objects[0]
-                if skeletonObj and skeletonObj.type == 'ARMATURE':
-                    armature = skeletonObj.data
-                if bpy.context.scene.Hd2ToolPanelSettings.MergeArmatures and armature != None:
-                    PrettyPrint(f"Merging to previous skeleton: {skeletonObj.name}")
+        if bpy.context.scene.Hd2ToolPanelSettings.ImportArmature:
+            skeletonObj = None
+            armature = None
+            if len(bpy.context.selected_objects) > 0:
+                skeletonObj = bpy.context.selected_objects[0]
+            if skeletonObj and skeletonObj.type == 'ARMATURE':
+                armature = skeletonObj.data
+            if bpy.context.scene.Hd2ToolPanelSettings.MergeArmatures and armature != None:
+                PrettyPrint(f"Merging to previous skeleton: {skeletonObj.name}")
+            else:
+                PrettyPrint(f"Creating New Skeleton")
+                armature = bpy.data.armatures.new(f"{id}_skeleton{mesh.LodIndex}")
+                armature.display_type = "OCTAHEDRAL"
+                armature.show_names = True
+                skeletonObj = bpy.data.objects.new(f"{id}_lod{mesh.LodIndex}_rig", armature)
+                skeletonObj['BonesID'] = str(stingray_unit.BonesRef)
+                skeletonObj.show_in_front = True
+                
+            if bpy.context.scene.Hd2ToolPanelSettings.MakeCollections:
+                if 'skeletons' not in bpy.data.collections:
+                    collection = bpy.data.collections.new("skeletons")
+                    bpy.context.scene.collection.children.link(collection)
                 else:
-                    PrettyPrint(f"Creaing New Skeleton")
-                    armature = bpy.data.armatures.new(f"{id}_skeleton{mesh.LodIndex}")
-                    armature.display_type = "OCTAHEDRAL"
-                    armature.show_names = True
-                    skeletonObj = bpy.data.objects.new(f"{id}_lod{mesh.LodIndex}_rig", armature)
-                    skeletonObj['BonesID'] = str(stingray_unit.BonesRef)
-                    skeletonObj.show_in_front = True
-                    
-                if bpy.context.scene.Hd2ToolPanelSettings.MakeCollections:
-                    if 'skeletons' not in bpy.data.collections:
-                        collection = bpy.data.collections.new("skeletons")
-                        bpy.context.scene.collection.children.link(collection)
+                    collection = bpy.data.collections['skeletons']
+            else:
+                collection = bpy.context.collection
+
+            try:
+                collection.objects.link(skeletonObj)
+            except Exception as e:
+                PrettyPrint(f"{e}", 'warn')
+
+            #bpy.context.active_object = skeletonObj
+            bpy.context.view_layer.objects.active = skeletonObj
+            bpy.ops.object.mode_set(mode='EDIT')
+            bones = None
+            boneParents = None
+            boneTransforms = {}
+            boneMatrices = {}
+            doPoseBone = {}
+            if mesh.LodIndex in [-1, 0]:
+                bones = [None] * transform_info.NumTransforms
+                boneParents = [0] * transform_info.NumTransforms
+                for i, transform in enumerate(transform_info.TransformEntries):
+                    boneParent = transform.ParentBone
+                    boneHash = transform_info.NameHashes[i]
+                    if boneHash in Global_BoneNames: # name of bone
+                        boneName = Global_BoneNames[boneHash]
                     else:
-                        collection = bpy.data.collections['skeletons']
-                else:
-                    collection = bpy.context.collection
-
-                try:
-                    collection.objects.link(skeletonObj)
-                except Exception as e:
-                    PrettyPrint(f"{e}", 'warn')
-
-                #bpy.context.active_object = skeletonObj
-                bpy.context.view_layer.objects.active = skeletonObj
-                bpy.ops.object.mode_set(mode='EDIT')
-                
+                        boneName = str(boneHash)
+                    newBone = armature.edit_bones.get(boneName)
+                    if newBone is None:
+                        newBone = armature.edit_bones.new(boneName)
+                        newBone.tail = 0, 0.05, 0
+                        doPoseBone[newBone.name] = True
+                    else:
+                        doPoseBone[newBone.name] = False
+                    bones[i] = newBone
+                    boneParents[i] = boneParent
+                    boneTransforms[newBone.name] = transform_info.Transforms[i]
+                    boneMatrices[newBone.name] = transform_info.TransformMatrices[i]
+            else:
+                b_info = bone_info[mesh.LodIndex]
                 bones = [None] * b_info.NumBones
-                boneTransforms = {}
-                boneMatrices = {}
                 boneParents = [0] * b_info.NumBones
-                doPoseBone = {}
-                # create all bones
-                if mesh.LodIndex == 0:
-                    bones = [None] * transform_info.NumTransforms
-                    boneParents = [0] * transform_info.NumTransforms
-                    for i, transform in enumerate(transform_info.TransformEntries):
-                        boneParent = transform.ParentBone
-                        boneHash = transform_info.NameHashes[i]
-                        if boneHash in Global_BoneNames: # name of bone
-                            boneName = Global_BoneNames[boneHash]
-                        else:
-                            boneName = str(boneHash)
-                        newBone = armature.edit_bones.get(boneName)
-                        if newBone is None:
-                            newBone = armature.edit_bones.new(boneName)
-                            newBone.tail = 0, 0.05, 0
-                            doPoseBone[newBone.name] = True
-                        else:
-                            doPoseBone[newBone.name] = False
-                        bones[i] = newBone
-                        boneParents[i] = boneParent
-                        boneTransforms[newBone.name] = transform_info.Transforms[i]
-                        boneMatrices[newBone.name] = transform_info.TransformMatrices[i]
-                else:
-                    for i, bone in enumerate(b_info.Bones): # this is not every bone in the transform_info
-                        boneIndex = b_info.RealIndices[i] # index of bone in transform info
-                        boneParent = transform_info.TransformEntries[boneIndex].ParentBone # index of parent bone in transform info
-                        # index of parent bone in b_info.Bones?
-                        if boneParent in b_info.RealIndices:
-                            boneParentIndex = b_info.RealIndices.index(boneParent)
-                        else:
-                            boneParentIndex = -1
-                        boneHash = transform_info.NameHashes[boneIndex]
-                        if boneHash in Global_BoneNames: # name of bone
-                            boneName = Global_BoneNames[boneHash]
-                        else:
-                            boneName = str(boneHash)
-                        newBone = armature.edit_bones.get(boneName)
-                        if newBone is None:
-                            newBone = armature.edit_bones.new(boneName)
-                            newBone.tail = 0, 0.05, 0
-                            doPoseBone[newBone.name] = True
-                        else:
-                            doPoseBone[newBone.name] = False
-                        bones[i] = newBone
-                        boneTransforms[newBone.name] = transform_info.Transforms[boneIndex]
-                        boneMatrices[newBone.name] = transform_info.TransformMatrices[boneIndex]
-                        boneParents[i] = boneParentIndex
+                for i, bone in enumerate(b_info.Bones): # this is not every bone in the transform_info
+                    boneIndex = b_info.RealIndices[i] # index of bone in transform info
+                    boneParent = transform_info.TransformEntries[boneIndex].ParentBone # index of parent bone in transform info
+                    # index of parent bone in b_info.Bones?
+                    if boneParent in b_info.RealIndices:
+                        boneParentIndex = b_info.RealIndices.index(boneParent)
+                    else:
+                        boneParentIndex = -1
+                    boneHash = transform_info.NameHashes[boneIndex]
+                    if boneHash in Global_BoneNames: # name of bone
+                        boneName = Global_BoneNames[boneHash]
+                    else:
+                        boneName = str(boneHash)
+                    newBone = armature.edit_bones.get(boneName)
+                    if newBone is None:
+                        newBone = armature.edit_bones.new(boneName)
+                        newBone.tail = 0, 0.05, 0
+                        doPoseBone[newBone.name] = True
+                    else:
+                        doPoseBone[newBone.name] = False
+                    bones[i] = newBone
+                    boneTransforms[newBone.name] = transform_info.Transforms[boneIndex]
+                    boneMatrices[newBone.name] = transform_info.TransformMatrices[boneIndex]
+                    boneParents[i] = boneParentIndex
                     
-                # parent all bones
-                for i, bone in enumerate(bones):
-                    if boneParents[i] > -1:
-                        bone.parent = bones[boneParents[i]]
+            # parent all bones
+            for i, bone in enumerate(bones):
+                if boneParents[i] > -1:
+                    bone.parent = bones[boneParents[i]]
+            
+            # pose all bones   
+            bpy.context.view_layer.objects.active = skeletonObj
+            
+            for i, bone in enumerate(armature.edit_bones):
+                try:
+                    if not doPoseBone[bone.name]: continue
+                    a = boneMatrices[bone.name]
+                    mat = mathutils.Matrix.Identity(4)
+                    mat[0] = a.v[0:4]
+                    mat[1] = a.v[4:8]
+                    mat[2] = a.v[8:12]
+                    mat[3] = a.v[12:16]
+                    mat.transpose()
+                    bone.matrix = mat
+                except Exception as e:
+                    PrettyPrint(f"Failed setting bone matricies for: {e}. This may be intended", 'warn')
                 
-                # pose all bones   
-                bpy.context.view_layer.objects.active = skeletonObj
-                
-                for i, bone in enumerate(armature.edit_bones):
-                    try:
-                        if not doPoseBone[bone.name]: continue
-                        a = boneMatrices[bone.name]
-                        mat = mathutils.Matrix.Identity(4)
-                        mat[0] = a.v[0:4]
-                        mat[1] = a.v[4:8]
-                        mat[2] = a.v[8:12]
-                        mat[3] = a.v[12:16]
-                        mat.transpose()
-                        bone.matrix = mat
-                    except Exception as e:
-                        PrettyPrint(f"Failed setting bone matricies for: {e}. This may be intended", 'warn')
-                    
-                bpy.ops.object.mode_set(mode='OBJECT')
-                
-                # assign armature modifier to the mesh object
-                modifier = new_object.modifiers.get("ARMATURE")
-                if (modifier == None):
-                    modifier = new_object.modifiers.new("Armature", "ARMATURE")
-                    modifier.object = skeletonObj
+            bpy.ops.object.mode_set(mode='OBJECT')
+            
+            # assign armature modifier to the mesh object
+            modifier = new_object.modifiers.get("ARMATURE")
+            if (modifier == None):
+                modifier = new_object.modifiers.new("Armature", "ARMATURE")
+                modifier.object = skeletonObj
 
-                if bpy.context.scene.Hd2ToolPanelSettings.ParentArmature:
-                    new_object.parent = skeletonObj
-                
-                # select the armature at the end so we can chain import when merging
-                for obj in bpy.context.selected_objects:
-                    obj.select_set(False)
-                skeletonObj.select_set(True)
-                
-                # create empty animation data if it does not exist
-                if not skeletonObj.animation_data:
-                  skeletonObj.animation_data_create()
+            if bpy.context.scene.Hd2ToolPanelSettings.ParentArmature:
+                new_object.parent = skeletonObj
+            
+            # select the armature at the end so we can chain import when merging
+            for obj in bpy.context.selected_objects:
+                obj.select_set(False)
+            skeletonObj.select_set(True)
+            
+            # create empty animation data if it does not exist
+            if not skeletonObj.animation_data:
+              skeletonObj.animation_data_create()
                 
         # -- || ASSIGN MATERIALS || -- #
         # convert mesh to bmesh
