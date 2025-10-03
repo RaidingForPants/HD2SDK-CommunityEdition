@@ -2651,12 +2651,18 @@ class BatchSaveStingrayUnitOperator(Operator):
                 continue
             Entry.Load(True, False, True)
             dest_id = int(ID)
+            existing_entry = None
             if SwapID and SwapID.isnumeric():
                 dest_id = int(SwapID)
+                existing_entry = Global_TocManager.ActivePatch.GetEntry(int(ID), UnitID)
+                if existing_entry:
+                    existing_entry.FileID = 0
             if Global_TocManager.ActivePatch.GetEntry(dest_id, UnitID):
                 Global_TocManager.RemoveEntryFromPatch(dest_id, UnitID)
             Entry = Global_TocManager.AddEntryToPatch(int(ID), UnitID)
             Entry.FileID = dest_id
+            if existing_entry:
+                existing_entry.FileID = int(ID)
             entries.append(Entry)
         MeshData = GetObjectsMeshData(Global_TocManager, Global_BoneNames)    
         for i, IDitem in enumerate(IDs):
