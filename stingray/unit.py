@@ -1360,7 +1360,6 @@ def PrepareMesh(og_object):
         uv_count = 0
         rolling_conflict_windows = [[0, 0, 0, 0] for _ in range(4)]
         while True:
-            num_loops += 1
             bpy.context.view_layer.objects.active = object
             bpy.ops.object.mode_set(mode=mode)
             bpy.context.view_layer.objects.active = object
