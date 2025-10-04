@@ -1480,11 +1480,11 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     vert_idx = 0
     numInfluences = 4
     entry_id = int(og_object["Z_ObjectID"])
-    try:
-        if og_object["Z_SwapID"]:
-            entry_id = int(og_object["Z_SwapID"])
-    except KeyError:
-        pass
+    if hasattr(og_object, "Z_SwapID"):
+        entry_id = int(og_object["Z_SwapID"])
+        PrettyPrint(f"ID Swapping entry to ID: {entry_id}")
+    else:
+        PrettyPrint(f"Skipping ID swap for object as it has not Z_SwapID property", 'warn')
     stingray_mesh_entry = Global_TocManager.GetEntry(entry_id, int(UnitID), IgnorePatch=False, SearchAll=True)
     if stingray_mesh_entry:
         if not stingray_mesh_entry.IsLoaded: stingray_mesh_entry.Load(True, False)
@@ -1854,7 +1854,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 new_vertex_group = new_object.vertex_groups.new(name=str(bone))
                 
         # -- || ADD BONES || -- #
-        if bpy.context.scene.Hd2ToolPanelSettings.ImportArmature:
+        if bpy.context.scene.Hd2ToolPanelSettings.ImportArmature and not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
             skeletonObj = None
             armature = None
             if len(bpy.context.selected_objects) > 0:
