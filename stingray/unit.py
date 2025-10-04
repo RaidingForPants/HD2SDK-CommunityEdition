@@ -1844,7 +1844,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 new_vertex_group = new_object.vertex_groups.new(name=str(bone))
                 
         # -- || ADD BONES || -- #
-        if bpy.context.scene.Hd2ToolPanelSettings.ImportArmature:
+        if bpy.context.scene.Hd2ToolPanelSettings.ImportArmature and not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
             skeletonObj = None
             armature = None
             if len(bpy.context.selected_objects) > 0:
