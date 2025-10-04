@@ -2652,7 +2652,7 @@ class BatchSaveStingrayUnitOperator(Operator):
             Entry.Load(True, False, True)
             dest_id = int(ID)
             existing_entry = None
-            if SwapID and SwapID.isnumeric():
+            if SwapID and SwapID.isnumeric() and SwapID != ID:
                 dest_id = int(SwapID)
                 existing_entry = Global_TocManager.ActivePatch.GetEntry(int(ID), UnitID)
                 if existing_entry:
