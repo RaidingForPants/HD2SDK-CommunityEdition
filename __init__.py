@@ -2651,12 +2651,18 @@ class BatchSaveStingrayUnitOperator(Operator):
                 continue
             Entry.Load(True, False, True)
             dest_id = int(ID)
-            if SwapID and SwapID.isnumeric():
+            existing_entry = None
+            if SwapID and SwapID.isnumeric() and SwapID != ID:
                 dest_id = int(SwapID)
+                existing_entry = Global_TocManager.ActivePatch.GetEntry(int(ID), UnitID)
+                if existing_entry:
+                    existing_entry.FileID = 0
             if Global_TocManager.ActivePatch.GetEntry(dest_id, UnitID):
                 Global_TocManager.RemoveEntryFromPatch(dest_id, UnitID)
             Entry = Global_TocManager.AddEntryToPatch(int(ID), UnitID)
             Entry.FileID = dest_id
+            if existing_entry:
+                existing_entry.FileID = int(ID)
             entries.append(Entry)
         MeshData = GetObjectsMeshData(Global_TocManager, Global_BoneNames)    
         for i, IDitem in enumerate(IDs):
@@ -3879,6 +3885,7 @@ class Hd2ToolPanelSettings(PropertyGroup):
     ImportArmature   : BoolProperty(name="Import Armatures", description = "Import unit armature data", default = True)
     MergeArmatures   : BoolProperty(name="Merge Armatures", description = "Merge new armatures to the selected armature", default = True)
     ParentArmature   : BoolProperty(name="Parent Armatures", description = "Make imported armatures the parent of the imported mesh", default = True)
+    SplitUVIslands   : BoolProperty(name="Split UV Islands", description = "Attempt to split mesh by UV Islands when saving", default = False)
     # Search
     SearchField      : StringProperty(default = "")
 
@@ -4054,6 +4061,7 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "SaveTexturesWithMaterial")
             row.prop(scene.Hd2ToolPanelSettings, "GenerateRandomTextureIDs")
             row.prop(scene.Hd2ToolPanelSettings, "OnlySaveCustomTextures")
+            row.prop(scene.Hd2ToolPanelSettings, "SplitUVIslands")
             row = mainbox.row(); row.separator(); row.label(text="Other Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "SaveNonSDKMaterials")
             row.prop(scene.Hd2ToolPanelSettings, "SaveUnsavedOnWrite")
