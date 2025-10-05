@@ -1336,6 +1336,8 @@ def PrepareMesh(og_object):
             bpy.ops.uv.seams_from_islands()
         except: PrettyPrint("Failed to create seams from UV islands. This is not fatal, but will likely cause undesirable results in-game", "warn")
 
+    bpy.ops.object.mode_set(mode='OBJECT')
+
     bm = bmesh.new()
     bm.from_mesh(object.data)
 
