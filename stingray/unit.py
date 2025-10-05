@@ -1314,14 +1314,49 @@ def PrepareMesh(og_object):
     object = duplicate(og_object)
     bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = object
-    # split UV seams
-    try:
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.uv.select_all(action='SELECT')
-        bpy.ops.uv.seams_from_islands()
-    except: PrettyPrint("Failed to create seams from UV islands. This is not fatal, but will likely cause undesirable results in-game", "warn")
+    
+    # triangulate
+    modifier = object.modifiers.new("EXPORT_TRIANGULATE", 'TRIANGULATE')
+    bpy.context.object.modifiers[modifier.name].keep_custom_normals = True
+    bpy.ops.object.modifier_apply(modifier=modifier.name)
+    
+    # merge by distance
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.mesh.remove_doubles(use_unselected=False, use_sharp_edge_from_normals=True)
+    
+    # split edges
     bpy.ops.object.mode_set(mode='OBJECT')
+    bm = bmesh.new()
+    bm.from_mesh(object.data)
+    bm.edges.ensure_lookup_table()
+    bm.faces.ensure_lookup_table()
+    mesh = object.data
+    edges_to_split = set()
+    for i in range(len(mesh.uv_layers)):
+        conflicts, vert_uvs = CheckUVConflicts(mesh, mesh.uv_layers[i])
+        if not conflicts: continue
+        print(f"Fixing {len(conflicts.keys())} vertices")
+        for conflicting_vertex in conflicts.keys():
+            uv_coords = vert_uvs[conflicting_vertex]
+            previous_edges = set()
+            for j, uv_coord in enumerate(uv_coords.keys()):
+                current_edges = set()
+                # find all edges shared by faces in different UV coord groups 
+                faces = uv_coords[uv_coord]
+                for face_idx in faces:
+                    face = bm.faces[face_idx]
+                    for edge in face.edges:
+                        if edge.index in previous_edges:
+                            edges_to_split.add(edge)
+                        current_edges.add(edge.index)
+                previous_edges |= current_edges
+    #for edge in edges_to_split:
+    #    edge.seam = True
+    print(f"Splitting {len(edges_to_split)} edges")
+    bmesh.ops.split_edges(bm, edges=list(edges_to_split))
+    bm.to_mesh(object.data)
+    bm.free()
 
     bm = bmesh.new()
     bm.from_mesh(object.data)
@@ -1353,63 +1388,6 @@ def PrepareMesh(og_object):
         bpy.ops.object.vertex_group_normalize_all(lock_active=False)
         bpy.ops.object.vertex_group_limit_total(group_select_mode='ALL', limit=4)
     except: pass
-    
-    if bpy.context.scene.Hd2ToolPanelSettings.SplitUVIslands:
-        mesh = object.data
-        mode = bpy.context.object.mode
-        uv_count = 0
-        rolling_conflict_windows = [[0, 0, 0, 0] for _ in range(4)]
-        while True:
-            bpy.context.view_layer.objects.active = object
-            bpy.ops.object.mode_set(mode=mode)
-            bpy.context.view_layer.objects.active = object
-            conflicts, vert_uvs = CheckUVConflicts(mesh, mesh.uv_layers[uv_count])
-            if not conflicts:
-                rolling_conflict_windows = [[0, 0, 0, 0] for _ in range(4)]
-                uv_count += 1
-                if uv_count == len(mesh.uv_layers):
-                    break
-                continue
-            num_conflicts = len(conflicts.keys())
-            new_conflict_window = rolling_conflict_windows[-1][1:]
-            new_conflict_window.append(num_conflicts)
-            if new_conflict_window in rolling_conflict_windows:
-                PrettyPrint("Unable to complete mesh split by UVs", "WARN")
-                break
-            rolling_conflict_windows = rolling_conflict_windows[1:]
-            rolling_conflict_windows.append(new_conflict_window)
-            vert_idx = list(conflicts.keys())[0]
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.select_all(action="DESELECT")
-            
-            # new plan: get each group of faces that is on 1 UV, and separate it from the mesh
-            # select all the vertices that ARENT the vertex in question (and their splits) and merge by distance
-            # now we have a new duplicated vertex with less messing around with creating/deleting faces
-            uv_coord = list(vert_uvs[vert_idx].keys())[0]
-            #for j, uv_coord in enumerate(vert_uvs[vert_idx].keys()):
-            faces = vert_uvs[vert_idx][uv_coord]
-            #print(faces)
-            bpy.ops.object.mode_set(mode='OBJECT')
-            for face_idx in faces:
-                face = mesh.polygons[face_idx]
-                face.select = True
-                for v in face.vertices:
-                    vert = mesh.vertices[v]
-                    vert.select = True
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.split()
-            vert_idcs = [v.index for v in mesh.vertices if v.select]
-            bpy.ops.mesh.select_all(action="DESELECT")
-            bpy.ops.object.mode_set(mode='OBJECT')
-            for i, idx in enumerate(vert_idcs):
-                vert = mesh.vertices[idx]
-                if idx != vert_idx: vert.select = True
-                vert = mesh.vertices[-(i+1)]
-                vert.select = True
-            bpy.ops.object.mode_set(mode='EDIT')
-            # deselect the vert in question
-            # and select the verts made by separating
-            bpy.ops.mesh.remove_doubles(use_unselected=False)
 
     return object
 

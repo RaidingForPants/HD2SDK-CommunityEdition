@@ -3885,7 +3885,6 @@ class Hd2ToolPanelSettings(PropertyGroup):
     ImportArmature   : BoolProperty(name="Import Armatures", description = "Import unit armature data", default = True)
     MergeArmatures   : BoolProperty(name="Merge Armatures", description = "Merge new armatures to the selected armature", default = True)
     ParentArmature   : BoolProperty(name="Parent Armatures", description = "Make imported armatures the parent of the imported mesh", default = True)
-    SplitUVIslands   : BoolProperty(name="Split UV Islands", description = "Attempt to split mesh by UV Islands when saving", default = False)
     # Search
     SearchField      : StringProperty(default = "")
 
@@ -4061,7 +4060,6 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "SaveTexturesWithMaterial")
             row.prop(scene.Hd2ToolPanelSettings, "GenerateRandomTextureIDs")
             row.prop(scene.Hd2ToolPanelSettings, "OnlySaveCustomTextures")
-            row.prop(scene.Hd2ToolPanelSettings, "SplitUVIslands")
             row = mainbox.row(); row.separator(); row.label(text="Other Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "SaveNonSDKMaterials")
             row.prop(scene.Hd2ToolPanelSettings, "SaveUnsavedOnWrite")
