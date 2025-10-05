@@ -672,7 +672,13 @@ class BoneInfo:
                     r.append(self.RealIndices.index(real_index))
                     self.RemapCounts[i] += 1
                 except ValueError:
-                    PrettyPrint(f"Bone '{bone}' does not exist in LOD bone info, skipping...")
+                    PrettyPrint(f"Bone '{bone}' does not exist in LOD bone info, adding...")
+                    self.RealIndices.append(real_index)
+                    r.append(len(self.RealIndices)-1)
+                    self.RemapCounts[i] += 1
+                    self.NumBones += 1
+                    self.Bones.append(None)
+                    
             self.Remaps.append(r)
             
         for i in range(1, self.NumRemaps):
@@ -1430,9 +1436,6 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 texCoord[vert_idx] = [uvlayer.data[loop_idx].uv[0], uvlayer.data[loop_idx].uv[1]*-1 + 1]
         uvs.append(texCoord)
 
-    # get weights
-    vert_idx = 0
-    numInfluences = 4
     entry_id = int(og_object["Z_ObjectID"])
     try:
         if og_object["Z_SwapID"]:
@@ -1449,83 +1452,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     transform_info = stingray_mesh_entry.TransformInfo
     lod_index = og_object["BoneInfoIndex"]
     bone_names = []
-    if not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
-        if len(object.vertex_groups) > 0:
-            for g in object.vertex_groups:
-                bone_names.append(g.name)
-            remap_info = [bone_names for _ in range(len(object.material_slots))]
-            bone_info[lod_index].SetRemap(remap_info, transform_info)
         
-        vertex_to_material_index = [5000 for _ in range(len(mesh.vertices))]
-        for polygon in mesh.polygons:
-            for vertex in polygon.vertices:
-                vertex_to_material_index[vertex] = polygon.material_index
-    
-    if len(object.vertex_groups) > 0:
-        for index, vertex in enumerate(mesh.vertices):
-            group_idx = 0
-            for group in vertex.groups:
-                # limit influences
-                if group_idx >= numInfluences:
-                    break
-                if group.weight > 0.001:
-                    vertex_group        = object.vertex_groups[group.group]
-                    vertex_group_name   = vertex_group.name
-                    
-                    #
-                    # CHANGE THIS TO SUPPORT THE NEW BONE NAMES
-                    # HOW TO ACCESS transform_info OF STINGRAY MESH??
-                    if bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
-                        parts               = vertex_group_name.split("_")
-                        HDGroupIndex        = int(parts[0])
-                        HDBoneIndex         = int(parts[1])
-                    else:
-                        material_idx = vertex_to_material_index[index]
-                        try:
-                            name_hash = int(vertex_group_name)
-                        except ValueError:
-                            name_hash = murmur32_hash(vertex_group_name.encode("utf-8"))
-                        HDGroupIndex = 0
-                        try:
-                            real_index = transform_info.NameHashes.index(name_hash)
-                        except ValueError:
-                            existing_names = []
-                            for i, h in enumerate(transform_info.NameHashes):
-                                try:
-                                    if i in bone_info[lod_index].RealIndices:
-                                        existing_names.append(Global_BoneNames[h])
-                                except KeyError:
-                                    existing_names.append(str(h))
-                                except IndexError:
-                                    pass
-                            if object:
-                                PrettyPrint(f"Deleting object early and exiting weight painting mode...", 'error')
-                                bpy.ops.object.mode_set(mode='OBJECT')
-                                bpy.data.objects.remove(object, do_unlink=True)
-                            raise Exception(f"\n\nVertex Group: {vertex_group_name} is not a valid vertex group for the model.\nIf you are using legacy weight names, make sure you enable the option in the settings.\n\nValid vertex group names: {existing_names}")
-                        try:
-                            HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
-                        except (ValueError, IndexError): # bone index not in remap because the bone is not in the LOD bone data
-                            continue
-                            
-                    # get real index from remapped index -> hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index); boneHash = transform_info.NameHashes[hashIndex]
-                    # want to get remapped index from bone name
-                    # hash = ...
-                    # real_index = transform_info.NameHashes.index(hash)
-                    # remap = bone_info[mesh.LodIndex].GetRemappedIndex(real_index)
-                    if HDGroupIndex+1 > len(boneIndices):
-                        dif = HDGroupIndex+1 - len(boneIndices)
-                        boneIndices.extend([[[0,0,0,0] for n in range(len(mesh.vertices))]]*dif)
-                    boneIndices[HDGroupIndex][vert_idx][group_idx] = HDBoneIndex
-                    weights[vert_idx][group_idx] = group.weight
-                    group_idx += 1
-            vert_idx += 1
-    else:
-        boneIndices = []
-        weights     = []
-        
-    #bpy.ops.object.mode_set(mode='POSE')
-    # check option for saving bones
     # get armature object
     prev_obj = bpy.context.view_layer.objects.active
     prev_objs = bpy.context.selected_objects
@@ -1599,7 +1526,97 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                     transform_info.TransformEntries[transform_index].ParentBone = parent_transform_index
                 except ValueError:
                     PrettyPrint(f"Failed to parent bone: {bone.name}.", 'warn')
-                
+    
+    # get weights
+    vert_idx = 0
+    numInfluences = 4                
+    if not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
+        if len(object.vertex_groups) > 0:
+            for g in object.vertex_groups:
+                bone_names.append(g.name)
+            remap_info = [bone_names for _ in range(len(object.material_slots))]
+            bone_info[lod_index].SetRemap(remap_info, transform_info)
+        
+        vertex_to_material_index = [5000 for _ in range(len(mesh.vertices))]
+        for polygon in mesh.polygons:
+            for vertex in polygon.vertices:
+                vertex_to_material_index[vertex] = polygon.material_index
+    
+    if len(object.vertex_groups) > 0:
+        for vert_idx, vertex in enumerate(mesh.vertices):
+            for group_idx, group in enumerate(vertex.groups):
+                # limit influences
+                if group_idx >= numInfluences:
+                    break
+                if group.weight > 0.001:
+                    vertex_group        = object.vertex_groups[group.group]
+                    vertex_group_name   = vertex_group.name
+                    
+                    #
+                    # CHANGE THIS TO SUPPORT THE NEW BONE NAMES
+                    # HOW TO ACCESS transform_info OF STINGRAY MESH??
+                    if bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
+                        parts               = vertex_group_name.split("_")
+                        HDGroupIndex        = int(parts[0])
+                        HDBoneIndex         = int(parts[1])
+                    else:
+                        material_idx = vertex_to_material_index[vert_idx]
+                        try:
+                            name_hash = int(vertex_group_name)
+                        except ValueError:
+                            name_hash = murmur32_hash(vertex_group_name.encode("utf-8"))
+                        HDGroupIndex = 0
+                        try:
+                            real_index = transform_info.NameHashes.index(name_hash)
+                        except ValueError:
+                            existing_names = []
+                            for i, h in enumerate(transform_info.NameHashes):
+                                try:
+                                    if i in bone_info[lod_index].RealIndices:
+                                        existing_names.append(Global_BoneNames[h])
+                                except KeyError:
+                                    existing_names.append(str(h))
+                                except IndexError:
+                                    pass
+                            if object:
+                                PrettyPrint(f"Deleting object early and exiting weight painting mode...", 'error')
+                                bpy.ops.object.mode_set(mode='OBJECT')
+                                bpy.data.objects.remove(object, do_unlink=True)
+                            raise Exception(f"\n\nVertex Group: {vertex_group_name} is not a valid vertex group for the model.\nIf you are using legacy weight names, make sure you enable the option in the settings.\n\nValid vertex group names: {existing_names}")
+                        try:
+                            HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
+                        except (ValueError, IndexError): # bone index not in remap because the bone is not in the LOD bone data
+                            continue
+                            
+                    # get real index from remapped index -> hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index); boneHash = transform_info.NameHashes[hashIndex]
+                    # want to get remapped index from bone name
+                    # hash = ...
+                    # real_index = transform_info.NameHashes.index(hash)
+                    # remap = bone_info[mesh.LodIndex].GetRemappedIndex(real_index)
+                    if HDGroupIndex+1 > len(boneIndices):
+                        dif = HDGroupIndex+1 - len(boneIndices)
+                        boneIndices.extend([[[0,0,0,0] for n in range(len(mesh.vertices))]]*dif)
+                    boneIndices[HDGroupIndex][vert_idx][group_idx] = HDBoneIndex
+                    weights[vert_idx][group_idx] = group.weight
+    else:
+        boneIndices = []
+        weights     = []
+
+    
+    # set bone matrices in bone index mappings
+    if armature_obj is not None:
+        bpy.context.view_layer.objects.active = armature_obj
+        bpy.ops.object.mode_set(mode='EDIT')
+        for bone in armature_obj.data.edit_bones: # I'd like to use edit bones but it doesn't work for some reason
+            PrettyPrint(bone.name)
+            try:
+                name_hash = int(bone.name)
+            except ValueError:
+                name_hash = murmur32_hash(bone.name.encode("utf-8"))
+            try:
+                transform_index = transform_info.NameHashes.index(name_hash)
+            except ValueError:
+                continue
             # matrices in bone_info are the inverted joint matrices (for some reason)
             # and also relative to the mesh transform
             mesh_info_index = og_object["MeshInfoIndex"]
@@ -1618,12 +1635,13 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                         m[3][0], m[3][1], m[3][2], m[3][3]
                     ]
                     b.Bones[b_index] = transform_matrix
-                
+
         armature_obj.hide_set(was_hidden)
         for obj in prev_objs:
             obj.select_set(True)
         bpy.context.view_layer.objects.active = prev_obj
-        bpy.ops.object.mode_set(mode=prev_mode)
+        bpy.ops.object.mode_set(mode=prev_mode)       
+        
     #bpy.ops.object.mode_set(mode='OBJECT')
     # get faces
     temp_faces = [[] for n in range(len(object.material_slots))]
