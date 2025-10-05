@@ -4213,10 +4213,14 @@ class HellDivers2ToolsPanel(Panel):
                 # Draw Type Header
                 typeName = GetTypeNameFromID(Type.TypeID)
                 panel_header.label(text=f"{typeName}: {Type.TypeID}")
-                panel_header.operator("helldiver2.select_type", icon='RESTRICT_SELECT_OFF', text="").object_typeid = str(Type.TypeID)
-                if typeName == "material": panel_header.operator("helldiver2.material_add", icon='FILE_NEW', text="")
+                if panel_body:
+                    panel_header.operator("helldiver2.select_type", icon='RESTRICT_SELECT_OFF', text="").object_typeid = str(Type.TypeID)
+                    if typeName == "material": panel_header.operator("helldiver2.material_add", icon='FILE_NEW', text="")
+                else:
+                    panel_header.label(icon=type_icon)
                 # Draw Type Body
-                panel_body.template_list("MY_UL_List", f"list_{Type.TypeID}", scene, f"list_{Type.TypeID}", scene, f"index_{Type.TypeID}", rows=10)
+                if panel_body:
+                    panel_body.template_list("MY_UL_List", f"list_{Type.TypeID}", scene, f"list_{Type.TypeID}", scene, f"index_{Type.TypeID}", rows=10)
         if scene.Hd2ToolPanelSettings.FriendlyNames:  
             Global_TocManager.SavedFriendlyNames = NewFriendlyNames
             Global_TocManager.SavedFriendlyNameIDs = NewFriendlyIDs
