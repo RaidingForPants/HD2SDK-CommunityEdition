@@ -1320,43 +1320,21 @@ def PrepareMesh(og_object):
     bpy.context.object.modifiers[modifier.name].keep_custom_normals = True
     bpy.ops.object.modifier_apply(modifier=modifier.name)
     
-    # merge by distance
-    bpy.ops.object.mode_set(mode='EDIT')
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.mesh.remove_doubles(use_unselected=False, use_sharp_edge_from_normals=True)
-    
-    # split edges
-    bpy.ops.object.mode_set(mode='OBJECT')
-    bm = bmesh.new()
-    bm.from_mesh(object.data)
-    bm.edges.ensure_lookup_table()
-    bm.faces.ensure_lookup_table()
+    if bpy.context.scene.Hd2ToolPanelSettings.SplitUVIslands:
+        # merge by distance
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action="SELECT")
+        bpy.ops.mesh.remove_doubles(use_unselected=False, use_sharp_edge_from_normals=True)
+        
     mesh = object.data
-    edges_to_split = set()
-    for i in range(len(mesh.uv_layers)):
-        conflicts, vert_uvs = CheckUVConflicts(mesh, mesh.uv_layers[i])
-        if not conflicts: continue
-        print(f"Fixing {len(conflicts.keys())} vertices")
-        for conflicting_vertex in conflicts.keys():
-            uv_coords = vert_uvs[conflicting_vertex]
-            previous_edges = set()
-            for j, uv_coord in enumerate(uv_coords.keys()):
-                current_edges = set()
-                # find all edges shared by faces in different UV coord groups 
-                faces = uv_coords[uv_coord]
-                for face_idx in faces:
-                    face = bm.faces[face_idx]
-                    for edge in face.edges:
-                        if edge.index in previous_edges:
-                            edges_to_split.add(edge)
-                        current_edges.add(edge.index)
-                previous_edges |= current_edges
-    #for edge in edges_to_split:
-    #    edge.seam = True
-    print(f"Splitting {len(edges_to_split)} edges")
-    bmesh.ops.split_edges(bm, edges=list(edges_to_split))
-    bm.to_mesh(object.data)
-    bm.free()
+    bpy.ops.object.mode_set(mode='EDIT')
+    for uv_layer in mesh.uv_layers:
+        mesh.uv_layers.active = uv_layer
+        try:
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.uv.select_all(action='SELECT')
+            bpy.ops.uv.seams_from_islands()
+        except: PrettyPrint("Failed to create seams from UV islands. This is not fatal, but will likely cause undesirable results in-game", "warn")
 
     bm = bmesh.new()
     bm.from_mesh(object.data)
@@ -1376,10 +1354,6 @@ def PrepareMesh(og_object):
     bpy.context.object.modifiers[modifier.name].object = og_object
     bpy.context.object.modifiers[modifier.name].use_loop_data = True
     bpy.context.object.modifiers[modifier.name].loop_mapping = 'TOPOLOGY'
-    bpy.ops.object.modifier_apply(modifier=modifier.name)
-    # triangulate
-    modifier = object.modifiers.new("EXPORT_TRIANGULATE", 'TRIANGULATE')
-    bpy.context.object.modifiers[modifier.name].keep_custom_normals = True
     bpy.ops.object.modifier_apply(modifier=modifier.name)
 
     # adjust weights
