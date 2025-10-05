@@ -1549,9 +1549,18 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             try:
                 transform_index = transform_info.NameHashes.index(name_hash)
             except ValueError:
-                PrettyPrint(f"Failed to write data for bone: {bone.name}. This may be intended", 'warn')
-                continue
-                
+                # bone doesn't exist, add bone
+                transform_info.NameHashes.append(name_hash)
+                transform_info.TransformMatrices.append(None)
+                transform_info.Transforms.append(None)
+                l = StingrayLocalTransform()
+                l.Incriment = 1
+                l.ParentBone = 0
+                transform_info.TransformEntries.append(l)
+                transform_info.NumTransforms += 1
+                transform_index = len(transform_info.NameHashes) - 1
+            
+            # set bone matrix
             m = bone.matrix.transposed()
             transform_matrix = StingrayMatrix4x4()
             transform_matrix.v = [
@@ -1560,6 +1569,8 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 m[2][0], m[2][1], m[2][2], m[2][3],
                 m[3][0], m[3][1], m[3][2], m[3][3]
             ]
+            
+            # set bone local transform
             transform_info.TransformMatrices[transform_index] = transform_matrix
             if bone.parent:
                 parent_matrix = bone.parent.matrix
@@ -1576,6 +1587,18 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             else:
                 transform_local = StingrayLocalTransform()
                 transform_info.Transforms[transform_index] = transform_local
+                
+            # set bone parent
+            if bone.parent:
+                try:
+                    parent_name_hash = int(bone.parent.name)
+                except ValueError:
+                    parent_name_hash = murmur32_hash(bone.parent.name.encode("utf-8"))
+                try:
+                    parent_transform_index = transform_info.NameHashes.index(parent_name_hash)
+                    transform_info.TransformEntries[transform_index].ParentBone = parent_transform_index
+                except ValueError:
+                    PrettyPrint(f"Failed to parent bone: {bone.name}.", 'warn')
                 
             # matrices in bone_info are the inverted joint matrices (for some reason)
             # and also relative to the mesh transform
