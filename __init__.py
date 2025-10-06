@@ -3773,6 +3773,32 @@ class EntrySectionOperator(Operator):
 
 #region Menus and Panels
 
+def LoadEntryLists():
+    archive = Global_TocManager.ActiveArchive
+    patch = Global_TocManager.ActivePatch
+    for t in Global_TypeIDs:
+        getattr(bpy.context.scene, f"list_{t}").clear()
+    print(bpy.context.scene.Hd2ToolPanelSettings.PatchOnly)
+    if archive and not bpy.context.scene.Hd2ToolPanelSettings.PatchOnly:
+        for Entry in archive.TocEntries:
+            try:
+                l = getattr(bpy.context.scene, f"list_{Entry.TypeID}")
+            except AttributeError:
+                continue
+            new_item = l.add()
+            new_item.item_name = str(Entry.FileID)
+            new_item.item_type = str(Entry.TypeID)
+    if patch:
+        for Entry in patch.TocEntries:
+            if bpy.context.scene.Hd2ToolPanelSettings.PatchOnly or not Global_TocManager.ActiveArchive.GetEntry(Entry.FileID, Entry.TypeID):
+                try:
+                    l = getattr(bpy.context.scene, f"list_{Entry.TypeID}")
+                except AttributeError:
+                    continue
+                new_item = l.add()
+                new_item.item_name = str(Entry.FileID)
+                new_item.item_type = str(Entry.TypeID)
+
 def LoadedArchives_callback(scene, context):
     return [(Archive.Name, GetArchiveNameFromID(Archive.Name) if GetArchiveNameFromID(Archive.Name) != "" else Archive.Name, Archive.Name) for Archive in Global_TocManager.LoadedArchives]
 
@@ -3785,10 +3811,13 @@ def ChangeLoadedArchive(self, context):
 def ChangeActivePatch(self, context):
     Global_TocManager.SetActivePatchByName(self.Patches)
 
+def ChangePatchOnly(self, context):
+    LoadEntryLists()
+
 class Hd2ToolPanelSettings(PropertyGroup):
     # Patches
     Patches   : EnumProperty(name="Patches", items=Patches_callback, update=ChangeActivePatch)
-    PatchOnly : BoolProperty(name="Show Patch Entries Only", description = "Filter list to entries present in current patch", default = False)
+    PatchOnly : BoolProperty(name="Show Patch Entries Only", description = "Filter list to entries present in current patch", default = False, update=ChangePatchOnly)
     # Archive
     ContentsExpanded : BoolProperty(default = True)
     LoadedArchives   : EnumProperty(name="LoadedArchives", items=LoadedArchives_callback, update=ChangeLoadedArchive)
@@ -3839,30 +3868,6 @@ class Hd2ToolPanelSettings(PropertyGroup):
         dict["Force1Group"] = self.Force1Group
         dict["AutoLods"] = self.AutoLods
         return dict
-
-def LoadEntryLists():
-    archive = Global_TocManager.ActiveArchive
-    patch = Global_TocManager.ActivePatch
-    for t in Global_TypeIDs:
-        getattr(bpy.context.scene, f"list_{t}").clear()
-    if archive:
-        for Entry in archive.TocEntries:
-            try:
-                l = getattr(bpy.context.scene, f"list_{Entry.TypeID}")
-            except AttributeError:
-                continue
-            new_item = l.add()
-            new_item.item_name = str(Entry.FileID)
-            new_item.item_type = str(Entry.TypeID)
-    if patch:
-        for Entry in patch.TocEntries:
-            try:
-                l = getattr(bpy.context.scene, f"list_{Entry.TypeID}")
-            except AttributeError:
-                continue
-            new_item = l.add()
-            new_item.item_name = str(Entry.FileID)
-            new_item.item_type = str(Entry.TypeID)
         
 class ListItem(PropertyGroup):
     
@@ -3884,19 +3889,7 @@ class MY_UL_List(UIList):
         row = layout.row(align=True)
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             entry_type = int(item.item_type)
-            if entry_type == MeshID: type_icon = 'FILE_3D'
-            elif entry_type == TexID: type_icon = 'FILE_IMAGE'
-            elif entry_type == MaterialID: type_icon = 'MATERIAL' 
-            elif entry_type == ParticleID: type_icon = 'PARTICLES'
-            elif entry_type == AnimationID: type_icon = 'ARMATURE_DATA'
-            elif entry_type == BoneID: type_icon = 'BONE_DATA'
-            elif entry_type == WwiseBankID:  type_icon = 'OUTLINER_DATA_SPEAKER'
-            elif entry_type == WwiseDepID: type_icon = 'OUTLINER_DATA_SPEAKER'
-            elif entry_type == WwiseStreamID:  type_icon = 'OUTLINER_DATA_SPEAKER'
-            elif entry_type == WwiseMetaDataID: type_icon = 'OUTLINER_DATA_SPEAKER'
-            elif entry_type == StateMachineID: type_icon = 'DRIVER'
-            elif entry_type == StringID: type_icon = 'WORDWRAP_ON'
-            elif entry_type == PhysicsID: type_icon = 'PHYSICS'
+            type_icon = Global_IconDict[entry_type]
             friendly_name = GetFriendlyNameFromID(int(item.item_name))
             row.label(text=friendly_name, icon = type_icon)
             if entry_type == MeshID:
@@ -3962,44 +3955,43 @@ class HellDivers2ToolsPanel(Panel):
     def draw_material_editor(self, Entry, layout, row):
         if Entry.IsLoaded:
             mat = Entry.LoadedData
-            if mat.DEV_ShowEditor:
-                for i, t in enumerate(mat.TexIDs):
-                    row = layout.row(); row.separator(factor=2.0)
-                    ddsPath = mat.DEV_DDSPaths[i]
-                    if ddsPath != None: filepath = Path(ddsPath)
-                    label = filepath.name if ddsPath != None else str(t)
-                    if Entry.MaterialTemplate != None:
-                        label = TextureTypeLookup[Entry.MaterialTemplate][i] + ": " + label
-                    material_texture_entry = row.operator("helldiver2.material_texture_entry", icon='FILE_IMAGE', text=label, emboss=False)
-                    material_texture_entry.object_id = str(t)
-                    material_texture_entry.texture_index = str(i)
-                    material_texture_entry.material_id = str(Entry.FileID)
-                    # props = row.operator("helldiver2.material_settex", icon='FILEBROWSER', text="")
-                    # props.object_id = str(Entry.FileID)
-                    # props.tex_idx = i
-                for i, variable in enumerate(mat.ShaderVariables):
-                    row = layout.row(); row.separator(factor=2.0)
-                    split = row.split(factor=0.5)
-                    row = split.column()
-                    row.alignment = 'RIGHT'
-                    name = variable.ID
-                    if variable.name != "": name = variable.name
-                    row.label(text=f"{variable.klassName}: {name}", icon='OPTIONS')
-                    row = split.column()
-                    row.alignment = 'LEFT'
-                    sections = len(variable.values)
-                    if sections == 3: sections = 4 # add an extra for the color picker
-                    row = row.split(factor=1/sections)
-                    for j, value in enumerate(variable.values):
-                        ShaderVariable = row.operator("helldiver2.material_shader_variable", text=str(round(value, 2)))
-                        ShaderVariable.value = value
-                        ShaderVariable.object_id = str(Entry.FileID)
-                        ShaderVariable.variable_index = i
-                        ShaderVariable.value_index = j
-                    if len(variable.values) == 3:
-                        ColorPicker = row.operator("helldiver2.material_shader_variable_color", text="", icon='EYEDROPPER')
-                        ColorPicker.object_id = str(Entry.FileID)
-                        ColorPicker.variable_index = i
+            for i, t in enumerate(mat.TexIDs):
+                row = layout.row(); row.separator(factor=2.0)
+                ddsPath = mat.DEV_DDSPaths[i]
+                if ddsPath != None: filepath = Path(ddsPath)
+                label = filepath.name if ddsPath != None else str(t)
+                if Entry.MaterialTemplate != None:
+                    label = TextureTypeLookup[Entry.MaterialTemplate][i] + ": " + label
+                material_texture_entry = row.operator("helldiver2.material_texture_entry", icon='FILE_IMAGE', text=label, emboss=False)
+                material_texture_entry.object_id = str(t)
+                material_texture_entry.texture_index = str(i)
+                material_texture_entry.material_id = str(Entry.FileID)
+                # props = row.operator("helldiver2.material_settex", icon='FILEBROWSER', text="")
+                # props.object_id = str(Entry.FileID)
+                # props.tex_idx = i
+            for i, variable in enumerate(mat.ShaderVariables):
+                row = layout.row(); row.separator(factor=2.0)
+                split = row.split(factor=0.5)
+                row = split.column()
+                row.alignment = 'RIGHT'
+                name = variable.ID
+                if variable.name != "": name = variable.name
+                row.label(text=f"{variable.klassName}: {name}", icon='OPTIONS')
+                row = split.column()
+                row.alignment = 'LEFT'
+                sections = len(variable.values)
+                if sections == 3: sections = 4 # add an extra for the color picker
+                row = row.split(factor=1/sections)
+                for j, value in enumerate(variable.values):
+                    ShaderVariable = row.operator("helldiver2.material_shader_variable", text=str(round(value, 2)))
+                    ShaderVariable.value = value
+                    ShaderVariable.object_id = str(Entry.FileID)
+                    ShaderVariable.variable_index = i
+                    ShaderVariable.value_index = j
+                if len(variable.values) == 3:
+                    ColorPicker = row.operator("helldiver2.material_shader_variable_color", text="", icon='EYEDROPPER')
+                    ColorPicker.object_id = str(Entry.FileID)
+                    ColorPicker.variable_index = i
 
     def draw(self, context):
         layout = self.layout
@@ -4147,7 +4139,9 @@ class HellDivers2ToolsPanel(Panel):
         row.operator("helldiver2.archive_import", icon= 'FILEBROWSER', text="").is_patch = True
 
         # Draw Archive Contents
-        row = layout.row(); row = layout.row()
+        
+        contents_header, contents_panel = layout.panel("hd2_panel_archive_contents", default_closed=False)
+        
         title = "No Archive Loaded"
         if Global_TocManager.ActiveArchive != None:
             ArchiveID = Global_TocManager.ActiveArchive.Name
@@ -4156,12 +4150,18 @@ class HellDivers2ToolsPanel(Panel):
         if Global_TocManager.ActivePatch != None and scene.Hd2ToolPanelSettings.PatchOnly:
             name = Global_TocManager.ActivePatch.Name
             title = f"Patch: {name}    File: {Global_TocManager.ActivePatch.Name}"
-        row.prop(scene.Hd2ToolPanelSettings, "ContentsExpanded",
-            icon="DOWNARROW_HLT" if scene.Hd2ToolPanelSettings.ContentsExpanded else "RIGHTARROW",
-            icon_only=True, emboss=False, text=title)
-        row.prop(scene.Hd2ToolPanelSettings, "PatchOnly", text="")
-        row.operator("helldiver2.copy_archive_id", icon='COPY_ID', text="")
-        row.operator("helldiver2.archive_object_dump_import_by_id", icon='PACKAGE', text="")
+            
+        contents_header.label(text=title)
+        #row.prop(scene.Hd2ToolPanelSettings, "ContentsExpanded",
+        #    icon="DOWNARROW_HLT" if scene.Hd2ToolPanelSettings.ContentsExpanded else "RIGHTARROW",
+        #    icon_only=True, emboss=False, text=title)
+        contents_header.prop(scene.Hd2ToolPanelSettings, "PatchOnly", text="")
+        contents_header.operator("helldiver2.copy_archive_id", icon='COPY_ID', text="")
+        contents_header.operator("helldiver2.archive_object_dump_import_by_id", icon='PACKAGE', text="")
+        
+        if not contents_panel:
+            return
+        #layout = contents_panel
 
 
         # Get Display Data
@@ -4172,55 +4172,54 @@ class HellDivers2ToolsPanel(Panel):
         # Draw Contents
         NewFriendlyNames = []
         NewFriendlyIDs = []
-        if scene.Hd2ToolPanelSettings.ContentsExpanded:
-            if len(DisplayTocEntries) == 0: return
+        if len(DisplayTocEntries) == 0: return
 
-            # Draw Search Bar
-            row = layout.row(); row = layout.row()
-            row.prop(scene.Hd2ToolPanelSettings, "SearchField", icon='VIEWZOOM', text="")
+        # Draw Search Bar
+        row = contents_panel.row(); #row = layout.row()
+        row.prop(scene.Hd2ToolPanelSettings, "SearchField", icon='VIEWZOOM', text="")
 
-            DrawChain = []
-            for Type in DisplayTocTypes:
-                # Get Type Icon
-                type_icon = 'FILE'
-                showExtras = scene.Hd2ToolPanelSettings.ShowExtras
-                global Global_Foldouts
-                if Type.TypeID == MeshID:
-                    type_icon = 'FILE_3D'
-                elif Type.TypeID == TexID:
-                    type_icon = 'FILE_IMAGE'
-                elif Type.TypeID == MaterialID:
-                    type_icon = 'MATERIAL' 
-                elif Type.TypeID == ParticleID:
-                    type_icon = 'PARTICLES'
-                elif Type.TypeID == AnimationID: 
-                    type_icon = 'ARMATURE_DATA'
-                elif showExtras:
-                    if Type.TypeID == BoneID: type_icon = 'BONE_DATA'
-                    elif Type.TypeID == WwiseBankID:  type_icon = 'OUTLINER_DATA_SPEAKER'
-                    elif Type.TypeID == WwiseDepID: type_icon = 'OUTLINER_DATA_SPEAKER'
-                    elif Type.TypeID == WwiseStreamID:  type_icon = 'OUTLINER_DATA_SPEAKER'
-                    elif Type.TypeID == WwiseMetaDataID: type_icon = 'OUTLINER_DATA_SPEAKER'
-                    elif Type.TypeID == StateMachineID: type_icon = 'DRIVER'
-                    elif Type.TypeID == StringID: type_icon = 'WORDWRAP_ON'
-                    elif Type.TypeID == PhysicsID: type_icon = 'PHYSICS'
-                else:
-                    continue
-                
-                
-                closed = Type.TypeID not in [MaterialID, TexID, MeshID]
-                panel_header, panel_body = self.layout.panel(f"hd2_panel_{Type.TypeID}", default_closed=closed)
-                # Draw Type Header
-                typeName = GetTypeNameFromID(Type.TypeID)
-                panel_header.label(text=f"{typeName}: {Type.TypeID}")
-                if panel_body:
-                    panel_header.operator("helldiver2.select_type", icon='RESTRICT_SELECT_OFF', text="").object_typeid = str(Type.TypeID)
-                    if typeName == "material": panel_header.operator("helldiver2.material_add", icon='FILE_NEW', text="")
-                else:
-                    panel_header.label(icon=type_icon)
-                # Draw Type Body
-                if panel_body:
-                    panel_body.template_list("MY_UL_List", f"list_{Type.TypeID}", scene, f"list_{Type.TypeID}", scene, f"index_{Type.TypeID}", rows=10)
+        for Type in sorted(DisplayTocTypes, key=lambda e: e.TypeID):
+            # Get Type Icon
+            type_icon = 'FILE'
+            showExtras = scene.Hd2ToolPanelSettings.ShowExtras
+            global Global_Foldouts
+            if not showExtras and Type.TypeID in [BoneID, WwiseBankID, WwiseDepID, WwiseStreamID, WwiseMetaDataID, StateMachineID, StringID, PhysicsID]:
+                continue
+            try:
+                type_icon = Global_IconDict[Type.TypeID]
+            except KeyError:
+                continue
+            
+            closed = Type.TypeID not in [MaterialID, TexID, MeshID]
+            panel_header, panel_body = layout.panel(f"hd2_panel_{Type.TypeID}", default_closed=closed)
+            # Draw Type Header
+            typeName = GetTypeNameFromID(Type.TypeID)
+            panel_header.label(text=f"{typeName}: {Type.TypeID}")
+            if panel_body:
+                panel_header.operator("helldiver2.select_type", icon='RESTRICT_SELECT_OFF', text="").object_typeid = str(Type.TypeID)
+                if typeName == "material": panel_header.operator("helldiver2.material_add", icon='FILE_NEW', text="")
+            else:
+                panel_header.label(icon=type_icon)
+            # Draw Type Body
+            if panel_body:
+                panel_body.template_list("MY_UL_List", f"list_{Type.TypeID}", scene, f"list_{Type.TypeID}", scene, f"index_{Type.TypeID}", rows=10)
+                if Type.TypeID == MaterialID:
+                    # draw material editor
+                    material_editor_header, material_editor_panel = panel_body.panel(f"hd2_panel_material_editor", default_closed=True)
+                    header_label = "Material Editor"
+                    if material_editor_panel:
+                        mat_list = getattr(context.scene, f"list_{Type.TypeID}")
+                        mat_index = getattr(context.scene, f"index_{Type.TypeID}")
+                        if mat_index < len(mat_list):
+                            mat_item = mat_list[mat_index]
+                            Entry = Global_TocManager.GetEntry(int(mat_item.item_name), int(mat_item.item_type))
+                            if Entry:
+                                if not Entry.IsLoaded:
+                                    Entry.Load(True, False)
+                                self.draw_material_editor(Entry, material_editor_panel.box().column(align=True), None)
+                                header_label = f"Material Editor: {mat_item.item_name}"
+                    material_editor_header.label(text=header_label)
+                    if material_editor_panel: material_editor_header.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
         if scene.Hd2ToolPanelSettings.FriendlyNames:  
             Global_TocManager.SavedFriendlyNames = NewFriendlyNames
             Global_TocManager.SavedFriendlyNameIDs = NewFriendlyIDs

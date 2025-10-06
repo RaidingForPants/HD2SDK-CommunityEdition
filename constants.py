@@ -26,3 +26,36 @@ Global_MaterialParentIDs = {
     9576304397847579354  : "translucent",
     8580182439406660688 : "basic+"
 }
+
+Global_TypeIDs = [
+    CompositeMeshID,
+    MeshID,
+    TexID,
+    MaterialID,
+    BoneID,
+    WwiseBankID,
+    WwiseDepID,
+    WwiseStreamID,
+    WwiseMetaDataID,
+    ParticleID,
+    AnimationID,
+    StateMachineID,
+    StringID,
+    PhysicsID,
+]
+
+Global_IconDict = {
+    MeshID: 'FILE_3D',
+    TexID: 'FILE_IMAGE',
+    MaterialID: 'MATERIAL',
+    ParticleID: 'PARTICLES',
+    AnimationID: 'ARMATURE_DATA',
+    BoneID: 'BONE_DATA',
+    WwiseBankID:  'OUTLINER_DATA_SPEAKER',
+    WwiseDepID: 'OUTLINER_DATA_SPEAKER',
+    WwiseStreamID:  'OUTLINER_DATA_SPEAKER',
+    WwiseMetaDataID: 'OUTLINER_DATA_SPEAKER',
+    StateMachineID: 'DRIVER',
+    StringID: 'WORDWRAP_ON',
+    PhysicsID: 'PHYSICS',
+}
