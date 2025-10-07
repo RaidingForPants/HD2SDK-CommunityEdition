@@ -1321,11 +1321,6 @@ def PrepareMesh(og_object):
     bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = object
     
-    # triangulate
-    modifier = object.modifiers.new("EXPORT_TRIANGULATE", 'TRIANGULATE')
-    bpy.context.object.modifiers[modifier.name].keep_custom_normals = True
-    bpy.ops.object.modifier_apply(modifier=modifier.name)
-    
     if bpy.context.scene.Hd2ToolPanelSettings.SplitUVIslands:
         # merge by distance
         bpy.ops.object.mode_set(mode='EDIT')
@@ -1362,6 +1357,11 @@ def PrepareMesh(og_object):
     bpy.context.object.modifiers[modifier.name].object = og_object
     bpy.context.object.modifiers[modifier.name].use_loop_data = True
     bpy.context.object.modifiers[modifier.name].loop_mapping = 'TOPOLOGY'
+    bpy.ops.object.modifier_apply(modifier=modifier.name)
+    
+    # triangulate
+    modifier = object.modifiers.new("EXPORT_TRIANGULATE", 'TRIANGULATE')
+    bpy.context.object.modifiers[modifier.name].keep_custom_normals = True
     bpy.ops.object.modifier_apply(modifier=modifier.name)
 
     # adjust weights
