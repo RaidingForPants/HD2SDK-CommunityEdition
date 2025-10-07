@@ -21,6 +21,7 @@ import struct
 import concurrent.futures
 import zipfile
 import shutil
+import importlib
 
 #import pyautogui 
 
@@ -29,6 +30,27 @@ import bpy
 from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy.props import StringProperty, BoolProperty, IntProperty, EnumProperty, PointerProperty, CollectionProperty
 from bpy.types import Panel, Operator, PropertyGroup, Scene, Menu, OperatorFileListElement
+
+# other addon code
+from .stingray import animation as animation_m
+from .stingray import raw_dump as raw_dump_m
+from .stingray import material as material_m
+from .stingray import texture as texture_m
+from .stingray import particle as particle_m
+from .stingray import bones as bones_m
+from .stingray import composite_unit as composite_unit_m
+from .stingray import unit as unit_m
+from .hashlists import hash as hash_m
+
+importlib.reload(animation_m)
+importlib.reload(raw_dump_m)
+importlib.reload(material_m)
+importlib.reload(texture_m)
+importlib.reload(particle_m)
+importlib.reload(bones_m)
+importlib.reload(composite_unit_m)
+importlib.reload(unit_m)
+importlib.reload(hash_m)
 
 from .stingray.animation import StingrayAnimation, AnimationException
 from .stingray.raw_dump import StingrayRawDump
