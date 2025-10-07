@@ -2533,15 +2533,27 @@ class SaveStingrayUnitOperator(Operator):
                 f"Archive for entry being saved is not loaded. Could not find custom property object at ID: {ID}")
             return{'CANCELLED'}
         Entry.Load(True, False, True)
-        if Global_TocManager.IsInPatch(Entry):
-            Global_TocManager.RemoveEntryFromPatch(int(ID), UnitID)
+        dest_id = int(ID)
+        existing_entry = None
+        if SwapID and SwapID.isnumeric() and SwapID != ID:
+            dest_id = int(SwapID)
+            existing_entry = Global_TocManager.ActivePatch.GetEntry(int(ID), UnitID)
+            if existing_entry:
+                existing_entry.FileID = 0
+        if Global_TocManager.ActivePatch.GetEntry(dest_id, UnitID):
+            Global_TocManager.RemoveEntryFromPatch(dest_id, UnitID)
         Entry = Global_TocManager.AddEntryToPatch(int(ID), UnitID)
+        Entry.FileID = dest_id
+        if existing_entry:
+            existing_entry.FileID = int(ID)
         model = GetObjectsMeshData(Global_TocManager, Global_BoneNames)
         BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
         if Entry is None:
             self.report({'ERROR'},
                 f"Archive for entry being saved is not loaded. Could not find custom property object at ID: {ID}")
             return{'CANCELLED'}
+        if SwapID and SwapID.isnumeric():
+            ID = SwapID
         m = model[ID]
         meshes = model[ID]
         for mesh_index, mesh in meshes.items():
@@ -2569,10 +2581,6 @@ class SaveStingrayUnitOperator(Operator):
             self.report({"ERROR"}, f"Failed to save unit {bpy.context.selected_objects[0].name}.")
             return{'CANCELLED'}
         self.report({'INFO'}, f"Saved Unit Object ID: {self.object_id}")
-        if SwapID != "" and SwapID.isnumeric():
-                self.report({'INFO'}, f"Swapping Entry ID: {Entry.FileID} to: {SwapID}")
-                Global_TocManager.RemoveEntryFromPatch(int(SwapID), UnitID)
-                Entry.FileID = int(SwapID)
         return{'FINISHED'}
 
 class BatchSaveStingrayUnitOperator(Operator):
@@ -2668,6 +2676,8 @@ class BatchSaveStingrayUnitOperator(Operator):
         for i, IDitem in enumerate(IDs):
             ID = IDitem[0]
             SwapID = IDitem[1]
+            if SwapID and SwapID.isnumeric():
+                ID = SwapID
             Entry = entries[i]
             if Entry is None:
                 continue

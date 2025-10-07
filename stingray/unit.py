@@ -1687,6 +1687,12 @@ def GetObjectsMeshData(Global_TocManager, Global_BoneNames):
         if object.type != 'MESH':
             continue
         ID = object["Z_ObjectID"]
+        try:
+            SwapID = object["Z_SwapID"]
+            if SwapID and SwapID.isnumeric():
+                ID = SwapID
+        except KeyError:
+            pass
         MeshData = GetMeshData(object, Global_TocManager, Global_BoneNames)
         try:
             data[ID][MeshData.MeshInfoIndex] = MeshData
