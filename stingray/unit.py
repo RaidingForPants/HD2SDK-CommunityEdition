@@ -672,7 +672,13 @@ class BoneInfo:
                     r.append(self.RealIndices.index(real_index))
                     self.RemapCounts[i] += 1
                 except ValueError:
-                    PrettyPrint(f"Bone '{bone}' does not exist in LOD bone info, skipping...")
+                    PrettyPrint(f"Bone '{bone}' does not exist in LOD bone info, adding...")
+                    self.RealIndices.append(real_index)
+                    r.append(len(self.RealIndices)-1)
+                    self.RemapCounts[i] += 1
+                    self.NumBones += 1
+                    self.Bones.append(None)
+                    
             self.Remaps.append(r)
             
         for i in range(1, self.NumRemaps):
@@ -1314,13 +1320,23 @@ def PrepareMesh(og_object):
     object = duplicate(og_object)
     bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = object
-    # split UV seams
-    try:
+    
+    if bpy.context.scene.Hd2ToolPanelSettings.SplitUVIslands:
+        # merge by distance
         bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.uv.select_all(action='SELECT')
-        bpy.ops.uv.seams_from_islands()
-    except: PrettyPrint("Failed to create seams from UV islands. This is not fatal, but will likely cause undesirable results in-game", "warn")
+        bpy.ops.mesh.select_all(action="SELECT")
+        bpy.ops.mesh.remove_doubles(use_unselected=False, use_sharp_edge_from_normals=True)
+        
+    mesh = object.data
+    bpy.ops.object.mode_set(mode='EDIT')
+    for uv_layer in mesh.uv_layers:
+        mesh.uv_layers.active = uv_layer
+        try:
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.uv.select_all(action='SELECT')
+            bpy.ops.uv.seams_from_islands()
+        except: PrettyPrint("Failed to create seams from UV islands. This is not fatal, but will likely cause undesirable results in-game", "warn")
+
     bpy.ops.object.mode_set(mode='OBJECT')
 
     bm = bmesh.new()
@@ -1342,6 +1358,7 @@ def PrepareMesh(og_object):
     bpy.context.object.modifiers[modifier.name].use_loop_data = True
     bpy.context.object.modifiers[modifier.name].loop_mapping = 'TOPOLOGY'
     bpy.ops.object.modifier_apply(modifier=modifier.name)
+    
     # triangulate
     modifier = object.modifiers.new("EXPORT_TRIANGULATE", 'TRIANGULATE')
     bpy.context.object.modifiers[modifier.name].keep_custom_normals = True
@@ -1353,63 +1370,6 @@ def PrepareMesh(og_object):
         bpy.ops.object.vertex_group_normalize_all(lock_active=False)
         bpy.ops.object.vertex_group_limit_total(group_select_mode='ALL', limit=4)
     except: pass
-    
-    if bpy.context.scene.Hd2ToolPanelSettings.SplitUVIslands:
-        mesh = object.data
-        mode = bpy.context.object.mode
-        uv_count = 0
-        rolling_conflict_windows = [[0, 0, 0, 0] for _ in range(4)]
-        while True:
-            bpy.context.view_layer.objects.active = object
-            bpy.ops.object.mode_set(mode=mode)
-            bpy.context.view_layer.objects.active = object
-            conflicts, vert_uvs = CheckUVConflicts(mesh, mesh.uv_layers[uv_count])
-            if not conflicts:
-                rolling_conflict_windows = [[0, 0, 0, 0] for _ in range(4)]
-                uv_count += 1
-                if uv_count == len(mesh.uv_layers):
-                    break
-                continue
-            num_conflicts = len(conflicts.keys())
-            new_conflict_window = rolling_conflict_windows[-1][1:]
-            new_conflict_window.append(num_conflicts)
-            if new_conflict_window in rolling_conflict_windows:
-                PrettyPrint("Unable to complete mesh split by UVs", "WARN")
-                break
-            rolling_conflict_windows = rolling_conflict_windows[1:]
-            rolling_conflict_windows.append(new_conflict_window)
-            vert_idx = list(conflicts.keys())[0]
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.select_all(action="DESELECT")
-            
-            # new plan: get each group of faces that is on 1 UV, and separate it from the mesh
-            # select all the vertices that ARENT the vertex in question (and their splits) and merge by distance
-            # now we have a new duplicated vertex with less messing around with creating/deleting faces
-            uv_coord = list(vert_uvs[vert_idx].keys())[0]
-            #for j, uv_coord in enumerate(vert_uvs[vert_idx].keys()):
-            faces = vert_uvs[vert_idx][uv_coord]
-            #print(faces)
-            bpy.ops.object.mode_set(mode='OBJECT')
-            for face_idx in faces:
-                face = mesh.polygons[face_idx]
-                face.select = True
-                for v in face.vertices:
-                    vert = mesh.vertices[v]
-                    vert.select = True
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.split()
-            vert_idcs = [v.index for v in mesh.vertices if v.select]
-            bpy.ops.mesh.select_all(action="DESELECT")
-            bpy.ops.object.mode_set(mode='OBJECT')
-            for i, idx in enumerate(vert_idcs):
-                vert = mesh.vertices[idx]
-                if idx != vert_idx: vert.select = True
-                vert = mesh.vertices[-(i+1)]
-                vert.select = True
-            bpy.ops.object.mode_set(mode='EDIT')
-            # deselect the vert in question
-            # and select the verts made by separating
-            bpy.ops.mesh.remove_doubles(use_unselected=False)
 
     return object
 
@@ -1476,9 +1436,6 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 texCoord[vert_idx] = [uvlayer.data[loop_idx].uv[0], uvlayer.data[loop_idx].uv[1]*-1 + 1]
         uvs.append(texCoord)
 
-    # get weights
-    vert_idx = 0
-    numInfluences = 4
     entry_id = int(og_object["Z_ObjectID"])
     try:
         if og_object["Z_SwapID"]:
@@ -1495,6 +1452,84 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     transform_info = stingray_mesh_entry.TransformInfo
     lod_index = og_object["BoneInfoIndex"]
     bone_names = []
+        
+    # get armature object
+    prev_obj = bpy.context.view_layer.objects.active
+    prev_objs = bpy.context.selected_objects
+    prev_mode = prev_obj.mode
+    armature_obj = None
+    for modifier in og_object.modifiers:
+        if modifier.type == "ARMATURE":
+            armature_obj = modifier.object
+            break
+    if armature_obj is not None:
+        was_hidden = armature_obj.hide_get()
+        armature_obj.hide_set(False)
+        bpy.context.view_layer.objects.active = armature_obj
+        bpy.ops.object.mode_set(mode='EDIT')
+        for bone in armature_obj.data.edit_bones: # I'd like to use edit bones but it doesn't work for some reason
+            PrettyPrint(bone.name)
+            try:
+                name_hash = int(bone.name)
+            except ValueError:
+                name_hash = murmur32_hash(bone.name.encode("utf-8"))
+            try:
+                transform_index = transform_info.NameHashes.index(name_hash)
+            except ValueError:
+                # bone doesn't exist, add bone
+                transform_info.NameHashes.append(name_hash)
+                transform_info.TransformMatrices.append(None)
+                transform_info.Transforms.append(None)
+                l = StingrayLocalTransform()
+                l.Incriment = 1
+                l.ParentBone = 0
+                transform_info.TransformEntries.append(l)
+                transform_info.NumTransforms += 1
+                transform_index = len(transform_info.NameHashes) - 1
+            
+            # set bone matrix
+            m = bone.matrix.transposed()
+            transform_matrix = StingrayMatrix4x4()
+            transform_matrix.v = [
+                m[0][0], m[0][1], m[0][2], m[0][3],
+                m[1][0], m[1][1], m[1][2], m[1][3],
+                m[2][0], m[2][1], m[2][2], m[2][3],
+                m[3][0], m[3][1], m[3][2], m[3][3]
+            ]
+            
+            # set bone local transform
+            transform_info.TransformMatrices[transform_index] = transform_matrix
+            if bone.parent:
+                parent_matrix = bone.parent.matrix
+                local_transform_matrix = parent_matrix.inverted() @ bone.matrix
+                translation, rotation, scale = local_transform_matrix.decompose()
+                rotation = rotation.to_matrix()
+                transform_local = StingrayLocalTransform()
+                transform_local.rot.x = [rotation[0][0], rotation[1][0], rotation[2][0]]
+                transform_local.rot.y = [rotation[0][1], rotation[1][1], rotation[2][1]]
+                transform_local.rot.z = [rotation[0][2], rotation[1][2], rotation[2][2]]
+                transform_local.pos = translation
+                transform_local.scale = scale
+                transform_info.Transforms[transform_index] = transform_local
+            else:
+                transform_local = StingrayLocalTransform()
+                transform_info.Transforms[transform_index] = transform_local
+                
+            # set bone parent
+            if bone.parent:
+                try:
+                    parent_name_hash = int(bone.parent.name)
+                except ValueError:
+                    parent_name_hash = murmur32_hash(bone.parent.name.encode("utf-8"))
+                try:
+                    parent_transform_index = transform_info.NameHashes.index(parent_name_hash)
+                    transform_info.TransformEntries[transform_index].ParentBone = parent_transform_index
+                except ValueError:
+                    PrettyPrint(f"Failed to parent bone: {bone.name}.", 'warn')
+    
+    # get weights
+    vert_idx = 0
+    numInfluences = 4                
     if not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
         if len(object.vertex_groups) > 0:
             for g in object.vertex_groups:
@@ -1508,9 +1543,8 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 vertex_to_material_index[vertex] = polygon.material_index
     
     if len(object.vertex_groups) > 0:
-        for index, vertex in enumerate(mesh.vertices):
-            group_idx = 0
-            for group in vertex.groups:
+        for vert_idx, vertex in enumerate(mesh.vertices):
+            for group_idx, group in enumerate(vertex.groups):
                 # limit influences
                 if group_idx >= numInfluences:
                     break
@@ -1526,7 +1560,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                         HDGroupIndex        = int(parts[0])
                         HDBoneIndex         = int(parts[1])
                     else:
-                        material_idx = vertex_to_material_index[index]
+                        material_idx = vertex_to_material_index[vert_idx]
                         try:
                             name_hash = int(vertex_group_name)
                         except ValueError:
@@ -1564,26 +1598,13 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                         boneIndices.extend([[[0,0,0,0] for n in range(len(mesh.vertices))]]*dif)
                     boneIndices[HDGroupIndex][vert_idx][group_idx] = HDBoneIndex
                     weights[vert_idx][group_idx] = group.weight
-                    group_idx += 1
-            vert_idx += 1
     else:
         boneIndices = []
         weights     = []
-        
-    #bpy.ops.object.mode_set(mode='POSE')
-    # check option for saving bones
-    # get armature object
-    prev_obj = bpy.context.view_layer.objects.active
-    prev_objs = bpy.context.selected_objects
-    prev_mode = prev_obj.mode
-    armature_obj = None
-    for modifier in og_object.modifiers:
-        if modifier.type == "ARMATURE":
-            armature_obj = modifier.object
-            break
+
+    
+    # set bone matrices in bone index mappings
     if armature_obj is not None:
-        was_hidden = armature_obj.hide_get()
-        armature_obj.hide_set(False)
         bpy.context.view_layer.objects.active = armature_obj
         bpy.ops.object.mode_set(mode='EDIT')
         for bone in armature_obj.data.edit_bones: # I'd like to use edit bones but it doesn't work for some reason
@@ -1595,34 +1616,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             try:
                 transform_index = transform_info.NameHashes.index(name_hash)
             except ValueError:
-                PrettyPrint(f"Failed to write data for bone: {bone.name}. This may be intended", 'warn')
                 continue
-                
-            m = bone.matrix.transposed()
-            transform_matrix = StingrayMatrix4x4()
-            transform_matrix.v = [
-                m[0][0], m[0][1], m[0][2], m[0][3],
-                m[1][0], m[1][1], m[1][2], m[1][3],
-                m[2][0], m[2][1], m[2][2], m[2][3],
-                m[3][0], m[3][1], m[3][2], m[3][3]
-            ]
-            transform_info.TransformMatrices[transform_index] = transform_matrix
-            if bone.parent:
-                parent_matrix = bone.parent.matrix
-                local_transform_matrix = parent_matrix.inverted() @ bone.matrix
-                translation, rotation, scale = local_transform_matrix.decompose()
-                rotation = rotation.to_matrix()
-                transform_local = StingrayLocalTransform()
-                transform_local.rot.x = [rotation[0][0], rotation[1][0], rotation[2][0]]
-                transform_local.rot.y = [rotation[0][1], rotation[1][1], rotation[2][1]]
-                transform_local.rot.z = [rotation[0][2], rotation[1][2], rotation[2][2]]
-                transform_local.pos = translation
-                transform_local.scale = scale
-                transform_info.Transforms[transform_index] = transform_local
-            else:
-                transform_local = StingrayLocalTransform()
-                transform_info.Transforms[transform_index] = transform_local
-                
             # matrices in bone_info are the inverted joint matrices (for some reason)
             # and also relative to the mesh transform
             mesh_info_index = og_object["MeshInfoIndex"]
@@ -1641,12 +1635,13 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                         m[3][0], m[3][1], m[3][2], m[3][3]
                     ]
                     b.Bones[b_index] = transform_matrix
-                
+
         armature_obj.hide_set(was_hidden)
         for obj in prev_objs:
             obj.select_set(True)
         bpy.context.view_layer.objects.active = prev_obj
-        bpy.ops.object.mode_set(mode=prev_mode)
+        bpy.ops.object.mode_set(mode=prev_mode)       
+        
     #bpy.ops.object.mode_set(mode='OBJECT')
     # get faces
     temp_faces = [[] for n in range(len(object.material_slots))]
@@ -1692,6 +1687,12 @@ def GetObjectsMeshData(Global_TocManager, Global_BoneNames):
         if object.type != 'MESH':
             continue
         ID = object["Z_ObjectID"]
+        try:
+            SwapID = object["Z_SwapID"]
+            if SwapID and SwapID.isnumeric():
+                ID = SwapID
+        except KeyError:
+            pass
         MeshData = GetMeshData(object, Global_TocManager, Global_BoneNames)
         try:
             data[ID][MeshData.MeshInfoIndex] = MeshData
