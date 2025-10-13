@@ -4023,8 +4023,8 @@ class MY_UL_List(UIList):
             op.list_index = index
             #row.label(text=friendly_name, icon = type_icon, depress=True)
             if entry_type == UnitID:
-                row.operator("helldiver2.archive_mesh_save", icon='FILE_BLEND', text="").object_id = item.item_name
-                row.operator("helldiver2.archive_mesh_import", icon='IMPORT', text="").object_id = item.item_name
+                row.operator("helldiver2.archive_unit_save", icon='FILE_BLEND', text="").object_id = item.item_name
+                row.operator("helldiver2.archive_unit_import", icon='IMPORT', text="").object_id = item.item_name
             elif entry_type == TexID:
                 row.operator("helldiver2.texture_saveblendimage", icon='FILE_BLEND', text="").object_id = item.item_name
                 row.operator("helldiver2.texture_import", icon='IMPORT', text="").object_id = item.item_name
@@ -4584,7 +4584,7 @@ class WM_MT_button_context(Menu):
         # Draw import buttons
         # TODO: Add generic import buttons
         layout.separator()
-        if item_type == UnitID:       layout.operator("helldiver2.archive_mesh_import", icon='IMPORT', text=f"Import {len(selected_items)} Mesh{'es' if len(selected_items) > 1 else ''}").object_id = FileIDStr
+        if item_type == UnitID:       layout.operator("helldiver2.archive_unit_import", icon='IMPORT', text=f"Import {len(selected_items)} Mesh{'es' if len(selected_items) > 1 else ''}").object_id = FileIDStr
         elif item_type == TexID:      layout.operator("helldiver2.texture_import",      icon='IMPORT', text=f"Import {len(selected_items)} Texture{'s' if len(selected_items) > 1 else ''}").object_id = FileIDStr
         elif item_type == MaterialID: layout.operator("helldiver2.material_import",     icon='IMPORT', text=f"Import {len(selected_items)} Material{'s' if len(selected_items) > 1 else ''}").object_id = FileIDStr
         #elif AreAllParticles:
@@ -4604,9 +4604,9 @@ class WM_MT_button_context(Menu):
         layout.separator()
         if item_type == UnitID:
             if len(selected_items) == 1:
-                layout.operator("helldiver2.archive_mesh_save", icon='FILE_BLEND', text="Save Mesh").object_id = list_item.item_name
+                layout.operator("helldiver2.archive_unit_save", icon='FILE_BLEND', text="Save Mesh").object_id = list_item.item_name
             else:
-                layout.operator("helldiver2.archive_mesh_batchsave", icon='FILE_BLEND', text=f"Save {len(selected_items)} Meshes")
+                layout.operator("helldiver2.archive_unit_batchsave", icon='FILE_BLEND', text=f"Save {len(selected_items)} Meshes")
         elif item_type == TexID:
             layout.operator("helldiver2.texture_saveblendimage", icon='FILE_BLEND', text=f"Save {len(selected_items)} Blender Texture{'s' if len(selected_items) > 1 else ''}").object_id = FileIDStr
             layout.separator()
