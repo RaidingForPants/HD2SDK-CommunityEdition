@@ -780,10 +780,12 @@ class StreamToc:
         except KeyError:
             self.TocDict[NewEntry.TypeID] = {}
             self.TocDict[NewEntry.TypeID][NewEntry.FileID] = NewEntry
+        LoadEntryLists()
         self.UpdateTypes()
     def RemoveEntry(self, FileID, TypeID):
         try:
             del self.TocDict[TypeID][FileID]
+            LoadEntryLists()
             self.UpdateTypes()
         except KeyError:
             pass
@@ -947,8 +949,8 @@ class TocManager():
             if GenID and NewID == None: dup.FileID = RandomHash16()
             if NewID != None:
                 dup.FileID = NewID
-
             self.ActivePatch.AddEntry(dup)
+            
     def Copy(self, Entries):
         self.CopyBuffer = []
         for Entry in Entries:
