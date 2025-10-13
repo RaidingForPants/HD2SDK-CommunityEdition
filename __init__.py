@@ -2096,7 +2096,6 @@ class ArchiveEntryOperator(Operator):
         ui_list = getattr(context.scene, self.list_id)
         list_item = ui_list[self.list_index]
         current_list_index = getattr(context.scene, self.list_id.replace("list", "index"))
-        setattr(context.scene, self.list_id.replace("list", "index"), self.list_index)
         if event.ctrl:
             list_item.item_selected = not list_item.item_selected
         elif event.shift:
@@ -2111,7 +2110,8 @@ class ArchiveEntryOperator(Operator):
         else:
             for item in ui_list:
                 item.item_selected = False
-            list_item.item_selected = True
+            list_item.item_selected = True        
+        setattr(context.scene, self.list_id.replace("list", "index"), self.list_index)
         return {'FINISHED'}
     
 class MaterialTextureEntryOperator(Operator):
@@ -3777,6 +3777,11 @@ def LoadEntryLists():
             new_item = l.add()
             new_item.item_name = str(Entry.FileID)
             new_item.item_type = str(Entry.TypeID)
+            if Entry.TypeID == MaterialID:
+                if not Entry.IsLoaded: Entry.Load(True, False)
+                new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(tex_id) for tex_id in Entry.LoadedData.TexIDs])
+            else:
+                new_item.item_filter_name = new_item.item_name
     if patch:
         for Entry in patch.TocEntries:
             if bpy.context.scene.Hd2ToolPanelSettings.PatchOnly or not Global_TocManager.ActiveArchive.GetEntry(Entry.FileID, Entry.TypeID):
@@ -3787,10 +3792,11 @@ def LoadEntryLists():
                 new_item = l.add()
                 new_item.item_name = str(Entry.FileID)
                 new_item.item_type = str(Entry.TypeID)
-    for t in Global_TypeIDs:
-        l = getattr(bpy.context.scene, f"list_{t}")
-        if len(l) > 0:
-            l[0].item_selected = True
+                if Entry.TypeID == MaterialID:
+                    if not Entry.IsLoaded: Entry.Load(True, False)
+                    new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(tex_id) for tex_id in Entry.LoadedData.TexIDs])
+                else:
+                    new_item.item_filter_name = new_item.item_name
 
 def LoadedArchives_callback(scene, context):
     return [(Archive.Name, GetArchiveNameFromID(Archive.Name) if GetArchiveNameFromID(Archive.Name) != "" else Archive.Name, Archive.Name) for Archive in Global_TocManager.LoadedArchives]
@@ -3806,6 +3812,12 @@ def ChangeActivePatch(self, context):
 
 def ChangePatchOnly(self, context):
     LoadEntryLists()
+    
+def ChangeSearchString(self, context):
+    print(self)
+    print(context)
+    for t in Global_TypeIDs:
+        setattr(bpy.context.scene, f"filter_{t}", self.SearchField)
 
 class Hd2ToolPanelSettings(PropertyGroup):
     # Patches
@@ -3835,7 +3847,7 @@ class Hd2ToolPanelSettings(PropertyGroup):
     MergeArmatures   : BoolProperty(name="Merge Armatures", description = "Merge new armatures to the selected armature", default = True)
     ParentArmature   : BoolProperty(name="Parent Armatures", description = "Make imported armatures the parent of the imported mesh", default = True)
     # Search
-    SearchField      : StringProperty(default = "")
+    SearchField      : StringProperty(default = "", update=ChangeSearchString)
 
     # Tools
     EnableTools           : BoolProperty(name="Special Tools", description = "Enable advanced SDK Tools", default = False)
@@ -3876,6 +3888,12 @@ class ListItem(PropertyGroup):
         default="0"
     )
     
+    item_filter_name: StringProperty(
+        name="Filter Name",
+        description="Name to use when filtering",
+        default=""
+    )
+    
     item_selected: BoolProperty(
         name="Selected",
         description="Indicates if item is selected",
@@ -3888,7 +3906,10 @@ class MY_UL_List(UIList):
         row = layout.row(align=True)
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             entry_type = int(item.item_type)
-            type_icon = Global_IconDict[entry_type]
+            try:
+                type_icon = Global_IconDict[entry_type]
+            except KeyError:
+                type_icon = "QUESTION"
             if entry_type == MaterialID:
                 entry = Global_TocManager.GetEntry(int(item.item_name), int(item.item_type))
                 if entry and entry.MaterialTemplate:
@@ -3896,7 +3917,7 @@ class MY_UL_List(UIList):
             friendly_name = GetFriendlyNameFromID(int(item.item_name))
             current_list_index = getattr(context.scene, f"index_{item.item_type}")
             op = row.operator("helldiver2.archive_entry", icon=type_icon, text=friendly_name, emboss=item.item_selected, depress=item.item_selected)
-            op.list_id = active_propname.replace("index", "list")
+            op.list_id = f"list_{item.item_type}" #"active_propname.replace("index", "list").replace("_dummy", "")
             op.list_index = index
             #row.label(text=friendly_name, icon = type_icon, depress=True)
             if entry_type == MeshID:
@@ -3938,16 +3959,18 @@ class MY_UL_List(UIList):
     def filter_items(self, context, data, propname):
         # Get the filter string from a property, for example
         # Assuming you have a StringProperty named 'filter_string' on your UILIST instance
-        data = getattr(data, propname)
+        list_data = getattr(data, propname)
         flt_flags = []
         flt_neworder = []
         if self.filter_name:
             filter_string = self.filter_name
-            if filter_string.startswith("0x"):
-                filter_string = str(hex_to_decimal(filter_string))
-            flt_flags = bpy.types.UI_UL_list.filter_items_by_name(filter_string, self.bitflag_filter_item, data, "item_name")
+        else:
+            filter_string = getattr(data, propname.replace("list", "filter"))
+        if filter_string.startswith("0x"):
+            filter_string = str(hex_to_decimal(filter_string))
+        flt_flags = bpy.types.UI_UL_list.filter_items_by_name(filter_string, self.bitflag_filter_item, list_data, "item_filter_name")
         if not flt_flags:
-            flt_flags = [self.bitflag_filter_item] * len(data)
+            flt_flags = [self.bitflag_filter_item] * len(list_data)
         #flt_neworder = bpy.types.UI_UL_list.sort_items_by_name(data, "item_name")
         
         return flt_flags, flt_neworder
@@ -4191,12 +4214,13 @@ class HellDivers2ToolsPanel(Panel):
             # Get Type Icon
             type_icon = 'FILE'
             showExtras = scene.Hd2ToolPanelSettings.ShowExtras
-            global Global_Foldouts
-            if not showExtras and Type.TypeID in [BoneID, WwiseBankID, WwiseDepID, WwiseStreamID, WwiseMetaDataID, StateMachineID, StringID, PhysicsID]:
+            if not showExtras and Type.TypeID not in [AnimationID, ParticleID, MeshID, TexID, MaterialID]:
                 continue
             try:
                 type_icon = Global_IconDict[Type.TypeID]
             except KeyError:
+                type_icon = "QUESTION"
+            if len(getattr(context.scene, f"list_{Type.TypeID}")) == 0:
                 continue
             box = layout.box()
             closed = Type.TypeID not in [MaterialID, TexID, MeshID]
@@ -4211,11 +4235,12 @@ class HellDivers2ToolsPanel(Panel):
                 panel_header.label(icon=type_icon)
             # Draw Type Body
             if panel_body:
-                panel_body.template_list("MY_UL_List", f"list_{Type.TypeID}", scene, f"list_{Type.TypeID}", scene, f"index_{Type.TypeID}", rows=10)
+                panel_body.template_list("MY_UL_List", f"list_{Type.TypeID}", scene, f"list_{Type.TypeID}", scene, f"index_{Type.TypeID}_dummy", rows=10)
                 if Type.TypeID == MaterialID:
                     # draw material editor
                     material_editor_header, material_editor_panel = panel_body.panel(f"hd2_panel_material_editor", default_closed=True)
                     header_label = "Material Editor"
+                    mat_item = None
                     if material_editor_panel:
                         mat_list = getattr(context.scene, f"list_{Type.TypeID}")
                         mat_index = getattr(context.scene, f"index_{Type.TypeID}")
@@ -4228,7 +4253,7 @@ class HellDivers2ToolsPanel(Panel):
                                 self.draw_material_editor(Entry, material_editor_panel.box().column(align=True), None)
                                 header_label = f"Material Editor: {mat_item.item_name}"
                     material_editor_header.label(text=header_label)
-                    if material_editor_panel: material_editor_header.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
+                    if material_editor_panel and mat_item: material_editor_header.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
         if scene.Hd2ToolPanelSettings.FriendlyNames:  
             Global_TocManager.SavedFriendlyNames = NewFriendlyNames
             Global_TocManager.SavedFriendlyNameIDs = NewFriendlyIDs
@@ -4603,6 +4628,11 @@ class DotDict(dict):
     def __setattr__(self, name, value):
         dict.__setitem__(self, name, value)
     
+def SetSelected(t):
+    def wrapper(scene, value):
+        scene[f"index_{t}_dummy"] = 5000000
+    return wrapper
+
 
 def register():
     if not os.path.exists(Global_texconvpath): raise Exception("Texconv is not found, please install Texconv in /deps/")
@@ -4620,11 +4650,19 @@ def register():
     Scene.Hd2ToolPanelSettings = PointerProperty(type=Hd2ToolPanelSettings)
     bpy.utils.register_class(WM_MT_button_context)
     bpy.types.VIEW3D_MT_object_context_menu.append(CustomPropertyContext)
+    #bpy.types.VIEW3D_MT_pose_context_menu
+    #bpy.types.VIEW3D_MT_armature_context_menu
+    #bpy.types.VIEW3D_MT_
+    #for name in dir(bpy.types):
+    #    if "context" in name:
+    #        print(name)
     bpy.utils.register_class(MY_UL_List)
     bpy.utils.register_class(ListItem)
-    for t in Global_TypeIDs:
+    for t in Global_TypeIDs: # make all this into an item in another collection property
         setattr(bpy.types.Scene, f"list_{t}", CollectionProperty(type = ListItem))
-        setattr(bpy.types.Scene, f"index_{t}", IntProperty(name = "index", default = 0))
+        setattr(bpy.types.Scene, f"index_{t}", IntProperty(name = f"index_{t}", default = 0))
+        setattr(bpy.types.Scene, f"filter_{t}", StringProperty(name = f"filter_{t}", default = ""))
+        setattr(bpy.types.Scene, f"index_{t}_dummy", IntProperty(name = f"index_{t}_dummy", default = 5000000, set=SetSelected(t)))
     
 
 def unregister():
