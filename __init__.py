@@ -4367,7 +4367,7 @@ class HellDivers2ToolsPanel(Panel):
                     split = row.split()
                     fold_icon = "DOWNARROW_HLT" if material_editor_show else "RIGHTARROW"
                     sub = split.row(align=True)
-                    sub.operator("helldiver2.collapse_section", text=f"", icon=fold_icon, emboss=False).type = "material_editor"
+                    
                     #material_editor_body = row.column()
                     #material_editor_header, material_editor_panel = panel_body.panel(f"hd2_panel_material_editor", default_closed=True)
                     header_label = "Material Editor"
@@ -4383,7 +4383,7 @@ class HellDivers2ToolsPanel(Panel):
                                     Entry.Load(True, False)
                                 self.draw_material_editor(Entry, box.row().column(align=True), None)
                                 header_label = f"Material Editor: {mat_item.item_name}"
-                    sub.label(text=header_label)
+                    sub.operator("helldiver2.collapse_section", text=header_label, icon=fold_icon, emboss=False).type = "material_editor"
                     if material_editor_show and mat_item: sub.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
         if scene.Hd2ToolPanelSettings.FriendlyNames:  
             Global_TocManager.SavedFriendlyNames = NewFriendlyNames
