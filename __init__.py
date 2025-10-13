@@ -302,7 +302,7 @@ def GetDisplayData():
                     AddedTypes.append(Type.TypeID)
                     DisplayTocTypes.append(Type)
             for entry_type, entries in Global_TocManager.ActivePatch.TocDict.items(): # this seems wrong
-                for Entry in entries:
+                for Entry in entries.values():
                     if Entry.FileID not in AddedEntries:
                         AddedEntries.append(Entry.FileID)
                         DisplayTocEntries.append([Entry, True])
@@ -974,7 +974,8 @@ class TocManager():
             raise Exception("No Archive exists to create patch from, please open one first")
 
         patch = deepcopy(self.ActiveArchive)
-        patch.TocEntries  = {}
+        patch.TocEntries  = []
+        patch.TocDict     = {}
         patch.TocTypes    = []
         # TODO: ask for which patch index
         path = self.ActiveArchive.Path
@@ -3890,7 +3891,7 @@ def LoadEntryLists():
                 l = getattr(bpy.context.scene, f"list_{entry_type}")
             except AttributeError:
                 continue
-            for Entry in archive.TocDict[entry_type].values():
+            for Entry in patch.TocDict[entry_type].values():
                 new_item = l.add()
                 new_item.item_name = str(Entry.FileID)
                 new_item.item_type = str(Entry.TypeID)
