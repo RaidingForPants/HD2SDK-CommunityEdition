@@ -77,7 +77,7 @@ Global_TypeIDs = [
 ]
 
 Global_IconDict = {
-    MeshID: 'FILE_3D',
+    UnitID: 'FILE_3D',
     TexID: 'FILE_IMAGE',
     MaterialID: 'MATERIAL',
     ParticleID: 'PARTICLES',
