@@ -862,27 +862,10 @@ class TocManager():
         return self.GetEntry(FileID, TypeID, SearchAll=True, IgnorePatch=True)
     
     def ArchiveNotEmpty(self, toc):
-<<<<<<< HEAD
         hasMaterials = toc.TocDict.get(MaterialID, None) and len(toc.TocDict[MaterialID]) > 0
         hasTextures = toc.TocDict.get(TexID, None) and len(toc.TocDict[TexID]) > 0
-        hasMeshes = (toc.TocDict.get(MeshID, None) and len(toc.TocDict[MeshID]) > 0) or (toc.TocDict.get(CompositeMeshID, None) and len(toc.TocDict[CompositeMeshID]) > 0)
+        hasMeshes = (toc.TocDict.get(UnitID, None) and len(toc.TocDict[UnitID]) > 0) or (toc.TocDict.get(CompositeUnitID, None) and len(toc.TocDict[CompositeUnitID]) > 0)
         return hasMaterials or hasTextures or hasMeshes
-=======
-        hasMaterials = False
-        hasTextures = False
-        hasUnits = False
-        for Entry in toc.TocEntries:
-            type = Entry.TypeID
-            if type == MaterialID:
-                hasMaterials = True
-            elif type == UnitID:
-                hasUnits = True
-            elif type == TexID:
-                hasTextures = True
-            elif type == CompositeUnitID:
-                hasUnits = True
-        return hasMaterials or hasTextures or hasUnits
->>>>>>> main
 
     def UnloadArchives(self):
         # TODO: Make sure all data gets unloaded...
