@@ -70,7 +70,7 @@ Global_searchpath        = ""
 Global_configpath        = f"{AddonPath}.ini"
 Global_backslash         = "\-".replace("-", "")
 
-Global_Foldouts = []
+Global_Foldouts = {}
 
 Global_BoneNames = {}
 
@@ -3753,10 +3753,14 @@ class EntrySectionOperator(Operator):
 
     def execute(self, context):
         global Global_Foldouts
-        for i in range(len(Global_Foldouts)):
-            if Global_Foldouts[i][0] == str(self.type):
-                Global_Foldouts[i][1] = not Global_Foldouts[i][1]
-                PrettyPrint(f"Folding foldout: {Global_Foldouts[i]}")
+        try:
+            Global_Foldouts[str(self.type)] = not Global_Foldouts[str(self.type)]
+        except KeyError:
+            pass
+        #for i in range(len(Global_Foldouts)):
+        #    if Global_Foldouts[i][0] == str(self.type):
+        #        Global_Foldouts[i][1] = not Global_Foldouts[i][1]
+        #        PrettyPrint(f"Folding foldout: {Global_Foldouts[i]}")
         return {'FINISHED'}
 #endregion
 
@@ -4057,20 +4061,18 @@ class HellDivers2ToolsPanel(Panel):
 
         # Draw Settings, Documentation and Spreadsheet
         settings_box = layout.box()
-        settings_header, settings_panel = settings_box.panel("hd2_panel_settings", default_closed=Global_gamepathIsValid)
-        #mainbox = layout.box()
-        #row.prop(scene.Hd2ToolPanelSettings, "MenuExpanded",
-        #    icon="DOWNARROW_HLT" if scene.Hd2ToolPanelSettings.MenuExpanded else "RIGHTARROW",
-        #    icon_only=True, emboss=False, text="Settings")
-        settings_header.label(text="Settings")
-        settings_header.label(icon="SETTINGS")
+        row = settings_box.row()
+        row.prop(scene.Hd2ToolPanelSettings, "MenuExpanded",
+            icon="DOWNARROW_HLT" if scene.Hd2ToolPanelSettings.MenuExpanded else "RIGHTARROW",
+            icon_only=True, emboss=False, text="Settings")
+        row.label(icon="SETTINGS")
         
-        if settings_panel:
-            row = settings_panel.grid_flow(columns=2)
-            row = settings_panel.row(); row.separator(); row.label(text="Display Types"); box = row.box(); row = box.grid_flow(columns=1)
+        if scene.Hd2ToolPanelSettings.MenuExpanded or not Global_gamepathIsValid:
+            row = settings_box.grid_flow(columns=2)
+            row = settings_box.row(); row.separator(); row.label(text="Display Types"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "ShowExtras")
             row.prop(scene.Hd2ToolPanelSettings, "FriendlyNames")
-            row = settings_panel.row(); row.separator(); row.label(text="Import Options"); box = row.box(); row = box.grid_flow(columns=1)
+            row = settings_box.row(); row.separator(); row.label(text="Import Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "ImportMaterials")
             row.prop(scene.Hd2ToolPanelSettings, "ImportLods")
             row.prop(scene.Hd2ToolPanelSettings, "ImportGroup0")
@@ -4080,14 +4082,14 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "RemoveGoreMeshes")
             row.prop(scene.Hd2ToolPanelSettings, "ParentArmature")
             row.prop(scene.Hd2ToolPanelSettings, "ImportArmature")
-            row = settings_panel.row(); row.separator(); row.label(text="Export Options"); box = row.box(); row = box.grid_flow(columns=1)
+            row = settings_box.row(); row.separator(); row.label(text="Export Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "Force3UVs")
             row.prop(scene.Hd2ToolPanelSettings, "Force1Group")
             row.prop(scene.Hd2ToolPanelSettings, "AutoLods")
             row.prop(scene.Hd2ToolPanelSettings, "SaveBonePositions")
             row.prop(scene.Hd2ToolPanelSettings, "SaveTexturesWithMaterial")
             row.prop(scene.Hd2ToolPanelSettings, "GenerateRandomTextureIDs")
-            row = settings_panel.row(); row.separator(); row.label(text="Other Options"); box = row.box(); row = box.grid_flow(columns=1)
+            row = settings_box.row(); row.separator(); row.label(text="Other Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "SaveNonSDKMaterials")
             row.prop(scene.Hd2ToolPanelSettings, "SaveUnsavedOnWrite")
             row.prop(scene.Hd2ToolPanelSettings, "AutoSaveMeshMaterials")
@@ -4096,11 +4098,11 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "MergeArmatures")
 
             #Custom Searching tools
-            row = settings_panel.row(); row.separator(); row.label(text="Special Tools"); box = row.box(); row = box.grid_flow(columns=1)
+            row = settings_box.row(); row.separator(); row.label(text="Special Tools"); box = row.box(); row = box.grid_flow(columns=1)
             # Draw Bulk Loader Extras
             row.prop(scene.Hd2ToolPanelSettings, "EnableTools")
             if scene.Hd2ToolPanelSettings.EnableTools:
-                row = settings_panel.row(); box = row.box(); row = box.grid_flow(columns=1)
+                row = settings_box.row(); box = row.box(); row = box.grid_flow(columns=1)
                 #row.label()
                 row.label(text="WARNING! Developer Tools, Please Know What You Are Doing!")
                 row.prop(scene.Hd2ToolPanelSettings, "UnloadEmptyArchives")
@@ -4116,11 +4118,11 @@ class HellDivers2ToolsPanel(Panel):
                 search = box.row()
                 search.label(text=Global_searchpath)
                 search.operator("helldiver2.change_searchpath", icon='FILEBROWSER')
-                settings_panel.separator()
-            row = settings_panel.row()
+                settings_box.separator()
+            row = settings_box.row()
             row.label(text=Global_gamepath)
             row.operator("helldiver2.change_filepath", icon='FILEBROWSER')
-            settings_panel.separator()
+            settings_box.separator()
 
         if not Global_gamepathIsValid:
             row = layout.row()
@@ -4172,7 +4174,8 @@ class HellDivers2ToolsPanel(Panel):
 
         # Draw Archive Contents
         
-        contents_header, contents_panel = layout.panel("hd2_panel_archive_contents", default_closed=False)
+        #contents_header, contents_panel = layout.panel("hd2_panel_archive_contents", default_closed=False)
+        contents_header = layout.row()
         
         title = "No Archive Loaded"
         if Global_TocManager.ActiveArchive != None:
@@ -4183,16 +4186,16 @@ class HellDivers2ToolsPanel(Panel):
             name = Global_TocManager.ActivePatch.Name
             title = f"Patch: {name}    File: {Global_TocManager.ActivePatch.Name}"
             
-        contents_header.label(text=title)
-        #row.prop(scene.Hd2ToolPanelSettings, "ContentsExpanded",
-        #    icon="DOWNARROW_HLT" if scene.Hd2ToolPanelSettings.ContentsExpanded else "RIGHTARROW",
-        #    icon_only=True, emboss=False, text=title)
+        #contents_header.label(text=title)
+        contents_header.prop(scene.Hd2ToolPanelSettings, "ContentsExpanded",
+            icon="DOWNARROW_HLT" if scene.Hd2ToolPanelSettings.ContentsExpanded else "RIGHTARROW",
+            icon_only=True, emboss=False, text=title)
         contents_header.prop(scene.Hd2ToolPanelSettings, "PatchOnly", text="")
         contents_header.operator("helldiver2.copy_archive_id", icon='COPY_ID', text="")
         contents_header.operator("helldiver2.archive_object_dump_import_by_id", icon='PACKAGE', text="")
         
-        if not contents_panel:
-            return
+        #if not contents_panel:
+        #    return
         #layout = contents_panel
 
 
@@ -4204,13 +4207,19 @@ class HellDivers2ToolsPanel(Panel):
         # Draw Contents
         NewFriendlyNames = []
         NewFriendlyIDs = []
+        if not scene.Hd2ToolPanelSettings.ContentsExpanded: return
         if len(DisplayTocEntries) == 0: return
 
         # Draw Search Bar
-        row = contents_panel.row(); #row = layout.row()
+        row = layout.row(); #row = layout.row()
         row.prop(scene.Hd2ToolPanelSettings, "SearchField", icon='VIEWZOOM', text="")
-
+        global Global_Foldouts
         for Type in sorted(DisplayTocTypes, key=lambda e: e.TypeID):
+            if Global_Foldouts.get(str(Type.TypeID), None) is None: # move to only init these keys once
+                fold = Type.TypeID in [MaterialID, TexID, MeshID]
+                Global_Foldouts[str(Type.TypeID)] = fold
+            show = Global_Foldouts.get(str(Type.TypeID), False)
+            fold_icon = "DOWNARROW_HLT" if show else "RIGHTARROW"
             # Get Type Icon
             type_icon = 'FILE'
             showExtras = scene.Hd2ToolPanelSettings.ShowExtras
@@ -4222,26 +4231,45 @@ class HellDivers2ToolsPanel(Panel):
                 type_icon = "QUESTION"
             if len(getattr(context.scene, f"list_{Type.TypeID}")) == 0:
                 continue
-            box = layout.box()
-            closed = Type.TypeID not in [MaterialID, TexID, MeshID]
-            panel_header, panel_body = box.panel(f"hd2_panel_{Type.TypeID}", default_closed=closed)
+                
             # Draw Type Header
+            box = layout.box(); row = box.row()
             typeName = GetTypeNameFromID(Type.TypeID)
-            panel_header.label(text=f"{typeName}: {Type.TypeID}")
-            if panel_body:
-                panel_header.operator("helldiver2.select_type", icon='RESTRICT_SELECT_OFF', text="").list_id = f"list_{Type.TypeID}"
-                if typeName == "material": panel_header.operator("helldiver2.material_add", icon='FILE_NEW', text="")
-            else:
-                panel_header.label(icon=type_icon)
+            split = row.split()
+            
+            sub = split.row(align=True)
+            sub.operator("helldiver2.collapse_section", text=f"{typeName}: {str(Type.TypeID)}", icon=fold_icon, emboss=False).type = str(Type.TypeID)
+
+            # Skip drawling entries if section hidden
+            if not show: 
+                sub.label(icon=type_icon)
+                continue
+            
+            #sub.operator("helldiver2.import_type", icon='IMPORT', text="").object_typeid = str(Type.TypeID)
+            sub.operator("helldiver2.select_type", icon='RESTRICT_SELECT_OFF', text="").list_id = f"list_{Type.TypeID}"
+            # Draw Add Material Button
+            
+            if typeName == "material": sub.operator("helldiver2.material_add", icon='FILE_NEW', text="")
             # Draw Type Body
-            if panel_body:
-                panel_body.template_list("MY_UL_List", f"list_{Type.TypeID}", scene, f"list_{Type.TypeID}", scene, f"index_{Type.TypeID}_dummy", rows=10)
+            if show:
+                box.template_list("MY_UL_List", f"list_{Type.TypeID}", scene, f"list_{Type.TypeID}", scene, f"index_{Type.TypeID}_dummy", rows=10)
                 if Type.TypeID == MaterialID:
                     # draw material editor
-                    material_editor_header, material_editor_panel = panel_body.panel(f"hd2_panel_material_editor", default_closed=True)
+                    if "material_editor" not in Global_Foldouts: # move to only init this key once
+                        Global_Foldouts["material_editor"] = False
+                    material_editor_show = Global_Foldouts["material_editor"]
+                    row = box.row()
+                    split = row.split()
+                    fold_icon = "DOWNARROW_HLT" if material_editor_show else "RIGHTARROW"
+                    sub = split.row(align=True)
+                    sub.operator("helldiver2.collapse_section", text=f"", icon=fold_icon, emboss=False).type = "material_editor"
+                    #material_editor_body = row.column()
+                    
+                    
+                    #material_editor_header, material_editor_panel = panel_body.panel(f"hd2_panel_material_editor", default_closed=True)
                     header_label = "Material Editor"
                     mat_item = None
-                    if material_editor_panel:
+                    if material_editor_show:
                         mat_list = getattr(context.scene, f"list_{Type.TypeID}")
                         mat_index = getattr(context.scene, f"index_{Type.TypeID}")
                         if mat_index < len(mat_list):
@@ -4250,10 +4278,10 @@ class HellDivers2ToolsPanel(Panel):
                             if Entry:
                                 if not Entry.IsLoaded:
                                     Entry.Load(True, False)
-                                self.draw_material_editor(Entry, material_editor_panel.box().column(align=True), None)
+                                self.draw_material_editor(Entry, box.row().column(align=True), None)
                                 header_label = f"Material Editor: {mat_item.item_name}"
-                    material_editor_header.label(text=header_label)
-                    if material_editor_panel and mat_item: material_editor_header.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
+                    sub.label(text=header_label)
+                    if material_editor_show and mat_item: sub.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
         if scene.Hd2ToolPanelSettings.FriendlyNames:  
             Global_TocManager.SavedFriendlyNames = NewFriendlyNames
             Global_TocManager.SavedFriendlyNameIDs = NewFriendlyIDs
