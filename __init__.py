@@ -255,10 +255,14 @@ def GetDisplayData():
     DisplayArchive = Global_TocManager.ActiveArchive
     if bpy.context.scene.Hd2ToolPanelSettings.PatchOnly:
         if Global_TocManager.ActivePatch != None:
-            DisplayTocEntries = [[Entry, True] for Entry in Global_TocManager.ActivePatch.TocEntries]
+            DisplayTocEntries = []
+            for entry_type, entries in Global_TocManager.ActivePatch.TocDict.items():
+                DisplayTocEntries.extend([[Entry, True] for Entry in entries.values()])
             DisplayTocTypes   = Global_TocManager.ActivePatch.TocTypes
     elif Global_TocManager.ActiveArchive != None:
-        DisplayTocEntries = [[Entry, False] for Entry in Global_TocManager.ActiveArchive.TocEntries]
+        DisplayTocEntries = []
+        for entry_type, entries in Global_TocManager.ActiveArchive.TocDict.items():
+            DisplayTocEntries.extend([[Entry, False] for Entry in entries.values()])
         DisplayTocTypes   = [Type for Type in Global_TocManager.ActiveArchive.TocTypes]
         AddedTypes   = [Type.TypeID for Type in DisplayTocTypes]
         AddedEntries = [Entry[0].FileID for Entry in DisplayTocEntries]
@@ -267,17 +271,19 @@ def GetDisplayData():
                 if Type.TypeID not in AddedTypes:
                     AddedTypes.append(Type.TypeID)
                     DisplayTocTypes.append(Type)
-            for Entry in Global_TocManager.ActivePatch.TocEntries:
-                if Entry.FileID not in AddedEntries:
-                    AddedEntries.append(Entry.FileID)
-                    DisplayTocEntries.append([Entry, True])
+            for entry_type, entries in Global_TocManager.ActivePatch.TocDict.items(): # this seems wrong
+                for Entry in entries:
+                    if Entry.FileID not in AddedEntries:
+                        AddedEntries.append(Entry.FileID)
+                        DisplayTocEntries.append([Entry, True])
     return [DisplayTocEntries, DisplayTocTypes]
 
 def SaveUnsavedEntries(self):
-    for Entry in Global_TocManager.ActivePatch.TocEntries:
-                if not Entry.IsModified:
-                    Global_TocManager.Save(int(Entry.FileID), Entry.TypeID)
-                    PrettyPrint(f"Saved {int(Entry.FileID)}")
+    for entry_type, entries in Global_TocManager.ActivePatch.TocDict.items():
+        for Entry in entries:
+            if not Entry.IsModified:
+                Global_TocManager.Save(int(Entry.FileID), Entry.TypeID)
+                PrettyPrint(f"Saved {int(Entry.FileID)}")
 
 def RandomHash16():
     global Global_previousRandomHash
@@ -629,6 +635,7 @@ class StreamToc:
         self.unk4Data   = bytearray(56)
         self.TocTypes   = []
         self.TocEntries = []
+        self.TocDict = {}
         self.Path = ""
         self.Name = ""
         self.LocalName = ""
@@ -642,7 +649,10 @@ class StreamToc:
         if self.magic != 4026531857: return False
 
         self.numTypes   = self.TocFile.uint32(len(self.TocTypes))
-        self.numFiles   = self.TocFile.uint32(len(self.TocEntries))
+        if self.TocFile.IsReading():
+            self.numFiles   = self.TocFile.uint32(len(self.TocEntries))
+        else:
+            self.numFiles   = self.TocFile.uint32(sum([len(entries.keys()) for entries in self.TocDict.values()]))
         self.unknown    = self.TocFile.uint32(self.unknown)
         self.unk4Data   = self.TocFile.bytes(self.unk4Data, 56)
 
@@ -652,41 +662,39 @@ class StreamToc:
         # serialize Entries in correct order
         self.TocTypes   = [Entry.Serialize(self.TocFile) for Entry in self.TocTypes]
         TocEntryStart   = self.TocFile.tell()
-        if self.TocFile.IsReading(): self.TocEntries = [Entry.Serialize(self.TocFile) for Entry in self.TocEntries]
+        if self.TocFile.IsReading():
+            self.TocEntries = [Entry.Serialize(self.TocFile) for Entry in self.TocEntries]
+            for entry in self.TocEntries:
+                try:
+                    self.TocDict[entry.TypeID][entry.FileID] = entry
+                except KeyError:
+                    self.TocDict[entry.TypeID] = {}
+                    self.TocDict[entry.TypeID][entry.FileID] = entry
         else:
             Index = 1
             for Type in self.TocTypes:
-                for Entry in self.TocEntries:
-                    if Entry.TypeID == Type.TypeID:
-                        Entry.Serialize(self.TocFile, Index)
-                        Index += 1
+                for Entry in self.TocDict[Type].values():
+                    Entry.Serialize(self.TocFile, Index)
+                    Index += 1
 
         # Serialize Data
         if SerializeData:
-            for FileEntry in self.TocEntries:
-                FileEntry.SerializeData(self.TocFile, self.GpuFile, self.StreamFile)
+            for entry_type, entries in self.TocDict.items():
+                for FileEntry in entries.values():
+                    FileEntry.SerializeData(self.TocFile, self.GpuFile, self.StreamFile)
 
         # re-write toc entry info with updated offsets
         if self.TocFile.IsWriting():
             self.TocFile.seek(TocEntryStart)
             Index = 1
             for Type in self.TocTypes:
-                for Entry in self.TocEntries:
-                    if Entry.TypeID == Type.TypeID:
-                        Entry.Serialize(self.TocFile, Index)
-                        Index += 1
+                for Entry in self.TocDict[Type].values():
+                    Entry.Serialize(self.TocFile, Index)
+                    Index += 1
         return True
 
     def UpdateTypes(self):
-        self.TocTypes = []
-        for Entry in self.TocEntries:
-            exists = False
-            for Type in self.TocTypes:
-                if Type.TypeID == Entry.TypeID:
-                    Type.NumFiles += 1; exists = True
-                    break
-            if not exists:
-                self.TocTypes.append(TocFileType(Entry.TypeID, 1))
+        self.TocTypes = [TocFileType(type_id, len(self.TocDict[type_id])) for type_id in self.TocDict.keys()]
 
     def UpdatePath(self, path):
         self.Path = path
@@ -723,25 +731,30 @@ class StreamToc:
             f.write(bytes(self.StreamFile.Data))
 
     def GetFileData(self, FileID, TypeID):
-        for FileEntry in self.TocEntries:
-            if FileEntry.FileID == FileID and FileEntry.TypeID == TypeID:
-                return FileEntry.GetData()
-        return None
+        try:
+            return self.TocDict[TypeID][FileID].GetData()
+        except KeyError:
+            return None
     def GetEntry(self, FileID, TypeID):
-        for Entry in self.TocEntries:
-            if Entry.FileID == int(FileID) and Entry.TypeID == TypeID:
-                return Entry
-        return None
+        try:
+            return self.TocDict[TypeID][FileID]
+        except KeyError:
+            return None
     def AddEntry(self, NewEntry):
         if self.GetEntry(NewEntry.FileID, NewEntry.TypeID) != None:
             raise Exception("Entry with same ID already exists")
-        self.TocEntries.append(NewEntry)
+        try:
+            self.TocDict[NewEntry.TypeID][NewEntry.FileID] = NewEntry
+        except KeyError:
+            self.TocDict[NewEntry.TypeID] = {}
+            self.TocDict[NewEntry.TypeID][NewEntry.FileID] = NewEntry
         self.UpdateTypes()
     def RemoveEntry(self, FileID, TypeID):
-        Entry = self.GetEntry(FileID, TypeID)
-        if Entry != None:
-            self.TocEntries.remove(Entry)
+        try:
+            del self.TocDict[TypeID][FileID]
             self.UpdateTypes()
+        except KeyError:
+            pass
 
 class TocManager():
     def __init__(self):
@@ -757,28 +770,6 @@ class TocManager():
         self.LastSelected = None # Last Entry Manually Selected
         self.SavedFriendlyNames   = []
         self.SavedFriendlyNameIDs = []
-    #________________________________#
-    # ---- Entry Selection Code ---- #
-    def SelectEntries(self, Entries, Append=False):
-        if not Append: self.DeselectAll()
-        if len(Entries) == 1:
-            Global_TocManager.LastSelected = Entries[0]
-
-        for Entry in Entries:
-            if Entry not in self.SelectedEntries:
-                Entry.IsSelected = True
-                self.SelectedEntries.append(Entry)
-    def DeselectEntries(self, Entries):
-        for Entry in Entries:
-            Entry.IsSelected = False
-            if Entry in self.SelectedEntries:
-                self.SelectedEntries.remove(Entry)
-    def DeselectAll(self):
-        for Entry in self.SelectedEntries:
-            Entry.IsSelected = False
-        self.SelectedEntries = []
-        self.LastSelected = None
-
     #________________________#
     # ---- Archive Code ---- #
     def LoadArchive(self, path, SetActive=True, IsPatch=False):
@@ -807,16 +798,15 @@ class TocManager():
         elif SetActive and IsPatch:
             self.Patches.append(toc)
             self.SetActivePatch(toc)
-
-            for entry in self.ActivePatch.TocEntries:
-                if entry.TypeID == MaterialID:
-                    ID = GetEntryParentMaterialID(entry)
-                    if ID in Global_MaterialParentIDs:
-                        entry.MaterialTemplate = Global_MaterialParentIDs[ID]
-                        entry.Load()
-                        PrettyPrint(f"Creating Material: {entry.FileID} Template: {entry.MaterialTemplate}")
-                    else:
-                        PrettyPrint(f"Material: {entry.FileID} Parent ID: {ID} is not an custom material, skipping.")
+            material_entries = self.ActivePatch.TocDict.get(MaterialID, {})
+            for entry in material_entries.values():
+                ID = GetEntryParentMaterialID(entry)
+                if ID in Global_MaterialParentIDs:
+                    entry.MaterialTemplate = Global_MaterialParentIDs[ID]
+                    entry.Load()
+                    PrettyPrint(f"Creating Material: {entry.FileID} Template: {entry.MaterialTemplate}")
+                else:
+                    PrettyPrint(f"Material: {entry.FileID} Parent ID: {ID} is not an custom material, skipping.")
         else:
             self.LoadedArchives.append(toc)
 
@@ -842,19 +832,9 @@ class TocManager():
         return self.GetEntry(FileID, TypeID, SearchAll=True, IgnorePatch=True)
     
     def ArchiveNotEmpty(self, toc):
-        hasMaterials = False
-        hasTextures = False
-        hasMeshes = False
-        for Entry in toc.TocEntries:
-            type = Entry.TypeID
-            if type == MaterialID:
-                hasMaterials = True
-            elif type == MeshID:
-                hasMeshes = True
-            elif type == TexID:
-                hasTextures = True
-            elif type == CompositeMeshID:
-                hasMeshes = True
+        hasMaterials = toc.TocDict.get(MaterialID, None) and len(toc.TocDict[MaterialID]) > 0
+        hasTextures = toc.TocDict.get(TexID, None) and len(toc.TocDict[TexID]) > 0
+        hasMeshes = (toc.TocDict.get(MeshID, None) and len(toc.TocDict[MeshID]) > 0) or (toc.TocDict.get(CompositeMeshID, None) and len(toc.TocDict[CompositeMeshID]) > 0)
         return hasMaterials or hasTextures or hasMeshes
 
     def UnloadArchives(self):
@@ -878,7 +858,6 @@ class TocManager():
         if Archive != self.ActiveArchive:
             self.ActiveArchive = Archive
             LoadEntryLists()
-            self.DeselectAll()
 
     def SetActiveByName(self, Name):
         for Archive in self.LoadedArchives:
@@ -963,7 +942,7 @@ class TocManager():
             raise Exception("No Archive exists to create patch from, please open one first")
 
         patch = deepcopy(self.ActiveArchive)
-        patch.TocEntries  = []
+        patch.TocEntries  = {}
         patch.TocTypes    = []
         # TODO: ask for which patch index
         path = self.ActiveArchive.Path
@@ -3539,7 +3518,7 @@ def RepatchMeshes(self, path):
         Global_TocManager.LoadArchive(path, True, True)
         numMeshesRepatched = 0
         failed = False
-        for entry in Global_TocManager.ActivePatch.TocEntries:
+        for entry in Global_TocManager.ActivePatch.TocEntries: # Fix later
             if entry.TypeID != MeshID:
                 PrettyPrint(f"Skipping {entry.FileID} as it is not a mesh entry")
                 continue
@@ -3773,26 +3752,27 @@ def LoadEntryLists():
         getattr(bpy.context.scene, f"list_{t}").clear()
     print(bpy.context.scene.Hd2ToolPanelSettings.PatchOnly)
     if archive and not bpy.context.scene.Hd2ToolPanelSettings.PatchOnly:
-        for Entry in archive.TocEntries:
+        for entry_type in archive.TocDict.keys():
             try:
-                l = getattr(bpy.context.scene, f"list_{Entry.TypeID}")
+                l = getattr(bpy.context.scene, f"list_{entry_type}")
             except AttributeError:
                 continue
-            new_item = l.add()
-            new_item.item_name = str(Entry.FileID)
-            new_item.item_type = str(Entry.TypeID)
-            if Entry.TypeID == MaterialID:
-                if not Entry.IsLoaded: Entry.Load(True, False)
-                new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(tex_id) for tex_id in Entry.LoadedData.TexIDs])
-            else:
-                new_item.item_filter_name = new_item.item_name
+            for Entry in archive.TocDict[entry_type].values():
+                new_item = l.add()
+                new_item.item_name = str(Entry.FileID)
+                new_item.item_type = str(Entry.TypeID)
+                if Entry.TypeID == MaterialID:
+                    if not Entry.IsLoaded: Entry.Load(True, False)
+                    new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(tex_id) for tex_id in Entry.LoadedData.TexIDs])
+                else:
+                    new_item.item_filter_name = new_item.item_name
     if patch:
-        for Entry in patch.TocEntries:
-            if bpy.context.scene.Hd2ToolPanelSettings.PatchOnly or not Global_TocManager.ActiveArchive.GetEntry(Entry.FileID, Entry.TypeID):
-                try:
-                    l = getattr(bpy.context.scene, f"list_{Entry.TypeID}")
-                except AttributeError:
-                    continue
+        for entry_type in patch.TocDict.keys():
+            try:
+                l = getattr(bpy.context.scene, f"list_{entry_type}")
+            except AttributeError:
+                continue
+            for Entry in archive.TocDict[entry_type].values():
                 new_item = l.add()
                 new_item.item_name = str(Entry.FileID)
                 new_item.item_type = str(Entry.TypeID)
