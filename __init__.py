@@ -4022,7 +4022,7 @@ class MY_UL_List(UIList):
             op.list_id = f"list_{item.item_type}" #"active_propname.replace("index", "list").replace("_dummy", "")
             op.list_index = index
             #row.label(text=friendly_name, icon = type_icon, depress=True)
-            if entry_type == MeshID:
+            if entry_type == UnitID:
                 row.operator("helldiver2.archive_mesh_save", icon='FILE_BLEND', text="").object_id = item.item_name
                 row.operator("helldiver2.archive_mesh_import", icon='IMPORT', text="").object_id = item.item_name
             elif entry_type == TexID:
@@ -4316,14 +4316,14 @@ class HellDivers2ToolsPanel(Panel):
         global Global_Foldouts
         for Type in sorted(DisplayTocTypes, key=lambda e: e.TypeID):
             if Global_Foldouts.get(str(Type.TypeID), None) is None: # move to only init these keys once
-                fold = Type.TypeID in [MaterialID, TexID, MeshID]
+                fold = Type.TypeID in [MaterialID, TexID, UnitID]
                 Global_Foldouts[str(Type.TypeID)] = fold
             show = Global_Foldouts.get(str(Type.TypeID), False)
             fold_icon = "DOWNARROW_HLT" if show else "RIGHTARROW"
             # Get Type Icon
             type_icon = 'FILE'
             showExtras = scene.Hd2ToolPanelSettings.ShowExtras
-            if not showExtras and Type.TypeID not in [AnimationID, ParticleID, MeshID, TexID, MaterialID]:
+            if not showExtras and Type.TypeID not in [AnimationID, ParticleID, UnitID, TexID, MaterialID]:
                 continue
             try:
                 type_icon = Global_IconDict[Type.TypeID]
@@ -4584,7 +4584,7 @@ class WM_MT_button_context(Menu):
         # Draw import buttons
         # TODO: Add generic import buttons
         layout.separator()
-        if item_type == MeshID:       layout.operator("helldiver2.archive_mesh_import", icon='IMPORT', text=f"Import {len(selected_items)} Mesh{'es' if len(selected_items) > 1 else ''}").object_id = FileIDStr
+        if item_type == UnitID:       layout.operator("helldiver2.archive_mesh_import", icon='IMPORT', text=f"Import {len(selected_items)} Mesh{'es' if len(selected_items) > 1 else ''}").object_id = FileIDStr
         elif item_type == TexID:      layout.operator("helldiver2.texture_import",      icon='IMPORT', text=f"Import {len(selected_items)} Texture{'s' if len(selected_items) > 1 else ''}").object_id = FileIDStr
         elif item_type == MaterialID: layout.operator("helldiver2.material_import",     icon='IMPORT', text=f"Import {len(selected_items)} Material{'s' if len(selected_items) > 1 else ''}").object_id = FileIDStr
         #elif AreAllParticles:
@@ -4602,7 +4602,7 @@ class WM_MT_button_context(Menu):
         # if AreAllMaterials and SingleEntry: layout.operator("helldiver2.archive_object_dump_import", icon="IMPORT", text="Import Raw Dump").object_id = FileIDStr
         # Draw save buttons
         layout.separator()
-        if item_type == MeshID:
+        if item_type == UnitID:
             if len(selected_items) == 1:
                 layout.operator("helldiver2.archive_mesh_save", icon='FILE_BLEND', text="Save Mesh").object_id = list_item.item_name
             else:
