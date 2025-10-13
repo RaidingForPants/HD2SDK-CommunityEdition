@@ -766,6 +766,8 @@ class StreamToc:
         except KeyError:
             return None
     def GetEntry(self, FileID, TypeID):
+        TypeID = int(TypeID)
+        FileID = int(FileID)
         try:
             return self.TocDict[TypeID][FileID]
         except KeyError:
