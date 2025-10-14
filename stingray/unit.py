@@ -1540,6 +1540,12 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                     transform_info.TransformEntries[transform_index].ParentBone = parent_transform_index
                 except ValueError:
                     PrettyPrint(f"Failed to parent bone: {bone.name}.", 'warn')
+                    
+        armature_obj.hide_set(was_hidden)
+        for obj in prev_objs:
+            obj.select_set(True)
+        bpy.context.view_layer.objects.active = prev_obj
+        bpy.ops.object.mode_set(mode=prev_mode)   
     
     # get weights
     vert_idx = 0
@@ -1618,43 +1624,27 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
 
     
     # set bone matrices in bone index mappings
-    if armature_obj is not None:
-        bpy.context.view_layer.objects.active = armature_obj
-        bpy.ops.object.mode_set(mode='EDIT')
-        for bone in armature_obj.data.edit_bones: # I'd like to use edit bones but it doesn't work for some reason
-            try:
-                name_hash = int(bone.name)
-            except ValueError:
-                name_hash = murmur32_hash(bone.name.encode("utf-8"))
-            try:
-                transform_index = transform_info.NameHashes.index(name_hash)
-            except ValueError:
-                continue
-            # matrices in bone_info are the inverted joint matrices (for some reason)
-            # and also relative to the mesh transform
-            mesh_info_index = og_object["MeshInfoIndex"]
-            mesh_info = stingray_mesh_entry.MeshInfoArray[mesh_info_index]
-            origin_transform = transform_info.TransformMatrices[mesh_info.TransformIndex].ToLocalTransform()
-            origin_transform_matrix = mathutils.Matrix.LocRotScale(origin_transform.pos, mathutils.Matrix([origin_transform.rot.x, origin_transform.rot.y, origin_transform.rot.z]), origin_transform.scale).inverted()
-            for b in bone_info:
-                if transform_index in b.RealIndices:
-                    b_index = b.RealIndices.index(transform_index)
-                    m = (origin_transform_matrix @ bone.matrix).inverted().transposed()
-                    transform_matrix = StingrayMatrix4x4()
-                    transform_matrix.v = [
-                        m[0][0], m[0][1], m[0][2], m[0][3],
-                        m[1][0], m[1][1], m[1][2], m[1][3],
-                        m[2][0], m[2][1], m[2][2], m[2][3],
-                        m[3][0], m[3][1], m[3][2], m[3][3]
-                    ]
-                    b.Bones[b_index] = transform_matrix
+    # matrices in bone_info are the inverted joint matrices (for some reason)
+    # and also relative to the mesh transform
+    mesh_info_index = og_object["MeshInfoIndex"]
+    mesh_info = stingray_mesh_entry.MeshInfoArray[mesh_info_index]
+    origin_transform = transform_info.TransformMatrices[mesh_info.TransformIndex].ToLocalTransform()
+    origin_transform_matrix = mathutils.Matrix.LocRotScale(origin_transform.pos, mathutils.Matrix([origin_transform.rot.x, origin_transform.rot.y, origin_transform.rot.z]), origin_transform.scale).inverted()
+    for b in bone_info:
+        for i, transform_index in enumerate(b.RealIndices):
+            bone_matrix = transform_info.TransformMatrices[transform_index]
+            bone_transform = bone_matrix.ToLocalTransform()
+            blender_bone_matrix = mathutils.Matrix.LocRotScale(bone_transform.pos, mathutils.Matrix([bone_transform.rot.x, bone_transform.rot.y, bone_transform.rot.z]), bone_transform.scale)
+            m = (origin_transform_matrix @ blender_bone_matrix).inverted().transposed()
+            transform_matrix = StingrayMatrix4x4()
+            transform_matrix.v = [
+                m[0][0], m[0][1], m[0][2], m[0][3],
+                m[1][0], m[1][1], m[1][2], m[1][3],
+                m[2][0], m[2][1], m[2][2], m[2][3],
+                m[3][0], m[3][1], m[3][2], m[3][3]
+            ]
+            b.Bones[i] = transform_matrix
 
-        armature_obj.hide_set(was_hidden)
-        for obj in prev_objs:
-            obj.select_set(True)
-        bpy.context.view_layer.objects.active = prev_obj
-        bpy.ops.object.mode_set(mode=prev_mode)       
-        
     #bpy.ops.object.mode_set(mode='OBJECT')
     # get faces
     temp_faces = [[] for n in range(len(object.material_slots))]
