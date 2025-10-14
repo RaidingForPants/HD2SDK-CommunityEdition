@@ -811,6 +811,14 @@ class StingrayMatrix4x4: # Matrix4x4: https://help.autodesk.com/cloudhelp/ENU/St
     def Serialize(self, f: MemoryStream):
         self.v = [f.float32(value) for value in self.v]
         return self
+    def ToBlenderMatrix(self):
+        mat = mathutils.Matrix.Identity(4)
+        mat[0] = self.v[0:4]
+        mat[1] = self.v[4:8]
+        mat[2] = self.v[8:12]
+        mat[3] = self.v[12:16]
+        mat.transpose()
+        return mat
     def ToLocalTransform(self):
         matrix = mathutils.Matrix([
             [self.v[0], self.v[1], self.v[2], self.v[12]],
@@ -1628,22 +1636,18 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     # and also relative to the mesh transform
     mesh_info_index = og_object["MeshInfoIndex"]
     mesh_info = stingray_mesh_entry.MeshInfoArray[mesh_info_index]
-    origin_transform = transform_info.TransformMatrices[mesh_info.TransformIndex].ToLocalTransform()
-    origin_transform_matrix = mathutils.Matrix.LocRotScale(origin_transform.pos, mathutils.Matrix([origin_transform.rot.x, origin_transform.rot.y, origin_transform.rot.z]), origin_transform.scale).inverted()
-    for b in bone_info:
-        for i, transform_index in enumerate(b.RealIndices):
-            bone_matrix = transform_info.TransformMatrices[transform_index]
-            bone_transform = bone_matrix.ToLocalTransform()
-            blender_bone_matrix = mathutils.Matrix.LocRotScale(bone_transform.pos, mathutils.Matrix([bone_transform.rot.x, bone_transform.rot.y, bone_transform.rot.z]), bone_transform.scale)
-            m = (origin_transform_matrix @ blender_bone_matrix).inverted().transposed()
-            transform_matrix = StingrayMatrix4x4()
-            transform_matrix.v = [
-                m[0][0], m[0][1], m[0][2], m[0][3],
-                m[1][0], m[1][1], m[1][2], m[1][3],
-                m[2][0], m[2][1], m[2][2], m[2][3],
-                m[3][0], m[3][1], m[3][2], m[3][3]
-            ]
-            b.Bones[i] = transform_matrix
+    origin_transform_matrix = transform_info.TransformMatrices[mesh_info.TransformIndex].ToBlenderMatrix().inverted()
+    for i, transform_index in enumerate(bone_info[lod_index].RealIndices):
+        bone_matrix = transform_info.TransformMatrices[transform_index]
+        m = (origin_transform_matrix @ bone_matrix.ToBlenderMatrix()).inverted().transposed()
+        transform_matrix = StingrayMatrix4x4()
+        transform_matrix.v = [
+            m[0][0], m[0][1], m[0][2], m[0][3],
+            m[1][0], m[1][1], m[1][2], m[1][3],
+            m[2][0], m[2][1], m[2][2], m[2][3],
+            m[3][0], m[3][1], m[3][2], m[3][3]
+        ]
+        bone_info[lod_index].Bones[i] = transform_matrix
 
     #bpy.ops.object.mode_set(mode='OBJECT')
     # get faces
