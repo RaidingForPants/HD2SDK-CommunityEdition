@@ -578,6 +578,7 @@ class TocEntry:
 
     # -- Write Data -- #
     def Save(self, **kwargs):
+        callback = None
         if not self.IsLoaded: self.Load(True, False)
         if self.TypeID == UnitID: callback = SaveStingrayUnit
         if self.TypeID == TexID: callback = SaveStingrayTexture
