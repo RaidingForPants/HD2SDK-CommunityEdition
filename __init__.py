@@ -1600,14 +1600,16 @@ def LoadStingrayUnit(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject, 
     toc  = MemoryStream(TocData)
     gpu  = MemoryStream(GpuData)
         
-    bones_entry = Global_TocManager.GetEntryByLoadArchive(int(ID), int(BoneID))
-    if bones_entry and not bones_entry.IsLoaded:
-        bones_entry.Load(False, False)
+    
     StingrayMesh = StingrayMeshFile()
     StingrayMesh.NameHash = int(ID)
     StingrayMesh.LoadMaterialSlotNames = LoadMaterialSlotNames
     StingrayMesh.Serialize(toc, gpu, Global_TocManager)
-    if MakeBlendObject: CreateModel(StingrayMesh, str(ID), Global_BoneNames, bones_entry.LoadedData)
+    bones_entry = Global_TocManager.GetEntryByLoadArchive(StingrayMesh.BonesRef, BoneID)
+    if bones_entry and not bones_entry.IsLoaded:
+        bones_entry.Load(False, False)
+    if MakeBlendObject and bones_entry: CreateModel(StingrayMesh, str(ID), Global_BoneNames, bones_entry.LoadedData)
+    elif MakeBlendObject: CreateModel(StingrayMesh, str(ID), Global_BoneNames, None)
     return StingrayMesh
 
 def SaveStingrayUnit(self, ID, TocData, GpuData, StreamData, StingrayMesh, BlenderOpts=None):

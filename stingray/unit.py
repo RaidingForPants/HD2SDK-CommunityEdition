@@ -1947,11 +1947,11 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry):
                     else:
                         boneName = str(boneHash)
                     animated = False
-                    if boneName in bones_entry.Names:
+                    if bones_entry and boneName in bones_entry.Names:
                         animated = True
                     try:
                         b = int(boneName)
-                        if b in bones_entry.BoneHashes:
+                        if bones_entry and b in bones_entry.BoneHashes:
                             animated = True
                     except ValueError:
                         pass
@@ -1959,7 +1959,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry):
                     if newBone is None:
                         newBone = armature.edit_bones.new(boneName)
                         newBone.tail = 0, 0.05, 0
-                        newBone['Animated'] = animated
+                        if bones_entry: newBone['Animated'] = animated
                         doPoseBone[newBone.name] = True
                     else:
                         doPoseBone[newBone.name] = False
@@ -1985,11 +1985,11 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry):
                     else:
                         boneName = str(boneHash)
                     animated = False
-                    if boneName in bones_entry.Names:
+                    if bones_entry and boneName in bones_entry.Names:
                         animated = True
                     try:
                         b = int(boneName)
-                        if b in bones_entry.BoneHashes:
+                        if bones_entry and b in bones_entry.BoneHashes:
                             animated = True
                     except ValueError:
                         pass
@@ -1997,7 +1997,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry):
                     if newBone is None:
                         newBone = armature.edit_bones.new(boneName)
                         newBone.tail = 0, 0.05, 0
-                        newBone['Animated'] = animated
+                        if bones_entry: newBone['Animated'] = animated
                         doPoseBone[newBone.name] = True
                     else:
                         doPoseBone[newBone.name] = False
