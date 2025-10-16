@@ -519,8 +519,8 @@ class StingrayAnimation:
         for item in splits:
             if item != b'':
                 bone_names.append(item.decode('utf-8'))
-        if len(self.initial_bone_states) != int.from_bytes(bones_data[0:4], "little"):
-            raise AnimationException("This animation is not for this armature")
+        #if len(self.initial_bone_states) != int.from_bytes(bones_data[0:4], "little"):
+        #    raise AnimationException("This animation is not for this armature")
         
         PrettyPrint(f"Creaing action with ID: {animation_id}")
         actions = bpy.data.actions

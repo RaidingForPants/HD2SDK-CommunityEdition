@@ -29,6 +29,7 @@ class StingrayMeshFile:
         self.BoneNames = None
         self.UnreversedCustomizationData = bytearray()
         self.UnreversedConnectingBoneData = bytearray()
+        self.StateMachineRef = self.UnkRef2 = self.LodGroupOffset = 0
         self.NameHash = 0
         self.LoadMaterialSlotNames = True
 
@@ -91,7 +92,10 @@ class StingrayMeshFile:
         self.BonesRef           = f.uint64(self.BonesRef)
         if f.IsWriting():         f.uint64(0)
         else: self.CompositeRef = f.uint64(self.CompositeRef)
-        self.HeaderData1        = f.bytes(self.HeaderData1, 28)
+        self.UnkRef2            = f.uint64(self.UnkRef2)
+        self.StateMachineRef    = f.uint64(self.StateMachineRef)
+        self.HeaderData1        = f.uint64(self.HeaderData1)
+        self.LodGroupOffset     = f.uint32(self.LodGroupOffset)
         self.TransformInfoOffset= f.uint32(self.TransformInfoOffset)
         self.HeaderData2        = f.bytes(self.HeaderData2, 20)
         self.CustomizationInfoOffset  = f.uint32(self.CustomizationInfoOffset)
@@ -1474,6 +1478,13 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     bone_info = stingray_mesh_entry.BoneInfoArray
     transform_info = stingray_mesh_entry.TransformInfo
     lod_index = og_object["BoneInfoIndex"]
+    bone_entry = Global_TocManager.GetEntryByLoadArchive(stingray_mesh_entry.BonesRef, BoneID)
+    modified_bone_entry = False
+    bone_data = None
+    if bone_entry:
+        if not bone_entry.IsLoaded:
+            bone_entry.Load()
+        bone_data = bone_entry.LoadedData
     bone_names = []
         
     # get armature object
@@ -1508,6 +1519,23 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 transform_info.TransformEntries.append(l)
                 transform_info.NumTransforms += 1
                 transform_index = len(transform_info.NameHashes) - 1
+            
+            # set animated
+            try:
+                animated = bone['Animated']
+                if animated and name_hash not in bone_data.BoneHashes:
+                    bone_data.BoneHashes.append(name_hash)
+                    bone_data.Names.append(bone.name)
+                    bone_data.NumNames += 1
+                    modified_bone_entry = True
+                if not animated and name_hash in bone_data.BoneHashes: # this WILL require redoing all animations
+                    list_index = bone_data.BoneHashes.index(name_hash)
+                    bone_data.BoneHashes.pop(list_index)
+                    bone_data.Names.pop(list_index)
+                    bone_data.NumNames -= 1
+                    modified_bone_entry = True
+            except (KeyError, AttributeError):
+                pass
             
             # set bone matrix
             m = bone.matrix.transposed()
@@ -1553,7 +1581,11 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         for obj in prev_objs:
             obj.select_set(True)
         bpy.context.view_layer.objects.active = prev_obj
-        bpy.ops.object.mode_set(mode=prev_mode)   
+        bpy.ops.object.mode_set(mode=prev_mode)
+        
+    if modified_bone_entry:
+        entry = Global_TocManager.AddEntryToPatch(bone_entry.FileID, BoneID)
+        entry.Save()
     
     # get weights
     vert_idx = 0
@@ -1731,7 +1763,7 @@ def NameFromMesh(mesh, id, customization_info, bone_names, use_sufix=True):
 
     return name
 
-def CreateModel(stingray_unit, id, Global_BoneNames):
+def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry):
     model, customization_info, bone_names, transform_info, bone_info = stingray_unit.RawMeshes, stingray_unit.CustomizationInfo, stingray_unit.BoneNames, stingray_unit.TransformInfo, stingray_unit.BoneInfoArray
     if len(model) < 1: return
     # Make collection
@@ -1879,6 +1911,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 armature.show_names = True
                 skeletonObj = bpy.data.objects.new(f"{id}_lod{mesh.LodIndex}_rig", armature)
                 skeletonObj['BonesID'] = str(stingray_unit.BonesRef)
+                skeletonObj['StateMachineID'] = str(stingray_unit.StateMachineRef)
                 skeletonObj.show_in_front = True
                 
             if bpy.context.scene.Hd2ToolPanelSettings.MakeCollections:
@@ -1913,10 +1946,20 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                         boneName = Global_BoneNames[boneHash]
                     else:
                         boneName = str(boneHash)
+                    animated = False
+                    if boneName in bones_entry.Names:
+                        animated = True
+                    try:
+                        b = int(boneName)
+                        if b in bones_entry.BoneHashes:
+                            animated = True
+                    except ValueError:
+                        pass
                     newBone = armature.edit_bones.get(boneName)
                     if newBone is None:
                         newBone = armature.edit_bones.new(boneName)
                         newBone.tail = 0, 0.05, 0
+                        newBone['Animated'] = animated
                         doPoseBone[newBone.name] = True
                     else:
                         doPoseBone[newBone.name] = False
@@ -1941,10 +1984,20 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                         boneName = Global_BoneNames[boneHash]
                     else:
                         boneName = str(boneHash)
+                    animated = False
+                    if boneName in bones_entry.Names:
+                        animated = True
+                    try:
+                        b = int(boneName)
+                        if b in bones_entry.BoneHashes:
+                            animated = True
+                    except ValueError:
+                        pass
                     newBone = armature.edit_bones.get(boneName)
                     if newBone is None:
                         newBone = armature.edit_bones.new(boneName)
                         newBone.tail = 0, 0.05, 0
+                        newBone['Animated'] = animated
                         doPoseBone[newBone.name] = True
                     else:
                         doPoseBone[newBone.name] = False
