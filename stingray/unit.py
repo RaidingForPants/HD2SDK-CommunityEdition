@@ -1876,14 +1876,17 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 skeletonObj = bpy.context.selected_objects[0]
             if skeletonObj and skeletonObj.type == 'ARMATURE':
                 armature = skeletonObj.data
-            if bpy.context.scene.Hd2ToolPanelSettings.MergeArmatures and armature != None:
+            if bpy.context.scene.Hd2ToolPanelSettings.MergeArmatures and armature != None and armature.name.startswith(str(id)):
                 PrettyPrint(f"Merging to previous skeleton: {skeletonObj.name}")
             else:
                 PrettyPrint(f"Creating New Skeleton")
                 armature = bpy.data.armatures.new(f"{id}_skeleton{mesh.LodIndex}")
                 armature.display_type = "OCTAHEDRAL"
                 armature.show_names = True
-                skeletonObj = bpy.data.objects.new(f"{id}_lod{mesh.LodIndex}_rig", armature)
+                if bpy.context.scene.Hd2ToolPanelSettings.MergeArmatures:
+                    skeletonObj = bpy.data.objects.new(f"{id}_rig", armature)
+                else:
+                    skeletonObj = bpy.data.objects.new(f"{id}_lod{mesh.LodIndex}_rig", armature)
                 skeletonObj['BonesID'] = str(stingray_unit.BonesRef)
                 skeletonObj.show_in_front = True
                 
