@@ -1510,7 +1510,13 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 transform_index = len(transform_info.NameHashes) - 1
             
             # set bone matrix
-            m = bone.matrix.transposed()
+            loc, rot, scale = bone.matrix.decompose()
+            if transform_info.TransformMatrices[transform_index]:
+                scale = transform_info.TransformMatrices[transform_index].ToLocalTransform().scale
+            else:
+                scale = [1, 1, 1]
+            m = mathutils.Matrix.LocRotScale(loc, rot, mathutils.Vector(scale))
+            m.transpose()
             transform_matrix = StingrayMatrix4x4()
             transform_matrix.v = [
                 m[0][0], m[0][1], m[0][2], m[0][3],
@@ -1524,7 +1530,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             if bone.parent:
                 parent_matrix = bone.parent.matrix
                 local_transform_matrix = parent_matrix.inverted() @ bone.matrix
-                translation, rotation, scale = local_transform_matrix.decompose()
+                translation, rotation, _ = local_transform_matrix.decompose()
                 rotation = rotation.to_matrix()
                 transform_local = StingrayLocalTransform()
                 transform_local.rot.x = [rotation[0][0], rotation[1][0], rotation[2][0]]
