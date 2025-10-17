@@ -545,7 +545,7 @@ class StingrayAnimation:
             try:
                 bone = armature.pose.bones[bone_name]
             except KeyError:
-                PrettyPrint(f"Failed to find bone: {bone.name} in rig for animation. This may be intended", 'warn')
+                PrettyPrint(f"Failed to find bone: {bone_name} in rig for animation. This may be intended", 'warn')
                 continue
             translation = mathutils.Vector(initial_state.position)
             rotation = mathutils.Quaternion([initial_state.rotation[3], initial_state.rotation[0], initial_state.rotation[1], initial_state.rotation[2]])
