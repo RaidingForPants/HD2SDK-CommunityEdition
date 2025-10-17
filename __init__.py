@@ -1085,6 +1085,8 @@ def LoadStingrayAnimation(ID, TocData, GpuData, StreamData, Reload, MakeBlendObj
         except ValueError:
             raise Exception(f"\n\nCould not obtain custom property: StateMachineID from armature: {armature.name}. Please make sure this is a valid value")
         state_machine_entry = Global_TocManager.GetEntryByLoadArchive(int(state_machine_id), StateMachineID)
+        if not state_machine_entry:
+            raise AnimationException("This animation is not for this armature")
         if not state_machine_entry.IsLoaded:
             state_machine_entry.Load()
         if int(ID) not in state_machine_entry.LoadedData.animation_ids:
