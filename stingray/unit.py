@@ -11,6 +11,8 @@ from ..hashlists.hash import murmur32_hash
 
 from ..constants import *
 
+default_bone_length = 0.05
+
 Global_MaterialSlotNames = {}
 
 class StingrayMeshFile:
@@ -1510,11 +1512,8 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 transform_index = len(transform_info.NameHashes) - 1
             
             # set bone matrix
-            loc, rot, scale = bone.matrix.decompose()
-            if transform_info.TransformMatrices[transform_index]:
-                scale = transform_info.TransformMatrices[transform_index].ToLocalTransform().scale
-            else:
-                scale = [1, 1, 1]
+            loc, rot, _ = bone.matrix.decompose()
+            scale = [((bone.tail - bone.head).length) / default_bone_length] * 3
             m = mathutils.Matrix.LocRotScale(loc, rot, mathutils.Vector(scale))
             m.transpose()
             transform_matrix = StingrayMatrix4x4()
@@ -1922,7 +1921,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                     newBone = armature.edit_bones.get(boneName)
                     if newBone is None:
                         newBone = armature.edit_bones.new(boneName)
-                        newBone.tail = 0, 0.05, 0
+                        newBone.tail = 0, default_bone_length, 0
                         doPoseBone[newBone.name] = True
                     else:
                         doPoseBone[newBone.name] = False
@@ -1950,7 +1949,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                     newBone = armature.edit_bones.get(boneName)
                     if newBone is None:
                         newBone = armature.edit_bones.new(boneName)
-                        newBone.tail = 0, 0.05, 0
+                        newBone.tail = 0, default_bone_length, 0
                         doPoseBone[newBone.name] = True
                     else:
                         doPoseBone[newBone.name] = False
