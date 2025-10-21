@@ -578,6 +578,7 @@ class TocEntry:
 
     # -- Write Data -- #
     def Save(self, **kwargs):
+        callback = None
         if not self.IsLoaded: self.Load(True, False)
         if self.TypeID == UnitID: callback = SaveStingrayUnit
         if self.TypeID == TexID: callback = SaveStingrayTexture
@@ -3915,7 +3916,7 @@ class Hd2ToolPanelSettings(PropertyGroup):
     RemoveGoreMeshes : BoolProperty(name="Remove Gore Meshes", description = "Automatically delete all of the verticies with the gore material when loading a model", default = False)
     SaveBonePositions: BoolProperty(name="Save Animation Bone Positions", description = "Include bone positions in animation (may mess with additive animations being applied)", default = True)
     ImportArmature   : BoolProperty(name="Import Armatures", description = "Import unit armature data", default = True)
-    MergeArmatures   : BoolProperty(name="Merge Armatures", description = "Merge new armatures to the selected armature", default = True)
+    MergeArmatures   : BoolProperty(name="Merge Armatures", description = "Merge new armatures to the selected armature", default = False)
     ParentArmature   : BoolProperty(name="Parent Armatures", description = "Make imported armatures the parent of the imported mesh", default = True)
     SplitUVIslands   : BoolProperty(name="Split UV Islands", description = "Split mesh by UV islands when saving", default = False)
     # Search
