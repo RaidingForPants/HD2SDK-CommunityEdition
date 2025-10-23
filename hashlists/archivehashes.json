@@ -100,7 +100,10 @@
         "f32d3723bfe55d2f": "A-35 Recon",
         "b60eaad684926425":	"DS-191 Scorpion",
         "541fbc971b1aef62":	"DS-42 Federation's Blade",
-        "aaebfbedc571fd7a":	"DS-10 Big Game Hunter"
+        "aaebfbedc571fd7a":	"DS-10 Big Game Hunter",
+        "827d4e20a7a81a56":	"RS-100 Sanctioner",
+        "18e9f450ff227f68":	"RS-67 Null Cipher",
+        "85d392768bf6a259":	"RS-89 Shadow Paragon"
     },
 
     "Helmet": {
@@ -197,7 +200,10 @@
         "1a2fc86abd27bf5b": "A-35 Recon",
         "dbfd326577ba126f":	"DS-191 Scorpion",
         "9852e5e0b70a7441":	"DS-42 Federation's Blade",
-        "4b92ff9a0256159f":	"DS-10 Big Game Hunter"
+        "4b92ff9a0256159f":	"DS-10 Big Game Hunter",
+        "b977f9d5411386d0":	"RS-100 Sanctioner",
+        "b0db976d98b02a95":	"RS-67 Null Cipher",
+        "804e40c3115e9650":	"RS-89 Shadow Paragon"
     },
 
     "Cape": {
