@@ -562,7 +562,7 @@ class TocEntry:
         if self.TypeID == UnitID: callback = LoadStingrayUnit
         if self.TypeID == TexID: callback = LoadStingrayTexture
         if self.TypeID == MaterialID: callback = LoadStingrayMaterial
-        if self.TypeID == ParticleID: callback = LoadStingrayParticle
+        if self.TypeID == ParticleID: callback = LoadStingrayDump
         if self.TypeID == CompositeUnitID: callback = LoadStingrayCompositeUnit
         if self.TypeID == BoneID: callback = LoadStingrayBones
         if self.TypeID == AnimationID: callback = LoadStingrayAnimation
@@ -583,7 +583,7 @@ class TocEntry:
         if self.TypeID == UnitID: callback = SaveStingrayUnit
         if self.TypeID == TexID: callback = SaveStingrayTexture
         if self.TypeID == MaterialID: callback = SaveStingrayMaterial
-        if self.TypeID == ParticleID: callback = SaveStingrayParticle
+        if self.TypeID == ParticleID: callback = SaveStingrayDump
         if self.TypeID == AnimationID: callback = SaveStingrayAnimation
         if callback == None: callback = SaveStingrayDump
 
