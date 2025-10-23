@@ -530,7 +530,11 @@
     },
 
     "Melee": {
-        "56aa04adbbeea69f": "CQC-30 Stun Baton, CQC-19 Stun Lance, CQC-5 Combat Hatchet & CQC-2 Saber & CQC-42 Machete",
+        "f3c65eaab75f1fc2": "CQC-30 Stun Baton",
+        "56aa04adbbeea69f": "CQC-19 Stun Lance",
+        "1982853d15d996da": "CQC-5 Combat Hatchet",
+        "3cfc68e6bf19f67d": "CQC-2 Saber",
+        "f5014993c8402d87": "CQC-42 Machete",
         "49de16e1343250e4": "Entrenchment Tool"
     },
 
