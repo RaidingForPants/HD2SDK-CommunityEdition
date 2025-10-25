@@ -1559,15 +1559,10 @@ def SaveStingrayParticle(self, ID, TocData, GpuData, StreamData, LoadedData):
 
 def LoadStingrayDump(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
     StingrayDumpData = StingrayRawDump()
-    StingrayDumpData.Serialize(MemoryStream(TocData))
     return StingrayDumpData
 
 def SaveStingrayDump(self, ID, TocData, GpuData, StreamData, LoadedData):
-    Toc = MemoryStream(IOMode="write")
-
-    LoadedData.Serialize(Toc)
-
-    return [Toc.Data, b"", b""]
+    return [TocData, GpuData, StreamData]
 
 def LoadStingrayUnit(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject, LoadMaterialSlotNames=False):
     toc  = MemoryStream(TocData)
