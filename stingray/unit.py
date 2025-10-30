@@ -1620,7 +1620,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                         try:
                             HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
                         except (ValueError, IndexError): # bone index not in remap because the bone is not in the LOD bone data
-                            continue
+                            HDBoneIndex = 0
                             
                     # get real index from remapped index -> hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index); boneHash = transform_info.NameHashes[hashIndex]
                     # want to get remapped index from bone name
