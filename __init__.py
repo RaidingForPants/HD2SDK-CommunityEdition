@@ -2044,11 +2044,11 @@ class CreatePatchFromActiveOperator(Operator):
     bl_description = "Creates Patch from Current Active Archive"
 
     def execute(self, context):
-        
+        original_archive = context.scene.Hd2ToolPanelSettings.LoadedArchives
         if bpy.context.scene.Hd2ToolPanelSettings.PatchBaseArchiveOnly:
             baseArchivePath = Global_gamepath + BaseArchiveHexID
             Global_TocManager.LoadArchive(baseArchivePath)
-            Global_TocManager.SetActiveByName(BaseArchiveHexID)
+            context.scene.Hd2ToolPanelSettings.LoadedArchives = BaseArchiveHexID
         else:
             self.report({'WARNING'}, f"Patch Created Was Not From Base Archive.")
         
@@ -2056,6 +2056,8 @@ class CreatePatchFromActiveOperator(Operator):
             return{'CANCELLED'}
         
         Global_TocManager.CreatePatchFromActive()
+        if original_archive:
+            context.scene.Hd2ToolPanelSettings.LoadedArchives = original_archive
 
         # Redraw
         for area in context.screen.areas:
