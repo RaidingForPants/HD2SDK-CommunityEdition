@@ -3785,6 +3785,46 @@ def CustomPropertyContext(self, context):
     layout.separator()
     layout.operator("helldiver2.archive_animation_save", icon='ARMATURE_DATA')
     layout.operator("helldiver2.archive_unit_batchsave", icon= 'FILE_BLEND')
+    if bpy.context.object.type == "ARMATURE":
+        if bpy.context.object.get("StateMachineID", None) is not None:
+            layout.operator("helldiver2.search_animations", text="Show Animations for this Armature", icon='VIEWZOOM').state_machine_id = bpy.context.object.get("StateMachineID")
+    
+def CustomBoneContext(self, context):
+    layout = self.layout
+    layout.separator()
+    layout.label(text=Global_SectionHeader)
+    layout.separator()
+    layout.operator("helldiver2.set_bone_animated", text="Set Bone Animated", icon='ARMATURE_DATA').value = True
+    layout.operator("helldiver2.set_bone_animated", text="Set Bone Not Animated", icon='ARMATURE_DATA').value = False
+    
+class SearchArmatureAnimationsOperator(Operator):
+    bl_label = "Search Animations"
+    bl_idname = "helldiver2.search_animations"
+    bl_description = "Show only animations for this armature"
+    
+    state_machine_id: StringProperty(default="0")
+    
+    def execute(self, context):
+        state_machine_entry = Global_TocManager.GetEntryByLoadArchive(int(self.state_machine_id), StateMachineID)
+        if state_machine_entry:
+            if not state_machine_entry.IsLoaded:
+                state_machine_entry.Load(False, False)
+            animation_ids = ",".join([str(anim_id) for anim_id in state_machine_entry.LoadedData.animation_ids])
+            context.scene.Hd2ToolPanelSettings.SearchField = animation_ids
+        return {"FINISHED"}
+    
+class SetBoneAnimatedOperator(Operator):
+    bl_label = "Set bone animated state"
+    bl_idname = "helldiver2.set_bone_animated"
+    bl_description = "Sets selected bones' animated state"
+    
+    value: BoolProperty(default=True)
+    def execute(self, context):
+        if bpy.context.object.mode != "EDIT":
+            return {"FINISHED"}
+        for bone in bpy.context.selected_bones:
+            bone["Animated"] = self.value
+        return {"FINISHED"}
 
 class CopyArchiveIDOperator(Operator):
     bl_label = "Copy Archive ID"
@@ -4748,6 +4788,8 @@ classes = (
     SaveStingrayParticleOperator,
     ImportDumpByIDOperator,
     SearchByEntryIDInput,
+    SetBoneAnimatedOperator,
+    SearchArmatureAnimationsOperator,
 )
 
 Global_TocManager = TocManager()
