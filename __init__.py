@@ -101,6 +101,8 @@ Global_Foldouts = {}
 
 Global_BoneNames = {}
 
+Global_AnimationMapping = {}
+
 Global_SectionHeader = "---------- Helldivers 2 ----------"
 
 Global_randomID = ""
@@ -823,6 +825,20 @@ class TocManager():
         PrettyPrint(f"Loading Archive: {archiveID} {archiveName}")
         toc = StreamToc()
         toc.FromFile(path)
+        
+        # add to global animation mapping:
+        global Global_AnimationMapping
+        if toc.TocDict.get(StateMachineID, None):
+            for state_machine in toc.TocDict[StateMachineID].values():
+                if not state_machine.IsLoaded:
+                    state_machine.Load(False, False)
+                for animation_id in state_machine.LoadedData.animation_ids:
+                    try:
+                        Global_AnimationMapping[animation_id].add(state_machine.FileID)
+                    except KeyError:
+                        Global_AnimationMapping[animation_id] = set()
+                        Global_AnimationMapping[animation_id].add(state_machine.FileID)
+        
         if SetActive and not IsPatch:
             unloadEmpty = bpy.context.scene.Hd2ToolPanelSettings.UnloadEmptyArchives and bpy.context.scene.Hd2ToolPanelSettings.EnableTools
             if unloadEmpty:
@@ -3835,12 +3851,10 @@ class SearchArmatureAnimationsOperator(Operator):
     state_machine_id: StringProperty(default="0")
     
     def execute(self, context):
-        state_machine_entry = Global_TocManager.GetEntryByLoadArchive(int(self.state_machine_id), StateMachineID)
-        if state_machine_entry:
-            if not state_machine_entry.IsLoaded:
-                state_machine_entry.Load(False, False)
-            animation_ids = ",".join([str(anim_id) for anim_id in state_machine_entry.LoadedData.animation_ids])
-            context.scene.Hd2ToolPanelSettings.SearchField = animation_ids
+        context.scene.Hd2ToolPanelSettings.SearchField = self.state_machine_id
+        global Global_Foldouts
+        for key in Global_Foldouts.keys():
+            Global_Foldouts[key] = (key == str(AnimationID))
         return {"FINISHED"}
     
 class SetBoneAnimatedOperator(Operator):
@@ -3955,6 +3969,8 @@ def LoadEntryLists():
                 if Entry.TypeID == MaterialID:
                     if not Entry.IsLoaded: Entry.Load(True, False)
                     new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(tex_id) for tex_id in Entry.LoadedData.TexIDs])
+                elif Entry.TypeID == AnimationID:
+                    new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(state_machine_id) for state_machine_id in Global_AnimationMapping[Entry.FileID]])
                 else:
                     new_item.item_filter_name = new_item.item_name
     if patch:
