@@ -1,6 +1,6 @@
 bl_info = {
     "name": "Helldivers 2 SDK: Community Edition",
-    "version": (3, 0, 5),
+    "version": (3, 2, 0),
     "blender": (4, 0, 0),
     "category": "Import-Export",
 }
@@ -14,6 +14,7 @@ from copy import deepcopy
 import copy
 from math import ceil
 from pathlib import Path
+import os
 import configparser
 import requests
 import json
@@ -78,16 +79,17 @@ from .constants import *
 #region Global Variables
 
 AddonPath = os.path.dirname(__file__)
+import platform
+Global_texconvbin        = "texconv" if platform.system() == "Linux" else "texconv.exe"
+Global_texconvpath       = f"{AddonPath}/deps/{Global_texconvbin}"
+Global_materialpath      = f"{AddonPath}/materials"
+Global_typehashpath      = f"{AddonPath}/hashlists/typehash.txt"
+Global_filehashpath      = f"{AddonPath}/hashlists/filehash.txt"
+Global_friendlynamespath = f"{AddonPath}/hashlists/friendlynames.txt"
 
-Global_texconvpath       = f"{AddonPath}\\deps\\texconv.exe"
-Global_materialpath      = f"{AddonPath}\\materials"
-Global_typehashpath      = f"{AddonPath}\\hashlists\\typehash.txt"
-Global_filehashpath      = f"{AddonPath}\\hashlists\\filehash.txt"
-Global_friendlynamespath = f"{AddonPath}\\hashlists\\friendlynames.txt"
-
-Global_archivehashpath   = f"{AddonPath}\\hashlists\\archivehashes.json"
-Global_variablespath     = f"{AddonPath}\\hashlists\\shadervariables.txt"
-Global_bonehashpath      = f"{AddonPath}\\hashlists\\bonehash.txt"
+Global_archivehashpath   = f"{AddonPath}/hashlists/archivehashes.json"
+Global_variablespath     = f"{AddonPath}/hashlists/shadervariables.txt"
+Global_bonehashpath      = f"{AddonPath}/hashlists/bonehash.txt"
 
 Global_defaultgamepath   = "C:\Program Files (x86)\Steam\steamapps\common\Helldivers 2\data\ "
 Global_defaultgamepath   = Global_defaultgamepath[:len(Global_defaultgamepath) - 1]
@@ -95,7 +97,6 @@ Global_gamepath          = ""
 Global_gamepathIsValid   = False
 Global_searchpath        = ""
 Global_configpath        = f"{AddonPath}.ini"
-Global_backslash         = "\-".replace("-", "")
 
 Global_Foldouts = {}
 
@@ -573,7 +574,7 @@ class TocEntry:
         if self.TypeID == UnitID: callback = LoadStingrayUnit
         if self.TypeID == TexID: callback = LoadStingrayTexture
         if self.TypeID == MaterialID: callback = LoadStingrayMaterial
-        if self.TypeID == ParticleID: callback = LoadStingrayParticle
+        if self.TypeID == ParticleID: callback = LoadStingrayDump
         if self.TypeID == CompositeUnitID: callback = LoadStingrayCompositeUnit
         if self.TypeID == BoneID: callback = LoadStingrayBones
         if self.TypeID == AnimationID: callback = LoadStingrayAnimation
@@ -595,7 +596,7 @@ class TocEntry:
         if self.TypeID == UnitID: callback = SaveStingrayUnit
         if self.TypeID == TexID: callback = SaveStingrayTexture
         if self.TypeID == MaterialID: callback = SaveStingrayMaterial
-        if self.TypeID == ParticleID: callback = SaveStingrayParticle
+        if self.TypeID == ParticleID: callback = SaveStingrayDump
         if self.TypeID == AnimationID: callback = SaveStingrayAnimation
         if self.TypeID == BoneID: callback = SaveStingrayBones
         if callback == None: callback = SaveStingrayDump
@@ -1472,7 +1473,7 @@ def GenerateMaterialTextures(Entry):
                 if not os.path.exists(path) and ID.isnumeric():
                     PrettyPrint(f"Image not found. Attempting to find image: {ID} in temp folder.", 'WARN')
                     tempdir = tempfile.gettempdir()
-                    path = f"{tempdir}\\{ID}.png"
+                    path = f"{tempdir}/{ID}.png"
                 filepaths.append(path)
 
                 # enforce proper colorspace for abnormal stingray textures
@@ -1512,8 +1513,8 @@ def GenerateMaterialTextures(Entry):
 
 def BlendImageToStingrayTexture(image, StingrayTex):
     tempdir  = tempfile.gettempdir()
-    dds_path = f"{tempdir}\\blender_img.dds"
-    tga_path = f"{tempdir}\\blender_img.tga"
+    dds_path = f"{tempdir}/blender_img.dds"
+    tga_path = f"{tempdir}/blender_img.tga"
 
     image.file_format = 'TARGA_RAW'
     image.filepath_raw = tga_path
@@ -1538,8 +1539,8 @@ def LoadStingrayTexture(ID, TocData, GpuData, StreamData, Reload, MakeBlendObjec
 
     if MakeBlendObject and not (exists and not Reload):
         tempdir = tempfile.gettempdir()
-        dds_path = f"{tempdir}\\{ID}.dds"
-        png_path = f"{tempdir}\\{ID}.png"
+        dds_path = f"{tempdir}/{ID}.dds"
+        png_path = f"{tempdir}/{ID}.png"
 
         with open(dds_path, 'w+b') as f:
             f.write(dds)
@@ -1600,17 +1601,10 @@ def SaveStingrayParticle(self, ID, TocData, GpuData, StreamData, LoadedData):
 
 def LoadStingrayDump(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
     StingrayDumpData = StingrayRawDump()
-    StingrayDumpData.Serialize(MemoryStream(TocData))
     return StingrayDumpData
 
 def SaveStingrayDump(self, ID, TocData, GpuData, StreamData, LoadedData):
-    Toc = MemoryStream(IOMode="write")
-    Gpu = MemoryStream(IOMode="write")
-    Stream = MemoryStream(IOMode="write")
-
-    LoadedData.Serialize(Toc, Gpu, Stream)
-
-    return [Toc.Data, Gpu.Data, Stream.Data]
+    return [TocData, GpuData, StreamData]
 
 def LoadStingrayUnit(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject, LoadMaterialSlotNames=False):
     toc  = MemoryStream(TocData)
@@ -1816,7 +1810,7 @@ class ChangeFilepathOperator(Operator, ImportHelper):
         filepath = self.filepath
         steamapps = "steamapps"
         if steamapps in filepath:
-            filepath = f"{filepath.partition(steamapps)[0]}steamapps\common\Helldivers 2\data\ "[:-1]
+            filepath = f"{filepath.partition(steamapps)[0]}steamapps/common/Helldivers 2/data/ "[:-1]
         else:
             self.report({'ERROR'}, f"Could not find steamapps folder in filepath: {filepath}")
             return{'CANCELLED'}
@@ -2128,11 +2122,11 @@ class ExportPatchAsZipOperator(Operator, ExportHelper):
         
         filepath = self.properties.filepath
         outputFilename = filepath.replace(".zip", "")
-        exportname = filepath.split(Global_backslash)[-1]
+        exportname = os.path.basename(filepath)
         
         patchName = Global_TocManager.ActivePatch.Name
-        tempPatchFolder = bpy.app.tempdir + "patchExport\\"
-        tempPatchFile = f"{tempPatchFolder}\{patchName}"
+        tempPatchFolder = bpy.app.tempdir + "patchExport/"
+        tempPatchFile = f"{tempPatchFolder}/{patchName}"
         PrettyPrint(f"Exporting in temp folder: {tempPatchFolder}")
 
         if not os.path.exists(tempPatchFolder):
@@ -2140,7 +2134,7 @@ class ExportPatchAsZipOperator(Operator, ExportHelper):
         Global_TocManager.ActivePatch.ToFile(tempPatchFile)
         shutil.make_archive(outputFilename, 'zip', tempPatchFolder)
         for file in os.listdir(tempPatchFolder):
-            path = f"{tempPatchFolder}\{file}"
+            path = f"{tempPatchFolder}/{file}"
             os.remove(path)
         os.removedirs(tempPatchFolder)
 
@@ -2890,11 +2884,11 @@ class ExportTexturePNGOperator(Operator, ExportHelper):
         if Entry != None:
             tempdir = tempfile.gettempdir()
             for i in range(Entry.LoadedData.ArraySize):
-                filename = self.filepath.split(Global_backslash)[-1]
+                filename = os.path.basename(self.filepath)
                 directory = self.filepath.replace(filename, "")
                 filename = filename.replace(".png", "")
                 layer = "" if Entry.LoadedData.ArraySize == 1 else f"_layer{i}"
-                dds_path = f"{tempdir}\\{filename}{layer}.dds"
+                dds_path = f"{tempdir}/{filename}{layer}.dds"
                 with open(dds_path, 'w+b') as f:
                     if Entry.LoadedData.ArraySize == 1:
                         f.write(Entry.LoadedData.ToDDS())
@@ -2957,11 +2951,11 @@ class BatchExportTexturePNGOperator(Operator):
             Entry = Global_TocManager.GetEntry(EntryID, TexID)
             if Entry != None:
                 tempdir = tempfile.gettempdir()
-                dds_path = f"{tempdir}\\{EntryID}.dds"
+                dds_path = f"{tempdir}/{EntryID}.dds"
                 with open(dds_path, 'w+b') as f:
                     f.write(Entry.LoadedData.ToDDS())
                 subprocess.run([Global_texconvpath, "-y", "-o", self.directory, "-ft", "png", "-f", "R8G8B8A8_UNORM", "-alpha", dds_path])
-                filepath = f"{self.directory}\\{EntryID}.png"
+                filepath = f"{self.directory}/{EntryID}.png"
                 if os.path.isfile(filepath):
                     exportedfiles += 1
                 else:
@@ -3026,9 +3020,8 @@ def SaveImagePNG(filepath, object_id):
             PrettyPrint(filepath)
             PrettyPrint(StingrayTex.Format)
             subprocess.run([Global_texconvpath, "-y", "-o", tempdir, "-ft", "dds", "-dx10", "-f", StingrayTex.Format, "-sepalpha", "-alpha", filepath], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-            nameIndex = filepath.rfind("\.".strip(".")) + 1
-            fileName = filepath[nameIndex:].replace(".png", ".dds")
-            dds_path = f"{tempdir}\\{fileName}"
+            fileName = os.path.basename(filepath).replace(".png", ".dds")
+            dds_path = f"{tempdir}/{fileName}"
             PrettyPrint(dds_path)
             if not os.path.exists(dds_path):
                 raise Exception(f"Failed to convert to dds texture for: {dds_path}")
@@ -3144,7 +3137,7 @@ class SetMaterialTemplateOperator(Operator):
         return context.window_manager.invoke_props_dialog(self)
 
 def CreateModdedMaterial(template, ID=None):
-    path = f"{Global_materialpath}\\{template}.material"
+    path = f"{Global_materialpath}/{template}.material"
     if not os.path.exists(path):
         raise Exception(f"Selected material template: {template} does not exist")
 
@@ -4035,7 +4028,7 @@ class Hd2ToolPanelSettings(PropertyGroup):
     RemoveGoreMeshes : BoolProperty(name="Remove Gore Meshes", description = "Automatically delete all of the verticies with the gore material when loading a model", default = False)
     SaveBonePositions: BoolProperty(name="Save Animation Bone Positions", description = "Include bone positions in animation (may mess with additive animations being applied)", default = True)
     ImportArmature   : BoolProperty(name="Import Armatures", description = "Import unit armature data", default = True)
-    MergeArmatures   : BoolProperty(name="Merge Armatures", description = "Merge new armatures to the selected armature", default = True)
+    MergeArmatures   : BoolProperty(name="Merge Armatures", description = "Merge new armatures to the selected armature", default = False)
     ParentArmature   : BoolProperty(name="Parent Armatures", description = "Make imported armatures the parent of the imported mesh", default = True)
     SplitUVIslands   : BoolProperty(name="Split UV Islands", description = "Split mesh by UV islands when saving", default = False)
     # Search

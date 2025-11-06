@@ -515,7 +515,7 @@ class StingrayMeshFile:
             Stream_Info = self.StreamInfoArray[Mesh_Info.StreamIndex]
             NewMesh.MeshInfoIndex = n
             NewMesh.MeshID = Mesh_Info.MeshID
-            NewMesh.DEV_Transform = self.TransformInfo.TransformMatrices[Mesh_Info.TransformIndex]
+            NewMesh.DEV_Transform = self.TransformInfo.Transforms[Mesh_Info.TransformIndex]
             try:
                 NewMesh.DEV_BoneInfo  = self.BoneInfoArray[Mesh_Info.LodIndex]
             except: pass
@@ -1563,7 +1563,13 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 print(e)
             
             # set bone matrix
-            m = bone.matrix.transposed()
+            loc, rot, scale = bone.matrix.decompose()
+            if transform_info.TransformMatrices[transform_index]:
+                scale = transform_info.TransformMatrices[transform_index].ToLocalTransform().scale
+            else:
+                scale = [1, 1, 1]
+            m = mathutils.Matrix.LocRotScale(loc, rot, mathutils.Vector(scale))
+            m.transpose()
             transform_matrix = StingrayMatrix4x4()
             transform_matrix.v = [
                 m[0][0], m[0][1], m[0][2], m[0][3],
@@ -1577,7 +1583,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             if bone.parent:
                 parent_matrix = bone.parent.matrix
                 local_transform_matrix = parent_matrix.inverted() @ bone.matrix
-                translation, rotation, scale = local_transform_matrix.decompose()
+                translation, rotation, _ = local_transform_matrix.decompose()
                 rotation = rotation.to_matrix()
                 transform_local = StingrayLocalTransform()
                 transform_local.rot.x = [rotation[0][0], rotation[1][0], rotation[2][0]]
@@ -1670,7 +1676,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                         try:
                             HDBoneIndex = bone_info[lod_index].GetRemappedIndex(real_index, material_idx)
                         except (ValueError, IndexError): # bone index not in remap because the bone is not in the LOD bone data
-                            continue
+                            HDBoneIndex = 0
                             
                     # get real index from remapped index -> hashIndex = bone_info[mesh.LodIndex].GetRealIndex(bone_index); boneHash = transform_info.NameHashes[hashIndex]
                     # want to get remapped index from bone name
@@ -1824,7 +1830,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry):
         # make object from mesh
         new_object = bpy.data.objects.new(name, new_mesh)
         # set transform
-        local_transform = mesh.DEV_Transform.ToLocalTransform()
+        local_transform = mesh.DEV_Transform
         new_object.scale = local_transform.scale
         new_object.location = local_transform.pos
         new_object.rotation_mode = 'QUATERNION'
@@ -1926,14 +1932,14 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry):
                 skeletonObj = bpy.context.selected_objects[0]
             if skeletonObj and skeletonObj.type == 'ARMATURE':
                 armature = skeletonObj.data
-            if bpy.context.scene.Hd2ToolPanelSettings.MergeArmatures and armature != None:
+            if armature != None and (bpy.context.scene.Hd2ToolPanelSettings.MergeArmatures or armature.name.startswith(str(id))):
                 PrettyPrint(f"Merging to previous skeleton: {skeletonObj.name}")
             else:
                 PrettyPrint(f"Creating New Skeleton")
-                armature = bpy.data.armatures.new(f"{id}_skeleton{mesh.LodIndex}")
+                armature = bpy.data.armatures.new(f"{id}_skeleton")
                 armature.display_type = "OCTAHEDRAL"
                 armature.show_names = True
-                skeletonObj = bpy.data.objects.new(f"{id}_lod{mesh.LodIndex}_rig", armature)
+                skeletonObj = bpy.data.objects.new(f"{id}_rig", armature)
                 skeletonObj['BonesID'] = str(stingray_unit.BonesRef)
                 skeletonObj['StateMachineID'] = str(stingray_unit.StateMachineRef)
                 skeletonObj.show_in_front = True
