@@ -100,7 +100,10 @@
         "f32d3723bfe55d2f": "A-35 Recon",
         "b60eaad684926425":	"DS-191 Scorpion",
         "541fbc971b1aef62":	"DS-42 Federation's Blade",
-        "aaebfbedc571fd7a":	"DS-10 Big Game Hunter"
+        "aaebfbedc571fd7a":	"DS-10 Big Game Hunter",
+        "1e2ba3712fa1b030":	"RS-100 Sanctioner",
+        "18e9f450ff227f68":	"RS-67 Null Cipher",
+        "85d392768bf6a259":	"RS-89 Shadow Paragon"
     },
 
     "Helmet": {
@@ -197,7 +200,10 @@
         "1a2fc86abd27bf5b": "A-35 Recon",
         "dbfd326577ba126f":	"DS-191 Scorpion",
         "9852e5e0b70a7441":	"DS-42 Federation's Blade",
-        "4b92ff9a0256159f":	"DS-10 Big Game Hunter"
+        "4b92ff9a0256159f":	"DS-10 Big Game Hunter",
+        "b977f9d5411386d0":	"RS-100 Sanctioner",
+        "b0db976d98b02a95":	"RS-67 Null Cipher",
+        "804e40c3115e9650":	"RS-89 Shadow Paragon"
     },
 
     "Cape": {
@@ -266,7 +272,11 @@
         "a50f4822153fea59": "Honored Heirloom",
         "ac84e68a6b9d1389":	"Eternal Corona",
         "cbc0d073efb47b2e":	"Windswept Wayfinder",
-        "d0b7a123e50f7d36":	"Rightful Occupier"
+        "d0b7a123e50f7d36":	"Rightful Occupier",
+        "4a45ba0bf67fa055":	"Gilded Quill",
+        "acb713baebf37d9c":	"Triangulation Veil",
+        "e60cceadd539b1d2":	"Pillar of the Abyss",
+        "7d2167bff3ebc3d5":	"Veridical Ideology"
     },
 
     "Icons": { 
@@ -478,20 +488,22 @@
     "Marksman Rifle": {
         "68aa9a343aa4333c": "R-2124 Constitution",
         "e829d44fb5653ec4": "R-2 Amendment",
-        "2404fa21fe49c32d": "R-63 Diligence & R-63CS Diligence Counter Sniper"
+        "2404fa21fe49c32d": "R-63 Diligence & R-63CS Diligence Counter Sniper",
+        "03b4b7a46856ccb2": "R-6 Deadeye"
     },
 
     "Submachine Gun": {
         "0601a2f91ec178a9": "MP-98 Knight",
         "f230d2d2adcc034a": "SMG-72 Pummeler & SMG-37 Defender",
         "0edad8ddec238bd9": "SMG-32 Reprimand",
-        "5193b8a6d77f5a0a": "StA-11 SMG",
+        "9494c346e564d15f": "StA-11 SMG",
         "e0d35fe7ce80e3f0": "M7S SMG"
     },
 
     "Shotgun": {
         "c5a05d09369d0670": "SG-225 Breaker, SG-225SP Breaker Spray & Pray",
-        "e566e3aaf90db459": "SG-8 Punisher, SG-8S Slugger, SG-8P Punisher Plasma, R-6 Deadeye",
+        "e566e3aaf90db459": "SG-8 Punisher",
+        "695ba4a2683b4ce3": "SG-8S Slugger",
         "2fe755e42b659f64": "SG-225IE Breaker Incendiary",
         "7af5df78217fd645": "SG-451 Cookout",
         "522be23400cc6086": "SG-20 Halt",
@@ -509,7 +521,8 @@
         "3a49b4448eaa94fe": "LAS-5 Scythe",
         "6db0c562c2bc10b3": "LAS-16 Sickle",
         "7f927f50fa6c50e8": "LAS-17 Double-Edge Sickle",
-        "c51f160470b34ae3": "PLAS-1 Scorcher & PLAS-101 Purifier"
+        "c51f160470b34ae3": "PLAS-1 Scorcher & PLAS-101 Purifier",
+        "ca8d89f4fb0ce5ef": "SG-8P Punisher Plasma"
     },
 
     "Special Primary": {
@@ -530,7 +543,11 @@
     },
 
     "Melee": {
-        "56aa04adbbeea69f": "CQC-30 Stun Baton, CQC-19 Stun Lance, CQC-5 Combat Hatchet & CQC-2 Saber & CQC-42 Machete",
+        "f3c65eaab75f1fc2": "CQC-30 Stun Baton",
+        "56aa04adbbeea69f": "CQC-19 Stun Lance",
+        "1982853d15d996da": "CQC-5 Combat Hatchet",
+        "3cfc68e6bf19f67d": "CQC-2 Saber",
+        "f5014993c8402d87": "CQC-42 Machete",
         "49de16e1343250e4": "Entrenchment Tool"
     },
 

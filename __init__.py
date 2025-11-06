@@ -1,6 +1,6 @@
 bl_info = {
     "name": "Helldivers 2 SDK: Community Edition",
-    "version": (3, 0, 4),
+    "version": (3, 0, 5),
     "blender": (4, 0, 0),
     "category": "Import-Export",
 }
@@ -40,6 +40,7 @@ from .stingray import particle as particle_m
 from .stingray import bones as bones_m
 from .stingray import composite_unit as composite_unit_m
 from .stingray import unit as unit_m
+from .stingray import state_machine as state_machine_m
 from .hashlists import hash as hash_m
 
 importlib.reload(animation_m)
@@ -51,12 +52,14 @@ importlib.reload(bones_m)
 importlib.reload(composite_unit_m)
 importlib.reload(unit_m)
 importlib.reload(hash_m)
+importlib.reload(state_machine_m)
 
 from .stingray.animation import StingrayAnimation, AnimationException
 from .stingray.raw_dump import StingrayRawDump
 from .stingray.material import LoadShaderVariables, StingrayMaterial
 from .stingray.texture import StingrayTexture
 from .stingray.particle import StingrayParticles
+from .stingray.state_machine import StingrayStateMachine
 from .stingray.bones import LoadBoneHashes, StingrayBones
 from .stingray.composite_unit import StingrayCompositeMesh
 from .stingray.unit import CreateModel, GetObjectsMeshData, StingrayMeshFile
@@ -572,6 +575,7 @@ class TocEntry:
         if self.TypeID == CompositeUnitID: callback = LoadStingrayCompositeUnit
         if self.TypeID == BoneID: callback = LoadStingrayBones
         if self.TypeID == AnimationID: callback = LoadStingrayAnimation
+        if self.TypeID == StateMachineID: callback = LoadStingrayStateMachine
         if callback == None: callback = LoadStingrayDump
 
         if callback != None:
@@ -584,12 +588,14 @@ class TocEntry:
 
     # -- Write Data -- #
     def Save(self, **kwargs):
+        callback = None
         if not self.IsLoaded: self.Load(True, False)
         if self.TypeID == UnitID: callback = SaveStingrayUnit
         if self.TypeID == TexID: callback = SaveStingrayTexture
         if self.TypeID == MaterialID: callback = SaveStingrayMaterial
         if self.TypeID == ParticleID: callback = SaveStingrayParticle
         if self.TypeID == AnimationID: callback = SaveStingrayAnimation
+        if self.TypeID == BoneID: callback = SaveStingrayBones
         if callback == None: callback = SaveStingrayDump
 
         if self.IsLoaded:
@@ -1061,12 +1067,29 @@ def LoadStingrayAnimation(ID, TocData, GpuData, StreamData, Reload, MakeBlendObj
             bones_id = int(armature['BonesID'])
         except ValueError:
             raise Exception(f"\n\nCould not obtain custom property: BonesID from armature: {armature.name}. Please make sure this is a valid value")
-        bones_entry = Global_TocManager.GetEntryByLoadArchive(int(bones_id), BoneID)
+        try:
+            state_machine_id = int(armature['StateMachineID'])
+        except ValueError:
+            raise Exception(f"\n\nCould not obtain custom property: StateMachineID from armature: {armature.name}. Please make sure this is a valid value")
+        state_machine_entry = Global_TocManager.GetEntryByLoadArchive(int(state_machine_id), StateMachineID)
+        if not state_machine_entry:
+            raise AnimationException("This animation is not for this armature")
+        if not state_machine_entry.IsLoaded:
+            state_machine_entry.Load()
+        if int(ID) not in state_machine_entry.LoadedData.animation_ids:
+            raise AnimationException("This animation is not for this armature")
+        bones_entry = Global_TocManager.GetEntry(int(bones_id), BoneID, SearchAll=True, IgnorePatch=False)
         if not bones_entry.IsLoaded:
             bones_entry.Load()
         bones_data = bones_entry.TocData
         animation.to_action(context, armature, bones_data, ID)
     return animation
+    
+def LoadStingrayStateMachine(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
+    toc = MemoryStream(TocData)
+    state_machine = StingrayStateMachine()
+    state_machine.Serialize(toc)
+    return state_machine
     
 def SaveStingrayAnimation(self, ID, TocData, GpuData, StreamData, Animation):
     toc = MemoryStream(IOMode = "write")
@@ -1526,6 +1549,11 @@ def LoadStingrayBones(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject)
     StingrayBonesData = StingrayBones(Global_BoneNames)
     StingrayBonesData.Serialize(MemoryStream(TocData))
     return StingrayBonesData
+    
+def SaveStingrayBones(self, ID, TocData, GpuData, StreamData, LoadedData):
+    f = MemoryStream(TocData, IOMode="write") # Load in original TocData before overwriting it
+    LoadedData.Serialize(f)
+    return [f.Data, b"", b""]
 
 def LoadStingrayCompositeUnit(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
     StingrayCompositeMeshData = StingrayCompositeMesh()
@@ -1561,14 +1589,16 @@ def LoadStingrayUnit(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject, 
     toc  = MemoryStream(TocData)
     gpu  = MemoryStream(GpuData)
         
-    bones_entry = Global_TocManager.GetEntryByLoadArchive(int(ID), int(BoneID))
-    if bones_entry and not bones_entry.IsLoaded:
-        bones_entry.Load(False, False)
+    
     StingrayMesh = StingrayMeshFile()
     StingrayMesh.NameHash = int(ID)
     StingrayMesh.LoadMaterialSlotNames = LoadMaterialSlotNames
     StingrayMesh.Serialize(toc, gpu, Global_TocManager)
-    if MakeBlendObject: CreateModel(StingrayMesh, str(ID), Global_BoneNames)
+    bones_entry = Global_TocManager.GetEntryByLoadArchive(StingrayMesh.BonesRef, BoneID)
+    if bones_entry and not bones_entry.IsLoaded:
+        bones_entry.Load(False, False)
+    if MakeBlendObject and bones_entry: CreateModel(StingrayMesh, str(ID), Global_BoneNames, bones_entry.LoadedData)
+    elif MakeBlendObject: CreateModel(StingrayMesh, str(ID), Global_BoneNames, None)
     return StingrayMesh
 
 def SaveStingrayUnit(self, ID, TocData, GpuData, StreamData, StingrayMesh, BlenderOpts=None):
@@ -3229,7 +3259,7 @@ class SaveStingrayAnimationOperator(Operator):
             self.report({'ERROR'}, f"Could not find animation entry for Action: {action_name} as EntryID: {entry_id}. Assure your action name starts with a valid ID for the animation entry.")
             return{'CANCELLED'}
         if not animation_entry.IsLoaded: animation_entry.Load(True, False)
-        bones_entry = Global_TocManager.GetEntryByLoadArchive(int(bones_id), BoneID)
+        bones_entry = Global_TocManager.GetEntry(int(bones_id), BoneID, SearchAll=True, IgnorePatch=False)
         bones_data = bones_entry.TocData
         try:
             animation_entry.LoadedData.load_from_armature(context, object, bones_data)
@@ -4824,6 +4854,7 @@ def register():
     Scene.Hd2ToolPanelSettings = PointerProperty(type=Hd2ToolPanelSettings)
     bpy.utils.register_class(WM_MT_button_context)
     bpy.types.VIEW3D_MT_object_context_menu.append(CustomPropertyContext)
+    bpy.types.VIEW3D_MT_armature_context_menu.append(CustomBoneContext)
     #bpy.types.VIEW3D_MT_pose_context_menu
     #bpy.types.VIEW3D_MT_armature_context_menu
     #bpy.types.VIEW3D_MT_
@@ -4837,7 +4868,6 @@ def register():
         setattr(bpy.types.Scene, f"index_{t}", IntProperty(name = f"index_{t}", default = 0))
         setattr(bpy.types.Scene, f"filter_{t}", StringProperty(name = f"filter_{t}", default = ""))
         setattr(bpy.types.Scene, f"index_{t}_dummy", IntProperty(name = f"index_{t}_dummy", default = 5000000, set=SetSelected(t)))
-    
 
 def unregister():
     bpy.utils.unregister_class(WM_MT_button_context)
@@ -4845,6 +4875,7 @@ def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
     bpy.types.VIEW3D_MT_object_context_menu.remove(CustomPropertyContext)
+    bpy.types.VIEW3D_MT_armature_context_menu.remove(CustomBoneContext)
     for t in Global_TypeIDs:
         delattr(bpy.types.Scene, f"list_{t}")
         delattr(bpy.types.Scene, f"index_{t}")

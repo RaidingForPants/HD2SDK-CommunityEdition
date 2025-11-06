@@ -414,6 +414,17 @@ class StingrayAnimation:
             entry.Serialize(tocFile)
         tocFile.uint16(0x03)
         tocFile.uint32(size)
+        
+    def remove_bone(self, bone_index):
+        self.initial_bone_states.pop(bone_index)
+        self.bone_count -= 1
+        self.entries = [entry for entry in self.entries if entry.bone != bone_index]
+        for entry in self.entries:
+            if entry.bone > bone_index:
+                entry.bone -= 1
+        output_stream = MemoryStream(IOMode="write")
+        self.Serialize(output_stream)
+        self.file_size = len(output_stream.Data)
 
     def load_from_armature(self, context, armature, bones_data):
         if self.is_additive_animation:
@@ -519,8 +530,8 @@ class StingrayAnimation:
         for item in splits:
             if item != b'':
                 bone_names.append(item.decode('utf-8'))
-        if len(self.initial_bone_states) != int.from_bytes(bones_data[0:4], "little"):
-            raise AnimationException("This animation is not for this armature")
+        #if len(self.initial_bone_states) != int.from_bytes(bones_data[0:4], "little"):
+        #    raise AnimationException("This animation is not for this armature")
         
         PrettyPrint(f"Creaing action with ID: {animation_id}")
         actions = bpy.data.actions
@@ -545,7 +556,7 @@ class StingrayAnimation:
             try:
                 bone = armature.pose.bones[bone_name]
             except KeyError:
-                PrettyPrint(f"Failed to find bone: {bone.name} in rig for animation. This may be intended", 'warn')
+                PrettyPrint(f"Failed to find bone: {bone_name} in rig for animation. This may be intended", 'warn')
                 continue
             translation = mathutils.Vector(initial_state.position)
             rotation = mathutils.Quaternion([initial_state.rotation[3], initial_state.rotation[0], initial_state.rotation[1], initial_state.rotation[2]])
