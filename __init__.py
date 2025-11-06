@@ -4266,14 +4266,20 @@ class HellDivers2ToolsPanel(Panel):
                 # check if there is any entry of this type that matches search field
                 # TODO: should probably make a better way to do this
                 bFound = False
-                for EntryInfo in DisplayTocEntries:
-                    Entry = EntryInfo[0]
-                    if Entry.TypeID == Type.TypeID:
-                        searchTerm = str(scene.Hd2ToolPanelSettings.SearchField)
-                        if searchTerm.startswith("0x"):
-                            searchTerm = str(hex_to_decimal(searchTerm))
-                        if str(Entry.FileID).find(searchTerm) != -1:
-                            bFound = True
+                if str(scene.Hd2ToolPanelSettings.SearchField) == "": bFound = True
+                if not bFound:
+                    for EntryInfo in DisplayTocEntries:
+                        Entry = EntryInfo[0]
+                        if Entry.TypeID == Type.TypeID:
+                            searchTerms = str(scene.Hd2ToolPanelSettings.SearchField).split(",")
+                            for i, term in enumerate(searchTerms):
+                                term = term.strip()
+                                if term == "": continue
+                                if term.startswith("0x"):
+                                    term = str(hex_to_decimal(term))
+                                if str(Entry.FileID).find(term) != -1:
+                                    bFound = True
+                                    break
                 if not bFound: continue
 
                 # Get Type Icon
@@ -4344,10 +4350,19 @@ class HellDivers2ToolsPanel(Panel):
                     PatchOnly = EntryInfo[1]
                     # Exclude entries that should not be drawn
                     if Entry.TypeID != Type.TypeID: continue
-                    searchTerm = str(scene.Hd2ToolPanelSettings.SearchField)
-                    if searchTerm.startswith("0x"):
-                        searchTerm = str(hex_to_decimal(searchTerm))
-                    if str(Entry.FileID).find(searchTerm) == -1: continue
+                    found = False
+                    if str(scene.Hd2ToolPanelSettings.SearchField) == "": found = True
+                    if not found:
+                        searchTerms = str(scene.Hd2ToolPanelSettings.SearchField).split(",")
+                        for i, term in enumerate(searchTerms):
+                            term = term.strip()
+                            if term == "": continue
+                            if term.startswith("0x"):
+                                term = str(hex_to_decimal(term))
+                            if str(Entry.FileID).find(term) != -1:
+                                found = True
+                                break
+                    if not found: continue
                     # Deal with friendly names
                     FriendlyName = str(Entry.FileID)
                     if scene.Hd2ToolPanelSettings.FriendlyNames:
