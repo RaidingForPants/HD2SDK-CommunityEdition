@@ -511,7 +511,7 @@ class StingrayMeshFile:
             Stream_Info = self.StreamInfoArray[Mesh_Info.StreamIndex]
             NewMesh.MeshInfoIndex = n
             NewMesh.MeshID = Mesh_Info.MeshID
-            NewMesh.DEV_Transform = self.TransformInfo.TransformMatrices[Mesh_Info.TransformIndex]
+            NewMesh.DEV_Transform = self.TransformInfo.Transforms[Mesh_Info.TransformIndex]
             try:
                 NewMesh.DEV_BoneInfo  = self.BoneInfoArray[Mesh_Info.LodIndex]
             except: pass
@@ -1774,7 +1774,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
         # make object from mesh
         new_object = bpy.data.objects.new(name, new_mesh)
         # set transform
-        local_transform = mesh.DEV_Transform.ToLocalTransform()
+        local_transform = mesh.DEV_Transform
         new_object.scale = local_transform.scale
         new_object.location = local_transform.pos
         new_object.rotation_mode = 'QUATERNION'
