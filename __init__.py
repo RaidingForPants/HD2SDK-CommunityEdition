@@ -3837,6 +3837,27 @@ def CustomPropertyContext(self, context):
     layout.separator()
     layout.operator("helldiver2.archive_animation_save", icon='ARMATURE_DATA')
     layout.operator("helldiver2.archive_unit_batchsave", icon= 'FILE_BLEND')
+    
+def CustomBoneContext(self, context):
+    layout = self.layout
+    layout.separator()
+    layout.label(text=Global_SectionHeader)
+    layout.separator()
+    layout.operator("helldiver2.set_bone_animated", text="Set Bone Animated", icon='ARMATURE_DATA').value = True
+    layout.operator("helldiver2.set_bone_animated", text="Set Bone Not Animated", icon='ARMATURE_DATA').value = False
+    
+class SetBoneAnimatedOperator(Operator):
+    bl_label = "Set bone animated state"
+    bl_idname = "helldiver2.set_bone_animated"
+    bl_description = "Sets bone's animated state"
+    
+    value: BoolProperty(default=True)
+    def execute(self, context):
+        if bpy.context.object.mode != "EDIT":
+            return {"FINISHED"}
+        for bone in bpy.context.selected_bones:
+            bone["Animated"] = self.value
+        return {"FINISHED"}
 
 class CopyArchiveIDOperator(Operator):
     bl_label = "Copy Archive ID"
@@ -4619,6 +4640,7 @@ classes = (
     SaveStingrayParticleOperator,
     ImportDumpByIDOperator,
     SearchByEntryIDInput,
+    SetBoneAnimatedOperator,
 )
 
 Global_TocManager = TocManager()
@@ -4639,6 +4661,10 @@ def register():
     Scene.Hd2ToolPanelSettings = PointerProperty(type=Hd2ToolPanelSettings)
     bpy.utils.register_class(WM_MT_button_context)
     bpy.types.VIEW3D_MT_object_context_menu.append(CustomPropertyContext)
+    bpy.types.VIEW3D_MT_armature_context_menu.append(CustomBoneContext)
+    for item in dir(bpy.types):
+        if "VIEW3D" in item:
+            print(item)
 
 def unregister():
     bpy.utils.unregister_class(WM_MT_button_context)
@@ -4646,6 +4672,7 @@ def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
     bpy.types.VIEW3D_MT_object_context_menu.remove(CustomPropertyContext)
+    bpy.types.VIEW3D_MT_armature_context_menu.remove(CustomBoneContext)
 
 
 if __name__=="__main__":
