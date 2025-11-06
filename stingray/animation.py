@@ -414,6 +414,17 @@ class StingrayAnimation:
             entry.Serialize(tocFile)
         tocFile.uint16(0x03)
         tocFile.uint32(size)
+        
+    def remove_bone(self, bone_index):
+        self.initial_bone_states.pop(bone_index)
+        self.bone_count -= 1
+        self.entries = [entry for entry in self.entries if entry.bone != bone_index]
+        for entry in self.entries:
+            if entry.bone > bone_index:
+                entry.bone -= 1
+        output_stream = MemoryStream(IOMode="write")
+        self.Serialize(output_stream)
+        self.file_size = len(output_stream.Data)
 
     def load_from_armature(self, context, armature, bones_data):
         if self.is_additive_animation:

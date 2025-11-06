@@ -1479,6 +1479,9 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     transform_info = stingray_mesh_entry.TransformInfo
     lod_index = og_object["BoneInfoIndex"]
     bone_entry = Global_TocManager.GetEntryByLoadArchive(stingray_mesh_entry.BonesRef, BoneID)
+    if Global_TocManager.IsInPatch(bone_entry):
+        Global_TocManager.RemoveEntryFromPatch(bone_entry.FileID, BoneID)
+    bone_entry = Global_TocManager.AddEntryToPatch(bone_entry.FileID, BoneID)
     modified_bone_entry = False
     bone_data = None
     if bone_entry:
@@ -1498,6 +1501,9 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             break
     if armature_obj is not None:
         was_hidden = armature_obj.hide_get()
+        state_machine = armature_obj.get("StateMachineID", None)
+        print(state_machine)
+        print(armature_obj["StateMachineID"])
         armature_obj.hide_set(False)
         bpy.context.view_layer.objects.active = armature_obj
         bpy.ops.object.mode_set(mode='EDIT')
@@ -1534,8 +1540,23 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                     bone_data.Names.pop(list_index)
                     bone_data.NumNames -= 1
                     modified_bone_entry = True
-            except (KeyError, AttributeError):
-                pass
+                    if state_machine:
+                        state_machine_data = Global_TocManager.GetEntryByLoadArchive(int(state_machine), StateMachineID)
+                        if state_machine_data:
+                            if not state_machine_data.IsLoaded:
+                                state_machine_data.Load(False, False)
+                            state_machine_data = state_machine_data.LoadedData
+                            for animation in state_machine_data.animation_ids:
+                                animation_data = Global_TocManager.GetEntry(animation, AnimationID, IgnorePatch=False, SearchAll=True)
+                                if not animation_data.IsLoaded:
+                                    animation_data.Load(False, False)
+                                animation_data.LoadedData.remove_bone(list_index)
+                                if Global_TocManager.IsInPatch(animation_data):
+                                    Global_TocManager.RemoveEntryFromPatch(animation, AnimationID)
+                                Global_TocManager.AddEntryToPatch(animation, AnimationID)
+                                Global_TocManager.Save(animation, AnimationID)
+            except (KeyError, AttributeError) as e:
+                print(e)
             
             # set bone matrix
             m = bone.matrix.transposed()
@@ -1584,8 +1605,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         bpy.ops.object.mode_set(mode=prev_mode)
         
     if modified_bone_entry:
-        entry = Global_TocManager.AddEntryToPatch(bone_entry.FileID, BoneID)
-        entry.Save()
+        bone_entry.Save()
     
     # get weights
     vert_idx = 0
