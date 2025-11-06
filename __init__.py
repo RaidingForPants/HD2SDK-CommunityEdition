@@ -780,8 +780,8 @@ class StreamToc:
             return self.TocDict[TypeID][FileID]
         except KeyError:
             return None
-    def AddEntry(self, NewEntry):
-        if self.GetEntry(NewEntry.FileID, NewEntry.TypeID) != None:
+    def AddEntry(self, NewEntry, override=False):
+        if not override and self.GetEntry(NewEntry.FileID, NewEntry.TypeID) != None:
             raise Exception("Entry with same ID already exists")
         try:
             self.TocDict[NewEntry.TypeID][NewEntry.FileID] = NewEntry
@@ -1027,6 +1027,17 @@ class TocManager():
         if self.ActivePatch == None:
             raise Exception("No patch exists, please create one first")
         self.ActivePatch.AddEntry(Entry)
+        
+    def AddEntryToPatchID(self, Entry, dest_id):
+        if self.ActivePatch == None:
+            raise Exception("No patch exists, please create one first")
+            
+        if Entry != None:
+            PatchEntry = deepcopy(Entry)
+            PatchEntry.FileID = dest_id
+            self.ActivePatch.AddEntry(PatchEntry, override=True)
+            return PatchEntry
+        return None
 
     def AddEntryToPatch(self, FileID, TypeID):
         if self.ActivePatch == None:
@@ -2589,15 +2600,7 @@ class SaveStingrayUnitOperator(Operator):
         existing_entry = None
         if SwapID and SwapID.isnumeric() and SwapID != ID:
             dest_id = int(SwapID)
-            existing_entry = Global_TocManager.ActivePatch.GetEntry(int(ID), UnitID)
-            if existing_entry:
-                existing_entry.FileID = 0
-        if Global_TocManager.ActivePatch.GetEntry(dest_id, UnitID):
-            Global_TocManager.RemoveEntryFromPatch(dest_id, UnitID)
-        Entry = Global_TocManager.AddEntryToPatch(int(ID), UnitID)
-        Entry.FileID = dest_id
-        if existing_entry:
-            existing_entry.FileID = int(ID)
+        Entry = Global_TocManager.AddEntryToPatchID(Entry, dest_id)
         model = GetObjectsMeshData(Global_TocManager, Global_BoneNames)
         BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
         if Entry is None:
@@ -2711,18 +2714,9 @@ class BatchSaveStingrayUnitOperator(Operator):
                 continue
             Entry.Load(True, False, True)
             dest_id = int(ID)
-            existing_entry = None
             if SwapID and SwapID.isnumeric() and SwapID != ID:
                 dest_id = int(SwapID)
-                existing_entry = Global_TocManager.ActivePatch.GetEntry(int(ID), UnitID)
-                if existing_entry:
-                    existing_entry.FileID = 0
-            if Global_TocManager.ActivePatch.GetEntry(dest_id, UnitID):
-                Global_TocManager.RemoveEntryFromPatch(dest_id, UnitID)
-            Entry = Global_TocManager.AddEntryToPatch(int(ID), UnitID)
-            Entry.FileID = dest_id
-            if existing_entry:
-                existing_entry.FileID = int(ID)
+            Entry = Global_TocManager.AddEntryToPatchID(Entry, dest_id)
             entries.append(Entry)
         MeshData = GetObjectsMeshData(Global_TocManager, Global_BoneNames)    
         for i, IDitem in enumerate(IDs):
@@ -3980,12 +3974,16 @@ def LoadEntryLists():
             except AttributeError:
                 continue
             for Entry in patch.TocDict[entry_type].values():
+                # skip adding entry if not in patchonly mode AND archive contains entry
+                if (not bpy.context.scene.Hd2ToolPanelSettings.PatchOnly) and (entry_type in archive.TocDict and Entry.FileID in archive.TocDict[entry_type]): continue
                 new_item = l.add()
                 new_item.item_name = str(Entry.FileID)
                 new_item.item_type = str(Entry.TypeID)
                 if Entry.TypeID == MaterialID:
                     if not Entry.IsLoaded: Entry.Load(True, False)
                     new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(tex_id) for tex_id in Entry.LoadedData.TexIDs])
+                elif Entry.TypeID == AnimationID:
+                    new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(state_machine_id) for state_machine_id in Global_AnimationMapping[Entry.FileID]])
                 else:
                     new_item.item_filter_name = new_item.item_name
 

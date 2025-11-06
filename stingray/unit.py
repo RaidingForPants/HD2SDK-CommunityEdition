@@ -1479,16 +1479,20 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     transform_info = stingray_mesh_entry.TransformInfo
     lod_index = og_object["BoneInfoIndex"]
     bone_entry = Global_TocManager.GetEntryByLoadArchive(stingray_mesh_entry.BonesRef, BoneID)
-    if Global_TocManager.IsInPatch(bone_entry):
-        Global_TocManager.RemoveEntryFromPatch(bone_entry.FileID, BoneID)
-    bone_entry = Global_TocManager.AddEntryToPatch(bone_entry.FileID, BoneID)
     modified_bone_entry = False
-    bone_data = None
-    if bone_entry:
-        if not bone_entry.IsLoaded:
-            bone_entry.Load()
-        bone_data = bone_entry.LoadedData
     bone_names = []
+    bone_data = None
+    if bone_entry is None:
+        PrettyPrint("This unit does not have any animated bone data, unable to edit bone animated state", "warn")
+    else:
+        if Global_TocManager.IsInPatch(bone_entry):
+            Global_TocManager.RemoveEntryFromPatch(bone_entry.FileID, BoneID)
+        bone_entry = Global_TocManager.AddEntryToPatch(bone_entry.FileID, BoneID)
+        if bone_entry:
+            if not bone_entry.IsLoaded:
+                bone_entry.Load()
+            bone_data = bone_entry.LoadedData
+
         
     # get armature object
     prev_obj = bpy.context.view_layer.objects.active
