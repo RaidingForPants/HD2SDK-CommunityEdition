@@ -1506,8 +1506,6 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     if armature_obj is not None:
         was_hidden = armature_obj.hide_get()
         state_machine = armature_obj.get("StateMachineID", None)
-        print(state_machine)
-        print(armature_obj["StateMachineID"])
         armature_obj.hide_set(False)
         bpy.context.view_layer.objects.active = armature_obj
         bpy.ops.object.mode_set(mode='EDIT')
@@ -1559,6 +1557,8 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                                     Global_TocManager.RemoveEntryFromPatch(animation, AnimationID)
                                 Global_TocManager.AddEntryToPatch(animation, AnimationID)
                                 Global_TocManager.Save(animation, AnimationID)
+                    else:
+                        raise Exception("No state machine property on armature, unable to automatically remove bone data from animations; please set a valid StateMachineID property.")
             except (KeyError, AttributeError) as e:
                 print(e)
             

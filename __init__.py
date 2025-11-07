@@ -1,6 +1,6 @@
 bl_info = {
     "name": "Helldivers 2 SDK: Community Edition",
-    "version": (3, 2, 0),
+    "version": (3, 3, 0),
     "blender": (4, 0, 0),
     "category": "Import-Export",
 }
@@ -316,7 +316,7 @@ def GetDisplayData():
 
 def SaveUnsavedEntries(self):
     for entry_type, entries in Global_TocManager.ActivePatch.TocDict.items():
-        for Entry in entries:
+        for Entry in entries.values():
             if not Entry.IsModified:
                 Global_TocManager.Save(int(Entry.FileID), Entry.TypeID)
                 PrettyPrint(f"Saved {int(Entry.FileID)}")
@@ -712,7 +712,7 @@ class StreamToc:
         else:
             Index = 1
             for Type in self.TocTypes:
-                for Entry in self.TocDict[Type].values():
+                for Entry in self.TocDict[Type.TypeID].values():
                     Entry.Serialize(self.TocFile, Index)
                     Index += 1
 
@@ -727,7 +727,7 @@ class StreamToc:
             self.TocFile.seek(TocEntryStart)
             Index = 1
             for Type in self.TocTypes:
-                for Entry in self.TocDict[Type].values():
+                for Entry in self.TocDict[Type.TypeID].values():
                     Entry.Serialize(self.TocFile, Index)
                     Index += 1
         return True
@@ -3819,10 +3819,10 @@ def CustomPropertyContext(self, context):
     layout.operator("helldiver2.paste_custom_properties", icon= 'PASTEDOWN')
     layout.separator()
     layout.operator("helldiver2.archive_animation_save", icon='ARMATURE_DATA')
-    layout.operator("helldiver2.archive_unit_batchsave", icon= 'FILE_BLEND')
     if bpy.context.object.type == "ARMATURE":
         if bpy.context.object.get("StateMachineID", None) is not None:
             layout.operator("helldiver2.search_animations", text="Show Animations for this Armature", icon='VIEWZOOM').state_machine_id = bpy.context.object.get("StateMachineID")
+    layout.operator("helldiver2.archive_unit_batchsave", icon= 'FILE_BLEND')
     
 def CustomBoneContext(self, context):
     layout = self.layout
@@ -3944,7 +3944,7 @@ def LoadEntryLists():
     patch = Global_TocManager.ActivePatch
     for t in Global_TypeIDs:
         getattr(bpy.context.scene, f"list_{t}").clear()
-    print(bpy.context.scene.Hd2ToolPanelSettings.PatchOnly)
+    state_machine_warning = False
     if archive and not bpy.context.scene.Hd2ToolPanelSettings.PatchOnly:
         for entry_type in archive.TocDict.keys():
             try:
@@ -3959,7 +3959,11 @@ def LoadEntryLists():
                     if not Entry.IsLoaded: Entry.Load(True, False)
                     new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(tex_id) for tex_id in Entry.LoadedData.TexIDs])
                 elif Entry.TypeID == AnimationID:
-                    new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(state_machine_id) for state_machine_id in Global_AnimationMapping[Entry.FileID]])
+                    try:
+                        new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(state_machine_id) for state_machine_id in Global_AnimationMapping[Entry.FileID]])
+                    except KeyError:
+                        state_machine_warning = True
+                        new_item.item_filter_name = new_item.item_name
                 else:
                     new_item.item_filter_name = new_item.item_name
     if patch:
@@ -3970,7 +3974,7 @@ def LoadEntryLists():
                 continue
             for Entry in patch.TocDict[entry_type].values():
                 # skip adding entry if not in patchonly mode AND archive contains entry
-                if (not bpy.context.scene.Hd2ToolPanelSettings.PatchOnly) and (entry_type in archive.TocDict and Entry.FileID in archive.TocDict[entry_type]): continue
+                if (not bpy.context.scene.Hd2ToolPanelSettings.PatchOnly) and (archive and entry_type in archive.TocDict and Entry.FileID in archive.TocDict[entry_type]): continue
                 new_item = l.add()
                 new_item.item_name = str(Entry.FileID)
                 new_item.item_type = str(Entry.TypeID)
@@ -3978,9 +3982,15 @@ def LoadEntryLists():
                     if not Entry.IsLoaded: Entry.Load(True, False)
                     new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(tex_id) for tex_id in Entry.LoadedData.TexIDs])
                 elif Entry.TypeID == AnimationID:
-                    new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(state_machine_id) for state_machine_id in Global_AnimationMapping[Entry.FileID]])
+                    try:
+                        new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(state_machine_id) for state_machine_id in Global_AnimationMapping[Entry.FileID]])
+                    except KeyError:
+                        state_machine_warning = True
+                        new_item.item_filter_name = new_item.item_name
                 else:
                     new_item.item_filter_name = new_item.item_name
+    if state_machine_warning:
+        PrettyPrint("State machine not loaded for all animations; filtering animations by armature may not work.", "warn")
 
 def LoadedArchives_callback(scene, context):
     return [(Archive.Name, GetArchiveNameFromID(Archive.Name) if GetArchiveNameFromID(Archive.Name) != "" else Archive.Name, Archive.Name) for Archive in Global_TocManager.LoadedArchives]
