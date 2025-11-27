@@ -559,6 +559,8 @@ class StingrayAnimation:
             translation = mathutils.Vector(initial_state.position)
             rotation = mathutils.Quaternion([initial_state.rotation[3], initial_state.rotation[0], initial_state.rotation[1], initial_state.rotation[2]])
             scale = None
+            if not additive_animation:
+                scale = mathutils.Vector(initial_state.scale)
             matrix = mathutils.Matrix.LocRotScale(translation, rotation, scale)
             if additive_animation:
                 bone.matrix_basis = matrix
@@ -566,6 +568,7 @@ class StingrayAnimation:
                 bone.matrix_basis = inverted_rest_poses[bone.name] @ matrix
             bone.keyframe_insert(data_path=f"location", frame=0, group=bone.name)
             bone.keyframe_insert(data_path=f"rotation_quaternion", frame=0, group=bone.name)
+            bone.keyframe_insert(data_path="scale", frame=0, group=bone.name)
             
         # entries
         length_frames = 0
@@ -587,6 +590,9 @@ class StingrayAnimation:
             elif entry.type == 3 or entry.subtype == 5: # rotation
                 rotation = mathutils.Quaternion([entry.data2[3], entry.data2[0], entry.data2[1], entry.data2[2]])
                 data_path = "rotation_quaternion"
+            elif (entry.type == 1 or entry.subtype == 6) and not additive_animation: # scale
+                scale = mathutils.Vector(entry.data2)
+                data_path = "scale"
             matrix = mathutils.Matrix.LocRotScale(translation, rotation, scale)
             if additive_animation:
                 bone.matrix_basis = matrix
