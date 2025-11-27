@@ -498,6 +498,15 @@ class StingrayAnimation:
                 new_entry.data2 = [rotation.x, rotation.y, rotation.z, rotation.w]
                 new_entry.time =  int(1000 * frame / 30)
                 self.entries.append(new_entry)
+                
+                # save scale
+                new_entry = AnimationEntry()
+                new_entry.bone = bone_to_index[bone.name]
+                new_entry.type = 0
+                new_entry.subtype = 6
+                new_entry.data2 = list(scale)
+                new_entry.time =  int(1000 * frame / 30)
+                self.entries.append(new_entry)
 
         length_frames = end - start
         self.entries = sorted(self.entries, key=lambda e: e.time)            
