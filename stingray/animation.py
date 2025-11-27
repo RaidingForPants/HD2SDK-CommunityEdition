@@ -573,8 +573,6 @@ class StingrayAnimation:
         # entries
         length_frames = 0
         for entry in self.entries:
-            if entry.type not in [2, 3] and entry.subtype not in [4, 5]: # skip scale entries
-                continue
             bone_name = index_to_bone[entry.bone]
             if bone_name not in armature.pose.bones:
                 PrettyPrint(f"Failed to find bone: {bone_name} in rig for animation. This may be intended", 'warn')
