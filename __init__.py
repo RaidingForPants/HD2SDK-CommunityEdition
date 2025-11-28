@@ -4725,12 +4725,18 @@ class WM_MT_button_context(Menu):
             layout.separator()
             layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Entry ID").text = list_item.item_name
             layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Entry Hex ID").text = str(hex(int(list_item.item_name)))
-            layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Type ID").text  = list_item.item_name
+            layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Type ID").text  = list_item.item_type
             layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Friendly Name").text  = GetFriendlyNameFromID(int(list_item.item_name))
             if Global_TocManager.IsInPatch(Entry):
                 props = layout.operator("helldiver2.archive_entryrename", icon='TEXT', text="Rename")
                 props.object_id     = list_item.item_name
                 props.object_typeid = list_item.item_type
+        else:
+            layout.separator()
+            layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Entry ID").text = "\n".join([item.item_name for item in selected_items])
+            layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Entry Hex ID").text = "\n".join([str(hex(int(item.item_name)))] for item in selected_items)
+            layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Type ID").text  = list_item.item_type
+            layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Friendly Name").text  = GetFriendlyNameFromID(int(list_item.item_name))
         if Entry.IsModified:
             layout.separator()
             props = layout.operator("helldiver2.archive_undo_mod", icon='TRASH', text=f"Undo {len(selected_items)} Modification{'s' if len(selected_items) > 1 else ''}")
