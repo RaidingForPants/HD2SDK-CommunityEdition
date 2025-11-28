@@ -480,7 +480,7 @@ class StingrayAnimation:
                 initial_state.scale = [1, 1, 1]
                 self.initial_bone_states.append(initial_state)
 
-        for frame in range(1, ceil(end)):
+        for frame in range(1, ceil(end)+1):
             context.scene.frame_set(frame)
             for bone in armature.pose.bones:
                 if bone.name not in bone_names:
