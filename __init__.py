@@ -2671,7 +2671,6 @@ class BatchSaveStingrayUnitOperator(Operator):
             if Entry is None:
                 self.report({'ERROR'}, f"Archive for entry being saved is not loaded. Could not find custom property object at ID: {ID}")
                 errors = True
-                num_meshes -= len(MeshData[ID])
                 entries.append(None)
                 continue
             Entry.Load(True, False, True)
@@ -2697,6 +2696,7 @@ class BatchSaveStingrayUnitOperator(Operator):
                 ID = SwapID
             Entry = entries[i]
             if Entry is None:
+                num_meshes -= len(MeshData[ID])
                 continue
             MeshList = MeshData[ID]
             for mesh_index, mesh in MeshList.items():
