@@ -63,7 +63,7 @@ from .stingray.particle import StingrayParticles
 from .stingray.bones import LoadBoneHashes, StingrayBones
 from .stingray.composite_unit import StingrayCompositeMesh
 from .stingray.unit import CreateModel, GetObjectsMeshData, StingrayMeshFile
-from .utils.slim import is_slim_version, load_package
+from .utils.slim import is_slim_version, load_package, get_package_toc
 
 from .hashlists.hash import murmur64_hash
 
@@ -648,8 +648,8 @@ class SearchToc:
         
     def FromSlimFile(self, path):
         self.UpdatePath(path)
-        data = load_package(path, Global_gamepath, toc_only = True)
-        if data is None:
+        data = get_package_toc(path, Global_gamepath)
+        if not data:
             print(f"unable to get package {os.path.basename(path)}")
             return False
         magic, numTypes, numFiles = struct.unpack_from("<III", data, offset=0)
@@ -896,11 +896,7 @@ class TocManager():
                 num_packages = int.from_bytes(bundle_database_data[4:8], "little")
                 for i in range(num_packages):
                     offset = 0x10 + 0x33 * i
-                    length = 0
-                    while bundle_database_data[offset+length] != 0:
-                        length += 1
-                        if length > 0x33: break
-                    name = bundle_database_data[offset:offset+length-1].decode()
+                    name = bundle_database_data[offset:offset+0x33].decode().split("\x17")[0]
                     search_toc = SearchToc()
                     tocs.append(search_toc)
                     futures.append(executor.submit(search_toc.FromSlimFile, os.path.join(Global_gamepath, name)))
