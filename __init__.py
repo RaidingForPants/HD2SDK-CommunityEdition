@@ -629,7 +629,8 @@ class SearchToc:
         except KeyError:
             return False
             
-    def FromPackage(self, package_data):
+    def FromPackage(self, package_data, package_name):
+        self.UpdatePath(os.path.join(Global_gamepath, package_name))
         num_entries = int.from_bytes(package_data[8:12], "little")
         for i in range(num_entries):
             offset = 0x10+i*0x10
@@ -890,7 +891,7 @@ class TocManager():
                     if not e.IsLoaded:
                         e.Load(False, False)
                     search_toc = SearchToc()
-                    search_toc.FromPackage(e.TocData)
+                    search_toc.FromPackage(e.TocData, f"{e.FileID:016x}")
                     self.SearchArchives.append(search_toc)
             else:
                 futures = []
