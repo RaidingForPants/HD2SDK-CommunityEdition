@@ -650,7 +650,7 @@ class SearchToc:
         
     def FromSlimFile(self, path):
         self.UpdatePath(path)
-        data = get_package_toc(path, Global_gamepath)
+        data = get_package_toc(path)
         if not data:
             print(f"unable to get package {os.path.basename(path)}")
             return False
