@@ -42,6 +42,7 @@ from .stingray import bones as bones_m
 from .stingray import composite_unit as composite_unit_m
 from .stingray import unit as unit_m
 from .hashlists import hash as hash_m
+from .utils import slim as slim_m
 
 importlib.reload(animation_m)
 importlib.reload(raw_dump_m)
@@ -52,6 +53,7 @@ importlib.reload(bones_m)
 importlib.reload(composite_unit_m)
 importlib.reload(unit_m)
 importlib.reload(hash_m)
+importlib.reload(slim_m)
 
 from .stingray.animation import StingrayAnimation, AnimationException
 from .stingray.raw_dump import StingrayRawDump
@@ -61,6 +63,7 @@ from .stingray.particle import StingrayParticles
 from .stingray.bones import LoadBoneHashes, StingrayBones
 from .stingray.composite_unit import StingrayCompositeMesh
 from .stingray.unit import CreateModel, GetObjectsMeshData, StingrayMeshFile
+from .utils.slim import is_slim_version, load_package
 
 from .hashlists.hash import murmur64_hash
 
@@ -68,7 +71,7 @@ from .hashlists.hash import murmur64_hash
 # NOTE: Not bothering to do importlib reloading shit because these modules are unlikely to be modified frequently enough to warrant testing without Blender restarts
 from .memoryStream import MemoryStream
 from .logger import PrettyPrint
-from .slim import is_slim_version, load_package
+
 
 from .constants import *
 
