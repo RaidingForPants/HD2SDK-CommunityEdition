@@ -63,7 +63,7 @@ from .stingray.particle import StingrayParticles
 from .stingray.bones import LoadBoneHashes, StingrayBones
 from .stingray.composite_unit import StingrayCompositeMesh
 from .stingray.unit import CreateModel, GetObjectsMeshData, StingrayMeshFile
-from .utils.slim import is_slim_version, load_package, get_package_toc
+from .utils.slim import is_slim_version, load_package, get_package_toc, slim_init
 
 from .hashlists.hash import murmur64_hash
 
@@ -455,6 +455,7 @@ def InitializeConfig():
             UpdateConfig()
         if os.path.exists(Global_gamepath):
             PrettyPrint(f"Loaded Data Folder: {Global_gamepath}")
+            slim_init(Global_gamepath)
             Global_gamepathIsValid = True
         else:
             PrettyPrint(f"Game path: {Global_gamepath} is not a valid directory", 'ERROR')
@@ -467,6 +468,7 @@ def UpdateConfig():
     global Global_gamepath, Global_searchpath, Global_defaultgamepath
     if Global_gamepath == "":
         Global_gamepath = Global_defaultgamepath
+    slim_init(Global_gamepath)
     config = configparser.ConfigParser()
     config['DEFAULT'] = {'filepath' : Global_gamepath, 'searchpath' : Global_searchpath}
     with open(Global_configpath, 'w') as configfile:
@@ -768,7 +770,7 @@ class StreamToc:
 
     def FromFile(self, path, SerializeData=True):
         self.UpdatePath(path)
-        toc_data, gpu_data, stream_data = load_package(path, Global_gamepath)
+        toc_data, gpu_data, stream_data = load_package(path)
         self.TocFile = MemoryStream(toc_data)
         self.GpuFile = MemoryStream(gpu_data)
         self.StreamFile = MemoryStream(stream_data)
@@ -887,7 +889,7 @@ class TocManager():
 
         # Get search archives
         if len(self.SearchArchives) == 0:
-            if is_slim_version(Global_gamepath):
+            if is_slim_version():
                 futures = []
                 tocs = []
                 executor = concurrent.futures.ThreadPoolExecutor()
@@ -3421,7 +3423,7 @@ class LoadArchivesOperator(Operator):
     paths_str: StringProperty(name="paths_str")
     def execute(self, context):
         global Global_TocManager
-        if self.paths_str != "" and (os.path.exists(self.paths_str) or is_slim_version(Global_gamepath)):
+        if self.paths_str != "" and (os.path.exists(self.paths_str) or is_slim_version()):
             Global_TocManager.LoadArchive(self.paths_str)
             id = self.paths_str.replace(Global_gamepath, "")
             name = f"{GetArchiveNameFromID(id)} {id}"

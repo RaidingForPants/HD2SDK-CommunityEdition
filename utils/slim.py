@@ -42,8 +42,16 @@ UNKNOWN = 0
 done_init = False
 package_contents = {}
 
-def is_slim_version(file_path):
-    return not os.path.exists(os.path.join(file_path, "9ba626afa44a3aa3"))
+game_data_folder = ""
+
+def slim_init(file_path: str):
+    global game_data_folder
+    game_data_folder = file_path
+    if is_slim_version():
+        init_bundle_mapping()
+
+def is_slim_version():
+    return not os.path.exists(os.path.join(game_data_folder, "9ba626afa44a3aa3"))
 
 def decompress_dsar(file_path):
 
@@ -130,7 +138,7 @@ class BundleEntry:
     def __init__(self):
         self.start_offset = self.bundle_index = self.original_archive_offset = 0
 
-def init_bundle_mapping(game_data_folder: str):
+def init_bundle_mapping():
     bundle_contents = decompress_dsar(os.path.join(game_data_folder, "bundles.nxa"))
 
     num_packages = to_int(bundle_contents[0x10:0x14])
@@ -140,6 +148,7 @@ def init_bundle_mapping(game_data_folder: str):
     bundles = [[] for _ in range(num_bundles)]
 
     global package_contents
+    package_contents = {}
 
     # check name of each package to find the right one
     for n in range(num_packages):
@@ -169,7 +178,6 @@ def init_bundle_mapping(game_data_folder: str):
                 package_contents[name].size = bundle_size
                 package_contents[name].entries = [bundle_entry]
 
-
 def get_resources_from_bundle(bundle_path: str, start_offset: int, size: int):
 
 
@@ -185,11 +193,9 @@ def get_resources_from_bundle(bundle_path: str, start_offset: int, size: int):
         current_size += len(resource)
         resources.append(resource)
     return resources
-
-def get_package_toc(package_name: str, game_data_folder: str):
+    
+def get_package_toc(package_name: str):
     global package_contents
-    if not package_contents:
-        init_bundle_mapping(game_data_folder)
 
     package_name = os.path.basename(package_name)
 
@@ -236,19 +242,15 @@ def get_package_toc(package_name: str, game_data_folder: str):
 
     return bytearray()
 
-def load_package(package_name: str, game_data_folder: str, toc_only = False):
+def load_package(package_path: str):
 
-    if not package_contents:
-        init_bundle_mapping(game_data_folder)
-
-    package_name = os.path.basename(package_name)
-
-    full_path = os.path.join(game_data_folder, package_name)
+    if not os.path.dirname(package_path):
+        package_path = os.path.join(game_data_folder, package_path)
 
     package_type = 0
 
-    if os.path.exists(full_path):
-        with open(full_path, 'rb') as f:
+    if os.path.exists(package_path):
+        with open(package_path, 'rb') as f:
             magic = int.from_bytes(f.read(4), "little")
             if magic == 1380012868: # compressed DSAR file
                 package_type = DSAR
@@ -262,39 +264,35 @@ def load_package(package_name: str, game_data_folder: str, toc_only = False):
     stream_data = bytearray()
 
     if package_type == BUNDLED:
-        content = reconstruct_package_from_bundles(package_name, game_data_folder)
+        content = reconstruct_package_from_bundles(package_path)
         if content: toc_data = content
+        
+        content = reconstruct_package_from_bundles(f"{package_path}.gpu_resources")
+        if content: gpu_data = content
 
-        if not toc_only:
-            content = reconstruct_package_from_bundles(f"{package_name}.gpu_resources", game_data_folder)
-            if content: gpu_data = content
-
-            content = reconstruct_package_from_bundles(f"{package_name}.stream", game_data_folder)
-            if content: stream_data = content
+        content = reconstruct_package_from_bundles(f"{package_path}.stream")
+        if content: stream_data = content
 
     elif package_type == DSAR:
-        toc_data = decompress_dsar(full_path)
-        if not toc_only:
-            if os.path.exists(full_path+".gpu_resources"):
-                gpu_data = decompress_dsar(full_path+".gpu_resources")
-            if os.path.exists(full_path+".stream"):
-                stream_data = decompress_dsar(full_path+".stream")
+        toc_data = decompress_dsar(package_path)
+        if os.path.exists(package_path+".gpu_resources"):
+            gpu_data = decompress_dsar(package_path+".gpu_resources")
+        if os.path.exists(package_path+".stream"):
+            stream_data = decompress_dsar(package_path+".stream")
 
     elif package_type == LEGACY:
-        with open(full_path, 'rb') as f:
+        with open(package_path, 'rb') as f:
             toc_data = f.read()
-        if not toc_only:
-            if os.path.exists(full_path+".gpu_resources"):
-                with open(full_path+".gpu_resources", 'rb') as f:
-                    gpu_data = f.read()
-            if os.path.exists(full_path+".stream"):
-                with open(full_path+".stream", 'rb') as f:
-                    stream_data = f.read()
+        if os.path.exists(package_path+".gpu_resources"):
+            with open(package_path+".gpu_resources", 'rb') as f:
+                gpu_data = f.read()
+        if os.path.exists(package_path+".stream"):
+            with open(package_path+".stream", 'rb') as f:
+                stream_data = f.read()
 
-    if toc_only: return toc_data
     return toc_data, gpu_data, stream_data
 
-def reconstruct_package_from_bundles(package_name: str, game_data_folder: str):
+def reconstruct_package_from_bundles(package_name: str):
 
     # reconstructs a package file from compressed bundle files
     package_name = os.path.basename(package_name)
@@ -318,7 +316,6 @@ def reconstruct_package_from_bundles(package_name: str, game_data_folder: str):
         combined_data = b"".join(resources)
         package_data[item.original_archive_offset:item.original_archive_offset+len(combined_data)] = combined_data
     return package_data
-
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
