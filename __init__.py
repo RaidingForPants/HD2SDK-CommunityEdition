@@ -42,6 +42,7 @@ from .stingray import bones as bones_m
 from .stingray import composite_unit as composite_unit_m
 from .stingray import unit as unit_m
 from .hashlists import hash as hash_m
+from .utils import slim as slim_m
 
 importlib.reload(animation_m)
 importlib.reload(raw_dump_m)
@@ -52,6 +53,7 @@ importlib.reload(bones_m)
 importlib.reload(composite_unit_m)
 importlib.reload(unit_m)
 importlib.reload(hash_m)
+importlib.reload(slim_m)
 
 from .stingray.animation import StingrayAnimation, AnimationException
 from .stingray.raw_dump import StingrayRawDump
@@ -61,6 +63,7 @@ from .stingray.particle import StingrayParticles
 from .stingray.bones import LoadBoneHashes, StingrayBones
 from .stingray.composite_unit import StingrayCompositeMesh
 from .stingray.unit import CreateModel, GetObjectsMeshData, StingrayMeshFile
+from .utils.slim import is_slim_version, load_package, get_package_toc, slim_init
 
 from .hashlists.hash import murmur64_hash
 
@@ -68,6 +71,7 @@ from .hashlists.hash import murmur64_hash
 # NOTE: Not bothering to do importlib reloading shit because these modules are unlikely to be modified frequently enough to warrant testing without Blender restarts
 from .memoryStream import MemoryStream
 from .logger import PrettyPrint
+
 
 from .constants import *
 
@@ -451,6 +455,7 @@ def InitializeConfig():
             UpdateConfig()
         if os.path.exists(Global_gamepath):
             PrettyPrint(f"Loaded Data Folder: {Global_gamepath}")
+            slim_init(Global_gamepath)
             Global_gamepathIsValid = True
         else:
             PrettyPrint(f"Game path: {Global_gamepath} is not a valid directory", 'ERROR')
@@ -463,6 +468,7 @@ def UpdateConfig():
     global Global_gamepath, Global_searchpath, Global_defaultgamepath
     if Global_gamepath == "":
         Global_gamepath = Global_defaultgamepath
+    slim_init(Global_gamepath)
     config = configparser.ConfigParser()
     config['DEFAULT'] = {'filepath' : Global_gamepath, 'searchpath' : Global_searchpath}
     with open(Global_configpath, 'w') as configfile:
@@ -627,6 +633,44 @@ class SearchToc:
             return file_id in self.TocEntries[type_id]
         except KeyError:
             return False
+            
+    def FromPackage(self, package_data, package_name):
+        self.UpdatePath(os.path.join(Global_gamepath, package_name))
+        num_entries = int.from_bytes(package_data[8:12], "little")
+        for i in range(num_entries):
+            offset = 0x10+i*0x10
+            type_id = int.from_bytes(package_data[offset:offset+8], "little")
+            file_id = int.from_bytes(package_data[offset+8:offset+16], "little")
+            self.fileIDs.append(file_id)
+            try:
+                self.TocEntries[type_id].append(file_id)
+            except KeyError:
+                self.TocEntries[type_id] = [file_id]
+        return True
+        
+    def FromSlimFile(self, path):
+        self.UpdatePath(path)
+        data = get_package_toc(path)
+        if not data:
+            print(f"unable to get package {os.path.basename(path)}")
+            return False
+        magic, numTypes, numFiles = struct.unpack_from("<III", data, offset=0)
+        if magic != 4026531857:
+            print(f"Incorrect magic in package {os.path.basename(path)}: {magic}")
+            return False
+        # maybe could save files for later?
+        offset = 72 + (numTypes << 5)
+        
+        for _ in range(numFiles):
+            file_id, type_id, toc_data_offset = struct.unpack_from("<QQQ", data, offset=offset)
+            self.fileIDs.append(int(file_id))
+            try:
+                self.TocEntries[type_id].append(file_id)
+            except KeyError:
+                self.TocEntries[type_id] = [file_id]
+            offset += 80
+            
+        return True
 
     def FromFile(self, path):
         self.UpdatePath(path)
@@ -726,18 +770,10 @@ class StreamToc:
 
     def FromFile(self, path, SerializeData=True):
         self.UpdatePath(path)
-        with open(path, 'r+b') as f:
-            self.TocFile = MemoryStream(f.read())
-
-        self.GpuFile    = MemoryStream()
-        self.StreamFile = MemoryStream()
-        if SerializeData:
-            if os.path.isfile(path+".gpu_resources"):
-                with open(path+".gpu_resources", 'r+b') as f:
-                    self.GpuFile = MemoryStream(f.read())
-            if os.path.isfile(path+".stream"):
-                with open(path+".stream", 'r+b') as f:
-                    self.StreamFile = MemoryStream(f.read())
+        toc_data, gpu_data, stream_data = load_package(path)
+        self.TocFile = MemoryStream(toc_data)
+        self.GpuFile = MemoryStream(gpu_data)
+        self.StreamFile = MemoryStream(stream_data)
         return self.Serialize(SerializeData)
 
     def ToFile(self, path=None):
@@ -815,7 +851,6 @@ class TocManager():
     # ---- Archive Code ---- #
     def LoadArchive(self, path, SetActive=True, IsPatch=False):
         # TODO: Add error if IsPatch is true but the path is not to a patch
-
         for Archive in self.LoadedArchives:
             if Archive.Path == path:
                 return Archive
@@ -854,20 +889,37 @@ class TocManager():
 
         # Get search archives
         if len(self.SearchArchives) == 0:
-            futures = []
-            tocs = []
-            executor = concurrent.futures.ThreadPoolExecutor()
-            for root, dirs, files in os.walk(Path(path).parent):
-                for name in files:
-                    if Path(name).suffix == "":
-                        search_toc = SearchToc()
-                        tocs.append(search_toc)
-                        futures.append(executor.submit(search_toc.FromFile, os.path.join(root, name)))
-            for index, future in enumerate(futures):
-                if future.result():
-                    self.SearchArchives.append(tocs[index])
-            executor.shutdown()
-
+            if is_slim_version():
+                futures = []
+                tocs = []
+                executor = concurrent.futures.ThreadPoolExecutor()
+                bundle_database = open(os.path.join(Global_gamepath, "bundle_database.data"), 'rb')
+                bundle_database_data = bundle_database.read()
+                num_packages = int.from_bytes(bundle_database_data[4:8], "little")
+                for i in range(num_packages):
+                    offset = 0x10 + 0x33 * i
+                    name = bundle_database_data[offset:offset+0x33].decode().split("\x17")[0]
+                    search_toc = SearchToc()
+                    tocs.append(search_toc)
+                    futures.append(executor.submit(search_toc.FromSlimFile, os.path.join(Global_gamepath, name)))
+                for index, future in enumerate(futures):
+                    if future.result():
+                        self.SearchArchives.append(tocs[index])
+                executor.shutdown()
+            else:
+                futures = []
+                tocs = []
+                executor = concurrent.futures.ThreadPoolExecutor()
+                for root, dirs, files in os.walk(Path(path).parent):
+                    for name in files:
+                        if Path(name).suffix == "":
+                            search_toc = SearchToc()
+                            tocs.append(search_toc)
+                            futures.append(executor.submit(search_toc.FromFile, os.path.join(root, name)))
+                for index, future in enumerate(futures):
+                    if future.result():
+                        self.SearchArchives.append(tocs[index])
+                executor.shutdown()
         return toc
     
     def GetEntryByLoadArchive(self, FileID: int, TypeID: int):
@@ -1803,7 +1855,7 @@ class DefaultLoadArchiveOperator(Operator):
 
     def execute(self, context):
         path = Global_gamepath + BaseArchiveHexID
-        if not os.path.exists(path):
+        if not os.path.exists(Global_gamepath):
             self.report({'ERROR'}, "Current Filepath is Invalid. Change this in the Settings")
             context.scene.Hd2ToolPanelSettings.MenuExpanded = True
             return{'CANCELLED'}
@@ -2671,7 +2723,6 @@ class BatchSaveStingrayUnitOperator(Operator):
             if Entry is None:
                 self.report({'ERROR'}, f"Archive for entry being saved is not loaded. Could not find custom property object at ID: {ID}")
                 errors = True
-                num_meshes -= len(MeshData[ID])
                 entries.append(None)
                 continue
             Entry.Load(True, False, True)
@@ -2697,6 +2748,7 @@ class BatchSaveStingrayUnitOperator(Operator):
                 ID = SwapID
             Entry = entries[i]
             if Entry is None:
+                num_meshes -= len(MeshData[ID])
                 continue
             MeshList = MeshData[ID]
             for mesh_index, mesh in MeshList.items():
@@ -3371,7 +3423,7 @@ class LoadArchivesOperator(Operator):
     paths_str: StringProperty(name="paths_str")
     def execute(self, context):
         global Global_TocManager
-        if self.paths_str != "" and os.path.exists(self.paths_str):
+        if self.paths_str != "" and (os.path.exists(self.paths_str) or is_slim_version()):
             Global_TocManager.LoadArchive(self.paths_str)
             id = self.paths_str.replace(Global_gamepath, "")
             name = f"{GetArchiveNameFromID(id)} {id}"
