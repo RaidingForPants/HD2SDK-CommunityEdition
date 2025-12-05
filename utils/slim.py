@@ -218,7 +218,7 @@ def get_package_toc(package_name: str):
         try:
             package = package_contents[package_name]
         except KeyError:
-            print(f"Unable to get package {package_name}")
+            # print(f"Unable to get package {package_name}")
             return bytearray()
 
         return get_resource_from_bundle(os.path.join(game_data_folder, f"bundles.{package.entries[0].bundle_index:02d}.nxa"), package.entries[0].start_offset)

@@ -1,6 +1,6 @@
 bl_info = {
     "name": "Helldivers 2 SDK: Community Edition",
-    "version": (3, 2, 1),
+    "version": (3, 3, 0),
     "blender": (4, 0, 0),
     "category": "Import-Export",
 }
@@ -652,11 +652,11 @@ class SearchToc:
         self.UpdatePath(path)
         data = get_package_toc(path)
         if not data:
-            print(f"unable to get package {os.path.basename(path)}")
+            PrettyPrint(f"unable to get package {os.path.basename(path)}", 'warn')
             return False
         magic, numTypes, numFiles = struct.unpack_from("<III", data, offset=0)
         if magic != 4026531857:
-            print(f"Incorrect magic in package {os.path.basename(path)}: {magic}")
+            PrettyPrint(f"Incorrect magic in package {os.path.basename(path)}: {magic}", 'error')
             return False
         # maybe could save files for later?
         offset = 72 + (numTypes << 5)
@@ -714,6 +714,7 @@ class StreamToc:
         if self.TocFile.IsWriting():
             self.UpdateTypes()
         # Begin Serializing file
+        if len(self.TocFile.Data) == 0: return False
         self.magic      = self.TocFile.uint32(self.magic)
         if self.magic != 4026531857: return False
 
@@ -1976,7 +1977,7 @@ class SearchByEntryIDOperator(Operator, ImportHelper):
                 name = fileID.split(" ", 1)[1]
             except:
                 name = None
-            if ID.upper() != ID.lower():
+            if ID.startswith("0x"):
                 ID = hex_to_decimal(ID)
             ID = int(ID)
            
@@ -2006,7 +2007,7 @@ class SearchByEntryIDInput(Operator):
     entry_id: StringProperty(name="Entry ID")
     def execute(self, context):
             ID = self.entry_id
-            if ID.upper() != ID.lower():
+            if ID.startswith("0x"):
                 ID = hex_to_decimal(self.entry_id)
 
             Archives = SearchByEntryID(int(ID))
@@ -3436,6 +3437,41 @@ class LoadArchivesOperator(Operator):
             self.report({'ERROR'}, message )
             return{'CANCELLED'}
 
+class ManuallyLoadArchivesOperator(Operator):
+    bl_label = "Load Archive By ID"
+    bl_idname = "helldiver2.archives_import_manual"
+    bl_description = "Loads Archive by Archive ID"
+
+    archive_id: StringProperty(name="Archive ID")
+    def execute(self, context):
+        global Global_TocManager
+
+        ID = self.archive_id
+        if ID.startswith("0x"):
+            ID = hex_to_decimal(self.archive_id)
+
+        path = os.path.join(Global_gamepath, ID)
+
+        if path != "" and (os.path.exists(path) or is_slim_version()):
+            Global_TocManager.LoadArchive(path)
+            name = f"{GetArchiveNameFromID(ID)} {ID}"
+            self.report({'INFO'}, f"Loaded {name}")
+            return{'FINISHED'}
+        else:
+            message = "Archive Failed to Load"
+            if not os.path.exists(self.paths_str):
+                message = "Current Filepath is Invalid. Change This in Settings"
+            self.report({'ERROR'}, message )
+            return{'CANCELLED'}
+    
+    def invoke(self, context, event):
+        self.archive_id = ""
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "archive_id")
+
 class SearchArchivesOperator(Operator):
     bl_label = "Search Found Archives"
     bl_idname = "helldiver2.search_archives"
@@ -3472,6 +3508,7 @@ class SearchArchivesOperator(Operator):
         return {'FINISHED'}
 
     def invoke(self, context, event):
+        self.SearchField = ""
         self.PrevSearch = "NONE"
         self.ArchivesToDisplay = []
 
@@ -4202,6 +4239,7 @@ class HellDivers2ToolsPanel(Panel):
                 ArchiveNum = f"{Archiveindex}/{Archiveslength}"
             row.operator("helldiver2.next_archive", icon= 'RIGHTARROW', text=ArchiveNum)
             row.scale_x = 1
+        row.operator("helldiver2.archives_import_manual", icon= 'VIEWZOOM', text= "")
         row.operator("helldiver2.archive_import", icon= 'FILEBROWSER', text= "").is_patch = False
         row = layout.row()
         if len(Global_TocManager.LoadedArchives) > 0:
@@ -4635,6 +4673,7 @@ classes = (
     SaveStingrayParticleOperator,
     ImportDumpByIDOperator,
     SearchByEntryIDInput,
+    ManuallyLoadArchivesOperator,
 )
 
 Global_TocManager = TocManager()
