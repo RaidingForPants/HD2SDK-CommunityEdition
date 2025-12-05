@@ -885,14 +885,26 @@ class TocManager():
         # Get search archives
         if len(self.SearchArchives) == 0:
             if is_slim_version(Global_gamepath):
-                toc = StreamToc()
-                toc.FromFile(BaseArchiveHexID)
-                for e in [e for e in toc.TocEntries if e.TypeID == 12509994393822160762]: # package ID
-                    if not e.IsLoaded:
-                        e.Load(False, False)
+                futures = []
+                tocs = []
+                executor = concurrent.futures.ThreadPoolExecutor()
+                bundle_database = open(os.path.join(Global_gamepath, "bundle_database.data"), 'rb')
+                bundle_database_data = bundle_database.read()
+                num_packages = int.from_bytes(bundle_database_data[4:8], "little")
+                for i in range(num_packages):
+                    offset = 0x10 + 0x33 * i
+                    length = 0
+                    while bundle_database_data[offset+length] != 0:
+                        length += 1
+                        if length > 0x33: break
+                    name = bundle_database_data[offset:offset+length-1].decode()
                     search_toc = SearchToc()
-                    search_toc.FromPackage(e.TocData, f"{e.FileID:016x}")
-                    self.SearchArchives.append(search_toc)
+                    tocs.append(search_toc)
+                    futures.append(executor.submit(search_toc.FromSlimFile, os.path.join(Global_gamepath, name)))
+                for index, future in enumerate(futures):
+                    if future.result():
+                        self.SearchArchives.append(tocs[index])
+                executor.shutdown()
             else:
                 futures = []
                 tocs = []
