@@ -1,6 +1,6 @@
 bl_info = {
     "name": "Helldivers 2 SDK: Community Edition",
-    "version": (3, 3, 1),
+    "version": (3, 3, 2),
     "blender": (4, 0, 0),
     "category": "Import-Export",
 }
@@ -714,7 +714,7 @@ class StreamToc:
         if self.TocFile.IsWriting():
             self.UpdateTypes()
         # Begin Serializing file
-        if len(self.TocFile.Data) == 0: return False
+        if len(self.TocFile.Data) == 0 and self.TocFile.IsReading(): return False
         self.magic      = self.TocFile.uint32(self.magic)
         if self.magic != 4026531857: return False
 
