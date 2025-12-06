@@ -1,6 +1,6 @@
 bl_info = {
     "name": "Helldivers 2 SDK: Community Edition",
-    "version": (3, 3, 2),
+    "version": (3, 3, 3),
     "blender": (4, 0, 0),
     "category": "Import-Export",
 }
@@ -465,10 +465,11 @@ def InitializeConfig():
         UpdateConfig()
 
 def UpdateConfig():
-    global Global_gamepath, Global_searchpath, Global_defaultgamepath
+    global Global_gamepath, Global_searchpath, Global_defaultgamepath, Global_gamepathIsValid
     if Global_gamepath == "":
         Global_gamepath = Global_defaultgamepath
-    slim_init(Global_gamepath)
+    if Global_gamepathIsValid: 
+        slim_init(Global_gamepath)
     config = configparser.ConfigParser()
     config['DEFAULT'] = {'filepath' : Global_gamepath, 'searchpath' : Global_searchpath}
     with open(Global_configpath, 'w') as configfile:
@@ -1825,9 +1826,9 @@ class ChangeFilepathOperator(Operator, ImportHelper):
             self.report({'ERROR'}, f"Could not find steamapps folder in filepath: {filepath}")
             return{'CANCELLED'}
         Global_gamepath = filepath
+        Global_gamepathIsValid = True
         UpdateConfig()
         PrettyPrint(f"Changed Game File Path: {Global_gamepath}")
-        Global_gamepathIsValid = True
         return{'FINISHED'}
     
 class ChangeSearchpathOperator(Operator, ImportHelper):
