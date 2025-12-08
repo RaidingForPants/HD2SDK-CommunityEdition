@@ -784,6 +784,9 @@ class StreamToc:
         self.StreamFile = MemoryStream(IOMode = "write")
         self.Serialize()
         if path == None: path = self.Path
+        min_siuze = 256 * len(self.TocEntries)
+        if len(self.TocFile.Data) < min_size:
+            self.TocFile.Data.extend(bytearray(min_size-len(self.TocFile.Data)))
 
         with open(path, 'w+b') as f:
             f.write(bytes(self.TocFile.Data))
