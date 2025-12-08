@@ -512,6 +512,7 @@ class StingrayMeshFile:
             NewMesh.MeshInfoIndex = n
             NewMesh.MeshID = Mesh_Info.MeshID
             NewMesh.DEV_Transform = self.TransformInfo.Transforms[Mesh_Info.TransformIndex]
+            NewMesh.DEV_Transform.pos = self.TransformInfo.TransformMatrices[Mesh_Info.TransformIndex].v[12:15]
             try:
                 NewMesh.DEV_BoneInfo  = self.BoneInfoArray[Mesh_Info.LodIndex]
             except: pass
