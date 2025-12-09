@@ -1629,6 +1629,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         
     if modified_bone_entry:
         bone_entry.Save()
+        state_machine_entry.Save()
     
     # get weights
     vert_idx = 0
