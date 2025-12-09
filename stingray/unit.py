@@ -23,13 +23,18 @@ class StingrayMeshFile:
         self.RawMeshes = []
         self.SectionsIDs = []
         self.MaterialIDs = []
+        self.LightList = LightList()
         self.DEV_MeshInfoMap = [] # Allows removing of meshes while mapping them to the original meshes
         self.CustomizationInfo = CustomizationInfo()
         self.TransformInfo     = TransformInfo()
         self.BoneNames = None
         self.UnreversedCustomizationData = bytearray()
         self.UnreversedConnectingBoneData = bytearray()
+        self.UnreversedLODGroupListData = bytearray()
+        self.UnreversedLODGroupListDataOffset = 0
+        self.UnkHeaderData1 = bytearray()
         self.NameHash = 0
+        self.LightListOffset = 0
         self.LoadMaterialSlotNames = True
 
     # -- Serialize Mesh -- #
@@ -91,9 +96,11 @@ class StingrayMeshFile:
         self.BonesRef           = f.uint64(self.BonesRef)
         if f.IsWriting():         f.uint64(0)
         else: self.CompositeRef = f.uint64(self.CompositeRef)
-        self.HeaderData1        = f.bytes(self.HeaderData1, 28)
+        self.HeaderData1        = f.bytes(self.HeaderData1, 24)
+        self.UnreversedLODGroupListDataOffset = f.uint32(self.UnreversedLODGroupListDataOffset)
         self.TransformInfoOffset= f.uint32(self.TransformInfoOffset)
-        self.HeaderData2        = f.bytes(self.HeaderData2, 20)
+        self.LightListOffset    = f.uint32(self.LightListOffset)
+        self.HeaderData2        = f.bytes(self.HeaderData2, 16)
         self.CustomizationInfoOffset  = f.uint32(self.CustomizationInfoOffset)
         self.UnkHeaderOffset1   = f.uint32(self.UnkHeaderOffset1)
         self.ConnectingBoneHashOffset   = f.uint32(self.ConnectingBoneHashOffset)
@@ -103,6 +110,8 @@ class StingrayMeshFile:
         self.MeshInfoOffset     = f.uint32(self.MeshInfoOffset)
         self.HeaderUnk          = f.uint64(self.HeaderUnk)
         self.MaterialsOffset    = f.uint32(self.MaterialsOffset)
+        
+        f.seek(f.tell() + 28)
 
         if f.IsReading() and self.MeshInfoOffset == 0:
             raise Exception("Unsupported Mesh Format (No geometry)")
@@ -123,18 +132,57 @@ class StingrayMeshFile:
             loc = f.tell(); f.seek(self.CustomizationInfoOffset)
             self.CustomizationInfo.Serialize(f)
             f.seek(loc)
-        # Get Transform data: READ ONLY
-        #if f.IsReading() and self.TransformInfoOffset > 0:
-        UnreversedCustomizationData_Size = 0
-        if self.TransformInfoOffset > 0: # need to update other offsets?
-            loc = f.tell(); f.seek(self.TransformInfoOffset)
+        
+        # Get Light data
+        if f.IsReading():
+            f.seek(self.LightListOffset)
+        else:
+            self.LightListOffset = f.tell()
+        self.LightList.Serialize(f)
+        
+        print(len(self.LightList.lights))
+        
+        # Get Unreversed data before transform info (LOD Group List)
+        if f.IsReading():
+            if self.TransformInfoOffset > 0:
+                UnreversedLODGroupListDataSize = self.TransformInfoOffset - f.tell()
+            elif self.CustomizationInfoOffset > 0:
+                UnreversedLODGroupListDataSize = self.CustomizationInfoOffset - f.tell()
+            elif self.UnkHeaderOffset1 > 0:
+                UnreversedLODGroupListDataSize = self.UnkHeaderOffset1 - f.tell()
+            elif self.ConnectingBoneHashOffset > 0:
+                UnreversedLODGroupListDataSize = self.ConnectingBoneHashOffset - f.tell()
+            elif self.BoneInfoOffset > 0:
+                UnreversedLODGroupListDataSize = self.BoneInfoOffset-f.tell()
+            elif self.StreamInfoOffset > 0:
+                UnreversedLODGroupListDataSize = self.StreamInfoOffset-f.tell()
+            elif self.MeshInfoOffset > 0:
+                UnreversedLODGroupListDataSize = self.MeshInfoOffset-f.tell()
+        else:
+            UnreversedLODGroupListDataSize = len(self.UnreversedLODGroupListData)
+            self.UnreversedLODGroupListDataOffset = f.tell()
+        try:
+            self.UnreversedLODGroupListData    = f.bytes(self.UnreversedLODGroupListData, UnreversedLODGroupListDataSize)
+        except:
+            PrettyPrint(f"Could not set UnreversedLODGroupListData", "ERROR")
+        
+        # Get Transform data
+        if self.TransformInfoOffset > 0:
+            if f.IsReading():
+                pass
+            else:
+                self.TransformInfoOffset = f.tell()
             self.TransformInfo.Serialize(f)
             if f.tell() % 16 != 0:
                 f.seek(f.tell() + (16-f.tell()%16))
-            UnreversedCustomizationData_Start = f.tell()
-            if self.CustomizationInfoOffset > 0:
-                self.CustomizationInfoOffset = UnreversedCustomizationData_Start
+        
+        # Get Customization Info
+        UnreversedCustomizationData_Size = 0
+        if self.CustomizationInfoOffset > 0:
+            self.CustomizationInfoOffset = f.tell()
             if f.IsReading():
+                if self.UnkHeaderOffset1 > 0:
+                    UnreversedCustomizationData_Size = self.UnkHeaderOffset1 - f.tell()
                 if self.ConnectingBoneHashOffset > 0:
                     UnreversedCustomizationData_Size = self.ConnectingBoneHashOffset - f.tell()
                 elif self.BoneInfoOffset > 0:
@@ -145,31 +193,28 @@ class StingrayMeshFile:
                     UnreversedCustomizationData_Size = self.MeshInfoOffset-f.tell()
             else:
                 UnreversedCustomizationData_Size = len(self.UnreversedCustomizationData)
-            f.seek(loc)
-
-        # Unreversed data before transform info offset (may include customization info)
-        # Unreversed data intersects other data we want to leave alone!
-        if f.IsReading():
-            if self.TransformInfoOffset > 0:
-                UnreversedData1Size = self.TransformInfoOffset - f.tell()
-            elif self.ConnectingBoneHashOffset > 0:
-                UnreversedData1Size = self.ConnectingBoneHashOffset - f.tell()
-            elif self.BoneInfoOffset > 0:
-                UnreversedData1Size = self.BoneInfoOffset-f.tell()
-            elif self.StreamInfoOffset > 0:
-                UnreversedData1Size = self.StreamInfoOffset-f.tell()
-            elif self.MeshInfoOffset > 0:
-                UnreversedData1Size = self.MeshInfoOffset-f.tell()
-        else: UnreversedData1Size = len(self.UnReversedData1)
-        try:
-            self.UnReversedData1    = f.bytes(self.UnReversedData1, UnreversedData1Size)
-        except:
-            PrettyPrint(f"Could not set UnReversedData1", "ERROR")
-        
-        if self.TransformInfoOffset > 0: # if not transform info, this data is contained within UnReversedData1
-            f.seek(UnreversedCustomizationData_Start)
             if UnreversedCustomizationData_Size > 0:
                 self.UnreversedCustomizationData = f.bytes(self.UnreversedCustomizationData, UnreversedCustomizationData_Size)
+                
+        # Get Unknown data
+        # If there is no transform info, this data is already contained in UnreversedLODGroupListData
+        if self.UnkHeaderOffset1 > 0:
+            data_size = 0
+            self.UnkHeaderOffset1 = f.tell()
+            if f.IsReading():
+                if self.ConnectingBoneHashOffset > 0:
+                    data_size = self.ConnectingBoneHashOffset - f.tell()
+                elif self.BoneInfoOffset > 0:
+                    data_size = self.BoneInfoOffset-f.tell()
+                elif self.StreamInfoOffset > 0:
+                    data_size = self.StreamInfoOffset-f.tell()
+                elif self.MeshInfoOffset > 0:
+                    data_size = self.MeshInfoOffset-f.tell()
+            else:
+                data_size = len(self.UnkHeaderData1)
+            if data_size > 0:
+                self.UnkHeaderData1 = f.bytes(self.UnkHeaderData1, data_size)
+            
                 
         # ConnectingBoneHash Data
         if self.ConnectingBoneHashOffset > 0:
@@ -1142,6 +1187,55 @@ class RawMaterialClass:
 
 class BoneIndexException(Exception):
     pass
+    
+class LightList:
+    
+    def __init__(self):
+        self.lights = []
+        self.light_count = 0
+        self.unk0 = [0, 0, 0]
+        
+    def Serialize(self, stream: MemoryStream):
+        self.light_count = stream.uint32(self.light_count)
+        self.unk0 = [stream.uint32(i) for i in self.unk0]
+        if stream.IsReading():
+            self.lights = [Light() for _ in range(self.light_count)]
+        for light in self.lights:
+            light.Serialize(stream)
+    
+class Light:
+    
+    OMNI = 0 # point in Blender
+    SPOT = 1 # spot
+    BOX = 2 # area?
+    DIRECTIONAL = 3 # sun
+    
+    def __init__(self):
+        self.name_hash = self.bone_index = self.falloff_start = self.falloff_end = self.start_angle = self.end_angle = self.unk0 = self.flags = self.light_type = 0
+        self.intensity = self.falloff_exp = 1
+        self.shadow_bias = 0.4
+        self.unk1 = [0] * 5
+        self.unk2 = bytearray(32)
+        self.color = [0, 0, 0]
+        
+    def Serialize(self, stream: MemoryStream):
+        self.name_hash = stream.uint32(self.name_hash)
+        self.bone_index = stream.uint32(self.bone_index)
+        self.color = [stream.float32(i) for i in self.color]
+        self.intensity = stream.float32(self.intensity)
+        self.falloff_start = stream.float32(self.falloff_start)
+        self.falloff_end = stream.float32(self.falloff_end)
+        self.falloff_exp = stream.float32(self.falloff_exp)
+        self.start_angle = stream.float32(self.start_angle)
+        self.end_angle = stream.float32(self.end_angle)
+        self.unk0 = stream.float32(self.unk0)
+        self.shadow_bias = stream.float32(self.shadow_bias)
+        self.unk1 = [stream.float32(i) for i in self.unk1]
+        self.flags = stream.uint8(self.flags)
+        for _ in range(3):
+            stream.uint8(0)
+        self.light_type = stream.uint32(self.light_type)
+        self.unk2 = stream.bytes(self.unk2, 32)
 
 def sign(n):
     if n >= 0:
@@ -1497,6 +1591,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         raise Exception(f"Unable to get mesh entry {og_object['Z_ObjectID']}")
     bone_info = stingray_mesh_entry.BoneInfoArray
     transform_info = stingray_mesh_entry.TransformInfo
+    light_list = stingray_mesh_entry.LightList
     lod_index = og_object["BoneInfoIndex"]
     bone_names = []
         
@@ -1584,6 +1679,59 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             obj.select_set(True)
         bpy.context.view_layer.objects.active = prev_obj
         bpy.ops.object.mode_set(mode=prev_mode)   
+    
+    # get lights
+    if armature_obj is not None:
+        bpy.ops.object.mode_set(mode='EDIT')
+        for blender_light in [child for child in armature_obj.children if child.type == "LIGHT"]:
+            blend_light_data = blender_light.data
+            light_name_hash = 0
+            try:
+                light_name_hash = int(blender_light.name.split(".")[0])
+            except ValueError:
+                light_name_hash = murmur32_hash(blender_light.name.split(".")[0].encode())
+            if not blender_light.parent or blender_light.parent_type != "BONE":
+                PrettyPrint("Light has no parent bone, skipping...")
+                continue
+            light_bone_index = -1
+            for i, bone in enumerate(armature_obj.data.edit_bones):
+                if bone.name == blender_light.parent_bone:
+                    light_bone_index = i
+                    break
+            if light_bone_index == -1:
+                PrettyPrint("Failed to find bone")
+                continue
+            target_light = None
+            for light in light_list.lights:
+                if light.name_hash == light_name_hash:
+                    target_light = light
+                    break
+            new_light = True if not target_light else False
+            if new_light:
+                light_list.light_count += 1
+                target_light = Light()
+                target_light.name_hash = light_name_hash
+            target_light.bone_index = light_bone_index
+            if isinstance(blend_light_data, bpy.types.SpotLight):
+                target_light.end_angle = blend_light_data.spot_size
+                target_light.light_type = Light.SPOT
+                print("spot")
+            elif isinstance(blend_light_data, bpy.types.PointLight):
+                target_light.light_type = Light.OMNI
+                print("point")
+            elif isinstance(blend_light_data, bpy.types.AreaLight):
+                target_light.light_type = Light.BOX
+            elif isinstance(blend_light_data, bpy.types.SunLight):
+                target_light.light_type = Light.DIRECTIONAL
+            print(type(blend_light_data))
+            print(blend_light_data.type)
+            color = blend_light_data.color
+            intensity = blend_light_data.energy
+            target_light.color = [color.r * intensity, color.g*intensity, color.b*intensity]
+            target_light.falloff_end = blend_light_data.cutoff_distance
+            if new_light:
+                light_list.lights.append(target_light)
+        bpy.ops.object.mode_set(mode=prev_mode)  
     
     # get weights
     vert_idx = 0
@@ -1762,7 +1910,8 @@ def NameFromMesh(mesh, id, customization_info, bone_names, use_sufix=True):
     return name
 
 def CreateModel(stingray_unit, id, Global_BoneNames):
-    model, customization_info, bone_names, transform_info, bone_info = stingray_unit.RawMeshes, stingray_unit.CustomizationInfo, stingray_unit.BoneNames, stingray_unit.TransformInfo, stingray_unit.BoneInfoArray
+    model, customization_info, bone_names, transform_info, bone_info, lights = stingray_unit.RawMeshes, stingray_unit.CustomizationInfo, stingray_unit.BoneNames, stingray_unit.TransformInfo, stingray_unit.BoneInfoArray, stingray_unit.LightList
+    imported_lights = False
     if len(model) < 1: return
     # Make collection
     old_collection = bpy.context.collection
@@ -1772,7 +1921,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
     else:
         new_collection = old_collection
     # Make Meshes
-    for mesh in model:
+    for mesh_count, mesh in enumerate(model):
         # check lod
         if not bpy.context.scene.Hd2ToolPanelSettings.ImportLods and mesh.IsLod():
             continue
@@ -1898,9 +2047,9 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 new_vertex_group = new_object.vertex_groups.new(name=str(bone))
                 
         # -- || ADD BONES || -- #
+        skeletonObj = None
+        armature = None
         if bpy.context.scene.Hd2ToolPanelSettings.ImportArmature and not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
-            skeletonObj = None
-            armature = None
             if len(bpy.context.selected_objects) > 0:
                 skeletonObj = bpy.context.selected_objects[0]
             if skeletonObj and skeletonObj.type == 'ARMATURE':
@@ -2029,7 +2178,64 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
             # create empty animation data if it does not exist
             if not skeletonObj.animation_data:
               skeletonObj.animation_data_create()
-                
+        
+        
+        if not imported_lights:
+            imported_lights = True
+            current_mode = bpy.context.mode
+            bpy.ops.object.mode_set(mode='EDIT')
+            for light in lights.lights:
+                blend_light = None
+                if light.light_type == Light.OMNI:
+                    light_type = "POINT"
+                    blend_light = bpy.data.lights.new(name = str(light.name_hash), type=light_type)
+                    blend_light.color = mathutils.Color(mathutils.Vector(light.color).normalized().to_tuple())
+                    blend_light.cutoff_distance = light.falloff_end
+                    #blend_light.exposure = light.falloff_exp
+                    blend_light.energy = sqrt(sum([component**2 for component in light.color]))
+                elif light.light_type == Light.SPOT:
+                    light_type = "SPOT"
+                    blend_light = bpy.data.lights.new(name = str(light.name_hash), type=light_type)
+                    blend_light.color = mathutils.Color(mathutils.Vector(light.color).normalized().to_tuple())
+                    blend_light.cutoff_distance = light.falloff_end
+                    #blend_light.exposure = light.falloff_exp
+                    blend_light.energy = sqrt(sum([component**2 for component in light.color]))
+                    blend_light.spot_size = light.end_angle
+                    blend_light.show_cone = True
+                elif light.light_type == Light.BOX:
+                    light_type = "AREA"
+                    blend_light = bpy.data.lights.new(name = str(light.name_hash), type=light_type)
+                    blend_light.color = mathutils.Color(mathutils.Vector(light.color).normalized().to_tuple())
+                    blend_light.cutoff_distance = light.falloff_end
+                    #blend_light.exposure = light.falloff_exp
+                    blend_light.energy = sqrt(sum([component**2 for component in light.color]))
+                    blend_light.shape = "RECTANGLE"
+                    blend_light.size = 1
+                    blend_light.size_y = 1
+                elif light.light_type == Light.DIRECTIONAL:
+                    light_type = "SUN"
+                    blend_light = bpy.data.lights.new(name = str(light.name_hash), type=light_type)
+                    blend_light.color = mathutils.Color(mathutils.Vector(light.color).normalized().to_tuple())
+                    blend_light.cutoff_distance = light.falloff_end
+                    #blend_light.exposure = light.falloff_exp
+                    blend_light.energy = sqrt(sum([component**2 for component in light.color]))
+                light_object = bpy.data.objects.new(name = str(light.name_hash), object_data = blend_light)
+                bpy.context.collection.objects.link(light_object)
+                rotation_matrix = mathutils.Matrix.Rotation(1.57079632679, 4, 'X')
+                if armature:
+                    for index, bone in enumerate(armature.edit_bones):
+                        if index == light.bone_index:
+                            light_object.parent = skeletonObj
+                            light_object.parent_bone = bone.name
+                            light_object.parent_type = "BONE"
+                            light_object.matrix_parent_inverse = light_object.matrix_parent_inverse.inverted() @ rotation_matrix
+                            break
+            bpy.ops.object.mode_set(mode=current_mode)
+
+                    
+            
+            
+        
         # -- || ASSIGN MATERIALS || -- #
         # convert mesh to bmesh
         bm = bmesh.new()
