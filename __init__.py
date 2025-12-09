@@ -1111,7 +1111,11 @@ def LoadStingrayAnimation(ID, TocData, GpuData, StreamData, Reload, MakeBlendObj
         if not bones_entry.IsLoaded:
             bones_entry.Load()
         bones_data = bones_entry.TocData
-        animation.to_action(context, armature, bones_data, ID)
+        state_machine_entry = Global_TocManager.GetEntry(int(state_machine_id), StateMachineID, SearchAll=True, IgnorePatch=False)
+        if not state_machine_entry.IsLoaded:
+            state_machine_entry.Load()
+        state_machine_data = state_machine_entry.LoadedData
+        animation.to_action(context, armature, bones_data, state_machine_data, ID)
     return animation
     
 def LoadStingrayStateMachine(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):

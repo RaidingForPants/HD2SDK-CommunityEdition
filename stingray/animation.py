@@ -521,7 +521,7 @@ class StingrayAnimation:
         self.Serialize(output_stream)
         self.file_size = len(output_stream.Data)
 
-    def to_action(self, context, armature, bones_data, animation_id):
+    def to_action(self, context, armature, bones_data, state_machine_data, animation_id):
         
         idx = bones_data.index(b"StingrayEntityRoot")
         temp = bones_data[idx:]
@@ -530,12 +530,19 @@ class StingrayAnimation:
         for item in splits:
             if item != b'':
                 bone_names.append(item.decode('utf-8'))
+        if int(animation_id) not in state_machine_data.animation_ids:
+            raise AnimationException("This animation is not for this armature")
+        layer_num = -1
+        for i, layer in enumerate(state_machine_data.layers):
+            for state in layer.states:
+                if int(animation_id) in state.animation_ids:
+                    layer_num = i
         #if len(self.initial_bone_states) != int.from_bytes(bones_data[0:4], "little"):
         #    raise AnimationException("This animation is not for this armature")
         
         PrettyPrint(f"Creaing action with ID: {animation_id}")
         actions = bpy.data.actions
-        action = actions.new(str(animation_id))
+        action = actions.new(f"{animation_id} (layer {layer_num})")
         action.use_fake_user = True
         armature.animation_data.action = action
         bone_to_index = {bone: bone_names.index(bone) for bone in bone_names}
