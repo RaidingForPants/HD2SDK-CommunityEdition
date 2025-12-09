@@ -30,7 +30,7 @@ import importlib
 import bpy
 from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy.props import StringProperty, BoolProperty, IntProperty, EnumProperty, PointerProperty, CollectionProperty
-from bpy.types import Panel, Operator, PropertyGroup, Scene, Menu, OperatorFileListElement
+from bpy.types import Panel, Operator, PropertyGroup, Scene, Menu, OperatorFileListElement, UIList
 
 # other addon code
 from .stingray import animation as animation_m
@@ -41,6 +41,7 @@ from .stingray import particle as particle_m
 from .stingray import bones as bones_m
 from .stingray import composite_unit as composite_unit_m
 from .stingray import unit as unit_m
+from .stingray import state_machine as state_machine_m
 from .hashlists import hash as hash_m
 from .utils import slim as slim_m
 
@@ -54,12 +55,14 @@ importlib.reload(composite_unit_m)
 importlib.reload(unit_m)
 importlib.reload(hash_m)
 importlib.reload(slim_m)
+importlib.reload(state_machine_m)
 
 from .stingray.animation import StingrayAnimation, AnimationException
 from .stingray.raw_dump import StingrayRawDump
 from .stingray.material import LoadShaderVariables, StingrayMaterial
 from .stingray.texture import StingrayTexture
 from .stingray.particle import StingrayParticles
+from .stingray.state_machine import StingrayStateMachine
 from .stingray.bones import LoadBoneHashes, StingrayBones
 from .stingray.composite_unit import StingrayCompositeMesh
 from .stingray.unit import CreateModel, GetObjectsMeshData, StingrayMeshFile
@@ -99,9 +102,11 @@ Global_gamepathIsValid   = False
 Global_searchpath        = ""
 Global_configpath        = f"{AddonPath}.ini"
 
-Global_Foldouts = []
+Global_Foldouts = {}
 
 Global_BoneNames = {}
+
+Global_AnimationMapping = {}
 
 Global_SectionHeader = "---------- Helldivers 2 ----------"
 
@@ -290,10 +295,14 @@ def GetDisplayData():
     DisplayArchive = Global_TocManager.ActiveArchive
     if bpy.context.scene.Hd2ToolPanelSettings.PatchOnly:
         if Global_TocManager.ActivePatch != None:
-            DisplayTocEntries = [[Entry, True] for Entry in Global_TocManager.ActivePatch.TocEntries]
+            DisplayTocEntries = []
+            for entry_type, entries in Global_TocManager.ActivePatch.TocDict.items():
+                DisplayTocEntries.extend([[Entry, True] for Entry in entries.values()])
             DisplayTocTypes   = Global_TocManager.ActivePatch.TocTypes
     elif Global_TocManager.ActiveArchive != None:
-        DisplayTocEntries = [[Entry, False] for Entry in Global_TocManager.ActiveArchive.TocEntries]
+        DisplayTocEntries = []
+        for entry_type, entries in Global_TocManager.ActiveArchive.TocDict.items():
+            DisplayTocEntries.extend([[Entry, False] for Entry in entries.values()])
         DisplayTocTypes   = [Type for Type in Global_TocManager.ActiveArchive.TocTypes]
         AddedTypes   = [Type.TypeID for Type in DisplayTocTypes]
         AddedEntries = [Entry[0].FileID for Entry in DisplayTocEntries]
@@ -302,17 +311,19 @@ def GetDisplayData():
                 if Type.TypeID not in AddedTypes:
                     AddedTypes.append(Type.TypeID)
                     DisplayTocTypes.append(Type)
-            for Entry in Global_TocManager.ActivePatch.TocEntries:
-                if Entry.FileID not in AddedEntries:
-                    AddedEntries.append(Entry.FileID)
-                    DisplayTocEntries.append([Entry, True])
+            for entry_type, entries in Global_TocManager.ActivePatch.TocDict.items(): # this seems wrong
+                for Entry in entries.values():
+                    if Entry.FileID not in AddedEntries:
+                        AddedEntries.append(Entry.FileID)
+                        DisplayTocEntries.append([Entry, True])
     return [DisplayTocEntries, DisplayTocTypes]
 
 def SaveUnsavedEntries(self):
-    for Entry in Global_TocManager.ActivePatch.TocEntries:
-                if not Entry.IsModified:
-                    Global_TocManager.Save(int(Entry.FileID), Entry.TypeID)
-                    PrettyPrint(f"Saved {int(Entry.FileID)}")
+    for entry_type, entries in Global_TocManager.ActivePatch.TocDict.items():
+        for Entry in entries.values():
+            if not Entry.IsModified:
+                Global_TocManager.Save(int(Entry.FileID), Entry.TypeID)
+                PrettyPrint(f"Saved {int(Entry.FileID)}")
 
 def RandomHash16():
     global Global_previousRandomHash
@@ -574,6 +585,7 @@ class TocEntry:
         if self.TypeID == CompositeUnitID: callback = LoadStingrayCompositeUnit
         if self.TypeID == BoneID: callback = LoadStingrayBones
         if self.TypeID == AnimationID: callback = LoadStingrayAnimation
+        if self.TypeID == StateMachineID: callback = LoadStingrayStateMachine
         if callback == None: callback = LoadStingrayDump
 
         if callback != None:
@@ -593,6 +605,8 @@ class TocEntry:
         if self.TypeID == MaterialID: callback = SaveStingrayMaterial
         if self.TypeID == ParticleID: callback = SaveStingrayDump
         if self.TypeID == AnimationID: callback = SaveStingrayAnimation
+        if self.TypeID == BoneID: callback = SaveStingrayBones
+        if self.TypeID == StateMachineID: callback = SaveStingrayStateMachine
         if callback == None: callback = SaveStingrayDump
 
         if self.IsLoaded:
@@ -706,6 +720,7 @@ class StreamToc:
         self.unk4Data   = bytearray(56)
         self.TocTypes   = []
         self.TocEntries = []
+        self.TocDict = {}
         self.Path = ""
         self.Name = ""
         self.LocalName = ""
@@ -720,7 +735,10 @@ class StreamToc:
         if self.magic != 4026531857: return False
 
         self.numTypes   = self.TocFile.uint32(len(self.TocTypes))
-        self.numFiles   = self.TocFile.uint32(len(self.TocEntries))
+        if self.TocFile.IsReading():
+            self.numFiles   = self.TocFile.uint32(len(self.TocEntries))
+        else:
+            self.numFiles   = self.TocFile.uint32(sum([len(entries.keys()) for entries in self.TocDict.values()]))
         self.unknown    = self.TocFile.uint32(self.unknown)
         self.unk4Data   = self.TocFile.bytes(self.unk4Data, 56)
 
@@ -730,41 +748,39 @@ class StreamToc:
         # serialize Entries in correct order
         self.TocTypes   = [Entry.Serialize(self.TocFile) for Entry in self.TocTypes]
         TocEntryStart   = self.TocFile.tell()
-        if self.TocFile.IsReading(): self.TocEntries = [Entry.Serialize(self.TocFile) for Entry in self.TocEntries]
+        if self.TocFile.IsReading():
+            self.TocEntries = [Entry.Serialize(self.TocFile) for Entry in self.TocEntries]
+            for entry in self.TocEntries:
+                try:
+                    self.TocDict[entry.TypeID][entry.FileID] = entry
+                except KeyError:
+                    self.TocDict[entry.TypeID] = {}
+                    self.TocDict[entry.TypeID][entry.FileID] = entry
         else:
             Index = 1
             for Type in self.TocTypes:
-                for Entry in self.TocEntries:
-                    if Entry.TypeID == Type.TypeID:
-                        Entry.Serialize(self.TocFile, Index)
-                        Index += 1
+                for Entry in self.TocDict[Type.TypeID].values():
+                    Entry.Serialize(self.TocFile, Index)
+                    Index += 1
 
         # Serialize Data
         if SerializeData:
-            for FileEntry in self.TocEntries:
-                FileEntry.SerializeData(self.TocFile, self.GpuFile, self.StreamFile)
+            for entry_type, entries in self.TocDict.items():
+                for FileEntry in entries.values():
+                    FileEntry.SerializeData(self.TocFile, self.GpuFile, self.StreamFile)
 
         # re-write toc entry info with updated offsets
         if self.TocFile.IsWriting():
             self.TocFile.seek(TocEntryStart)
             Index = 1
             for Type in self.TocTypes:
-                for Entry in self.TocEntries:
-                    if Entry.TypeID == Type.TypeID:
-                        Entry.Serialize(self.TocFile, Index)
-                        Index += 1
+                for Entry in self.TocDict[Type.TypeID].values():
+                    Entry.Serialize(self.TocFile, Index)
+                    Index += 1
         return True
 
     def UpdateTypes(self):
-        self.TocTypes = []
-        for Entry in self.TocEntries:
-            exists = False
-            for Type in self.TocTypes:
-                if Type.TypeID == Entry.TypeID:
-                    Type.NumFiles += 1; exists = True
-                    break
-            if not exists:
-                self.TocTypes.append(TocFileType(Entry.TypeID, 1))
+        self.TocTypes = [TocFileType(type_id, len(self.TocDict[type_id])) for type_id in self.TocDict.keys()]
 
     def UpdatePath(self, path):
         self.Path = path
@@ -796,25 +812,34 @@ class StreamToc:
             f.write(bytes(self.StreamFile.Data))
 
     def GetFileData(self, FileID, TypeID):
-        for FileEntry in self.TocEntries:
-            if FileEntry.FileID == FileID and FileEntry.TypeID == TypeID:
-                return FileEntry.GetData()
-        return None
+        try:
+            return self.TocDict[TypeID][FileID].GetData()
+        except KeyError:
+            return None
     def GetEntry(self, FileID, TypeID):
-        for Entry in self.TocEntries:
-            if Entry.FileID == int(FileID) and Entry.TypeID == TypeID:
-                return Entry
-        return None
-    def AddEntry(self, NewEntry):
-        if self.GetEntry(NewEntry.FileID, NewEntry.TypeID) != None:
+        TypeID = int(TypeID)
+        FileID = int(FileID)
+        try:
+            return self.TocDict[TypeID][FileID]
+        except KeyError:
+            return None
+    def AddEntry(self, NewEntry, override=False):
+        if not override and self.GetEntry(NewEntry.FileID, NewEntry.TypeID) != None:
             raise Exception("Entry with same ID already exists")
-        self.TocEntries.append(NewEntry)
+        try:
+            self.TocDict[NewEntry.TypeID][NewEntry.FileID] = NewEntry
+        except KeyError:
+            self.TocDict[NewEntry.TypeID] = {}
+            self.TocDict[NewEntry.TypeID][NewEntry.FileID] = NewEntry
+        LoadEntryLists()
         self.UpdateTypes()
     def RemoveEntry(self, FileID, TypeID):
-        Entry = self.GetEntry(FileID, TypeID)
-        if Entry != None:
-            self.TocEntries.remove(Entry)
+        try:
+            del self.TocDict[TypeID][FileID]
+            LoadEntryLists()
             self.UpdateTypes()
+        except KeyError:
+            pass
 
 class TocManager():
     def __init__(self):
@@ -830,28 +855,6 @@ class TocManager():
         self.LastSelected = None # Last Entry Manually Selected
         self.SavedFriendlyNames   = []
         self.SavedFriendlyNameIDs = []
-    #________________________________#
-    # ---- Entry Selection Code ---- #
-    def SelectEntries(self, Entries, Append=False):
-        if not Append: self.DeselectAll()
-        if len(Entries) == 1:
-            Global_TocManager.LastSelected = Entries[0]
-
-        for Entry in Entries:
-            if Entry not in self.SelectedEntries:
-                Entry.IsSelected = True
-                self.SelectedEntries.append(Entry)
-    def DeselectEntries(self, Entries):
-        for Entry in Entries:
-            Entry.IsSelected = False
-            if Entry in self.SelectedEntries:
-                self.SelectedEntries.remove(Entry)
-    def DeselectAll(self):
-        for Entry in self.SelectedEntries:
-            Entry.IsSelected = False
-        self.SelectedEntries = []
-        self.LastSelected = None
-
     #________________________#
     # ---- Archive Code ---- #
     def LoadArchive(self, path, SetActive=True, IsPatch=False):
@@ -864,31 +867,44 @@ class TocManager():
         PrettyPrint(f"Loading Archive: {archiveID} {archiveName}")
         toc = StreamToc()
         toc.FromFile(path)
+        
+        # add to global animation mapping:
+        global Global_AnimationMapping
+        if toc.TocDict.get(StateMachineID, None):
+            for state_machine in toc.TocDict[StateMachineID].values():
+                if not state_machine.IsLoaded:
+                    state_machine.Load(False, False)
+                for animation_id in state_machine.LoadedData.animation_ids:
+                    try:
+                        Global_AnimationMapping[animation_id].add(state_machine.FileID)
+                    except KeyError:
+                        Global_AnimationMapping[animation_id] = set()
+                        Global_AnimationMapping[animation_id].add(state_machine.FileID)
+        
         if SetActive and not IsPatch:
             unloadEmpty = bpy.context.scene.Hd2ToolPanelSettings.UnloadEmptyArchives and bpy.context.scene.Hd2ToolPanelSettings.EnableTools
             if unloadEmpty:
                 if self.ArchiveNotEmpty(toc):
                     self.LoadedArchives.append(toc)
-                    self.ActiveArchive = toc
+                    self.SetActive(toc)
                 else:
                     PrettyPrint(f"Unloading {archiveID} as it is Empty")
             else:
                 self.LoadedArchives.append(toc)
-                self.ActiveArchive = toc
+                self.SetActive(toc)
                 bpy.context.scene.Hd2ToolPanelSettings.LoadedArchives = archiveID
         elif SetActive and IsPatch:
             self.Patches.append(toc)
-            self.ActivePatch = toc
-
-            for entry in self.ActivePatch.TocEntries:
-                if entry.TypeID == MaterialID:
-                    ID = GetEntryParentMaterialID(entry)
-                    if ID in Global_MaterialParentIDs:
-                        entry.MaterialTemplate = Global_MaterialParentIDs[ID]
-                        entry.Load()
-                        PrettyPrint(f"Creating Material: {entry.FileID} Template: {entry.MaterialTemplate}")
-                    else:
-                        PrettyPrint(f"Material: {entry.FileID} Parent ID: {ID} is not an custom material, skipping.")
+            self.SetActivePatch(toc)
+            material_entries = self.ActivePatch.TocDict.get(MaterialID, {})
+            for entry in material_entries.values():
+                ID = GetEntryParentMaterialID(entry)
+                if ID in Global_MaterialParentIDs:
+                    entry.MaterialTemplate = Global_MaterialParentIDs[ID]
+                    entry.Load()
+                    PrettyPrint(f"Creating Material: {entry.FileID} Template: {entry.MaterialTemplate}")
+                else:
+                    PrettyPrint(f"Material: {entry.FileID} Parent ID: {ID} is not an custom material, skipping.")
         else:
             self.LoadedArchives.append(toc)
 
@@ -931,20 +947,10 @@ class TocManager():
         return self.GetEntry(FileID, TypeID, SearchAll=True, IgnorePatch=True)
     
     def ArchiveNotEmpty(self, toc):
-        hasMaterials = False
-        hasTextures = False
-        hasUnits = False
-        for Entry in toc.TocEntries:
-            type = Entry.TypeID
-            if type == MaterialID:
-                hasMaterials = True
-            elif type == UnitID:
-                hasUnits = True
-            elif type == TexID:
-                hasTextures = True
-            elif type == CompositeUnitID:
-                hasUnits = True
-        return hasMaterials or hasTextures or hasUnits
+        hasMaterials = toc.TocDict.get(MaterialID, None) and len(toc.TocDict[MaterialID]) > 0
+        hasTextures = toc.TocDict.get(TexID, None) and len(toc.TocDict[TexID]) > 0
+        hasMeshes = (toc.TocDict.get(UnitID, None) and len(toc.TocDict[UnitID]) > 0) or (toc.TocDict.get(CompositeUnitID, None) and len(toc.TocDict[CompositeUnitID]) > 0)
+        return hasMaterials or hasTextures or hasMeshes
 
     def UnloadArchives(self):
         # TODO: Make sure all data gets unloaded...
@@ -955,7 +961,7 @@ class TocManager():
     
     def UnloadPatches(self):
         self.Patches = []
-        self.ActivePatch = None
+        self.SetActivePatch(None)
 
     def BulkLoad(self, list):
         if bpy.context.scene.Hd2ToolPanelSettings.UnloadPatches:
@@ -966,7 +972,7 @@ class TocManager():
     def SetActive(self, Archive):
         if Archive != self.ActiveArchive:
             self.ActiveArchive = Archive
-            self.DeselectAll()
+            LoadEntryLists()
 
     def SetActiveByName(self, Name):
         for Archive in self.LoadedArchives:
@@ -1024,8 +1030,8 @@ class TocManager():
             if GenID and NewID == None: dup.FileID = RandomHash16()
             if NewID != None:
                 dup.FileID = NewID
-
             self.ActivePatch.AddEntry(dup)
+            
     def Copy(self, Entries):
         self.CopyBuffer = []
         for Entry in Entries:
@@ -1050,9 +1056,10 @@ class TocManager():
         if self.ActiveArchive == None:
             raise Exception("No Archive exists to create patch from, please open one first")
 
-        self.ActivePatch = deepcopy(self.ActiveArchive)
-        self.ActivePatch.TocEntries  = []
-        self.ActivePatch.TocTypes    = []
+        patch = deepcopy(self.ActiveArchive)
+        patch.TocEntries  = []
+        patch.TocDict     = {}
+        patch.TocTypes    = []
         # TODO: ask for which patch index
         path = self.ActiveArchive.Path
         if path.find(".patch_") != -1:
@@ -1060,13 +1067,15 @@ class TocManager():
             path = path[:path.find(".patch_")] + ".patch_" + str(num)
         else:
             path += ".patch_0"
-        self.ActivePatch.UpdatePath(path)
-        self.ActivePatch.LocalName = name
+        patch.UpdatePath(path)
+        patch.LocalName = name
         PrettyPrint(f"Creating Patch: {path}")
-        self.Patches.append(self.ActivePatch)
+        self.Patches.append(patch)
+        self.SetActivePatch(patch)
 
     def SetActivePatch(self, Patch):
         self.ActivePatch = Patch
+        LoadEntryLists()
 
     def SetActivePatchByName(self, Name):
         for Patch in self.Patches:
@@ -1077,6 +1086,17 @@ class TocManager():
         if self.ActivePatch == None:
             raise Exception("No patch exists, please create one first")
         self.ActivePatch.AddEntry(Entry)
+        
+    def AddEntryToPatchID(self, Entry, dest_id):
+        if self.ActivePatch == None:
+            raise Exception("No patch exists, please create one first")
+            
+        if Entry != None:
+            PatchEntry = deepcopy(Entry)
+            PatchEntry.FileID = dest_id
+            self.ActivePatch.AddEntry(PatchEntry, override=True)
+            return PatchEntry
+        return None
 
     def AddEntryToPatch(self, FileID, TypeID):
         if self.ActivePatch == None:
@@ -1133,12 +1153,38 @@ def LoadStingrayAnimation(ID, TocData, GpuData, StreamData, Reload, MakeBlendObj
             bones_id = int(armature['BonesID'])
         except ValueError:
             raise Exception(f"\n\nCould not obtain custom property: BonesID from armature: {armature.name}. Please make sure this is a valid value")
-        bones_entry = Global_TocManager.GetEntryByLoadArchive(int(bones_id), BoneID)
+        try:
+            state_machine_id = int(armature['StateMachineID'])
+        except ValueError:
+            raise Exception(f"\n\nCould not obtain custom property: StateMachineID from armature: {armature.name}. Please make sure this is a valid value")
+        state_machine_entry = Global_TocManager.GetEntryByLoadArchive(int(state_machine_id), StateMachineID)
+        if not state_machine_entry:
+            raise AnimationException("This animation is not for this armature")
+        if not state_machine_entry.IsLoaded:
+            state_machine_entry.Load()
+        if int(ID) not in state_machine_entry.LoadedData.animation_ids:
+            raise AnimationException("This animation is not for this armature")
+        bones_entry = Global_TocManager.GetEntry(int(bones_id), BoneID, SearchAll=True, IgnorePatch=False)
         if not bones_entry.IsLoaded:
             bones_entry.Load()
         bones_data = bones_entry.TocData
-        animation.to_action(context, armature, bones_data, ID)
+        state_machine_entry = Global_TocManager.GetEntry(int(state_machine_id), StateMachineID, SearchAll=True, IgnorePatch=False)
+        if not state_machine_entry.IsLoaded:
+            state_machine_entry.Load()
+        state_machine_data = state_machine_entry.LoadedData
+        animation.to_action(context, armature, bones_data, state_machine_data, ID)
     return animation
+    
+def LoadStingrayStateMachine(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
+    toc = MemoryStream(TocData)
+    state_machine = StingrayStateMachine()
+    state_machine.Serialize(toc)
+    return state_machine
+    
+def SaveStingrayStateMachine(self, ID, TocData, GpuData, StreamData, StateMachine):
+    toc = MemoryStream(IOMode = "write")
+    StateMachine.Serialize(toc)
+    return [toc.Data, b"", b""]
     
 def SaveStingrayAnimation(self, ID, TocData, GpuData, StreamData, Animation):
     toc = MemoryStream(IOMode = "write")
@@ -1598,6 +1644,11 @@ def LoadStingrayBones(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject)
     StingrayBonesData = StingrayBones(Global_BoneNames)
     StingrayBonesData.Serialize(MemoryStream(TocData))
     return StingrayBonesData
+    
+def SaveStingrayBones(self, ID, TocData, GpuData, StreamData, LoadedData):
+    f = MemoryStream(TocData, IOMode="write") # Load in original TocData before overwriting it
+    LoadedData.Serialize(f)
+    return [f.Data, b"", b""]
 
 def LoadStingrayCompositeUnit(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject):
     StingrayCompositeMeshData = StingrayCompositeMesh()
@@ -1626,14 +1677,16 @@ def LoadStingrayUnit(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject, 
     toc  = MemoryStream(TocData)
     gpu  = MemoryStream(GpuData)
         
-    bones_entry = Global_TocManager.GetEntryByLoadArchive(int(ID), int(BoneID))
-    if bones_entry and not bones_entry.IsLoaded:
-        bones_entry.Load(False, False)
+    
     StingrayMesh = StingrayMeshFile()
     StingrayMesh.NameHash = int(ID)
     StingrayMesh.LoadMaterialSlotNames = LoadMaterialSlotNames
     StingrayMesh.Serialize(toc, gpu, Global_TocManager)
-    if MakeBlendObject: CreateModel(StingrayMesh, str(ID), Global_BoneNames)
+    bones_entry = Global_TocManager.GetEntryByLoadArchive(StingrayMesh.BonesRef, BoneID)
+    if bones_entry and not bones_entry.IsLoaded:
+        bones_entry.Load(False, False)
+    if MakeBlendObject and bones_entry: CreateModel(StingrayMesh, str(ID), Global_BoneNames, bones_entry.LoadedData)
+    elif MakeBlendObject: CreateModel(StingrayMesh, str(ID), Global_BoneNames, None)
     return StingrayMesh
 
 def SaveStingrayUnit(self, ID, TocData, GpuData, StreamData, StingrayMesh, BlenderOpts=None):
@@ -2057,11 +2110,11 @@ class CreatePatchFromActiveOperator(Operator):
     bl_description = "Creates Patch from Current Active Archive"
 
     def execute(self, context):
-        
+        original_archive = context.scene.Hd2ToolPanelSettings.LoadedArchives
         if bpy.context.scene.Hd2ToolPanelSettings.PatchBaseArchiveOnly:
             baseArchivePath = Global_gamepath + BaseArchiveHexID
             Global_TocManager.LoadArchive(baseArchivePath)
-            Global_TocManager.SetActiveByName(BaseArchiveHexID)
+            context.scene.Hd2ToolPanelSettings.LoadedArchives = BaseArchiveHexID
         else:
             self.report({'WARNING'}, f"Patch Created Was Not From Base Archive.")
         
@@ -2069,6 +2122,8 @@ class CreatePatchFromActiveOperator(Operator):
             return{'CANCELLED'}
         
         Global_TocManager.CreatePatchFromActive()
+        if original_archive:
+            context.scene.Hd2ToolPanelSettings.LoadedArchives = original_archive
 
         # Redraw
         for area in context.screen.areas:
@@ -2182,35 +2237,31 @@ class ArchiveEntryOperator(Operator):
     bl_label  = "Archive Entry"
     bl_idname = "helldiver2.archive_entry"
 
-    object_id: StringProperty()
-    object_typeid: StringProperty()
+    list_id: StringProperty()
+    list_index: IntProperty()
     def execute(self, context):
         return{'FINISHED'}
 
     def invoke(self, context, event):
-        Entry = Global_TocManager.GetEntry(int(self.object_id), int(self.object_typeid))
+        ui_list = getattr(context.scene, self.list_id)
+        list_item = ui_list[self.list_index]
+        current_list_index = getattr(context.scene, self.list_id.replace("list", "index"))
         if event.ctrl:
-            if Entry.IsSelected:
-                Global_TocManager.DeselectEntries([Entry])
-            else:
-                Global_TocManager.SelectEntries([Entry], True)
-            return {'FINISHED'}
-        if event.shift:
-            if Global_TocManager.LastSelected != None:
-                LastSelected = Global_TocManager.LastSelected
-                StartIndex   = LastSelected.DEV_DrawIndex
-                EndIndex     = Entry.DEV_DrawIndex
-                Global_TocManager.DeselectAll()
-                Global_TocManager.LastSelected = LastSelected
-                if StartIndex > EndIndex:
-                    Global_TocManager.SelectEntries(Global_TocManager.DrawChain[EndIndex:StartIndex+1], True)
+            list_item.item_selected = not list_item.item_selected
+        elif event.shift:
+            upper = max(self.list_index, current_list_index)
+            lower = min(self.list_index, current_list_index)
+            selected_range = list(range(lower, upper+1))
+            for i, item in enumerate(ui_list):
+                if i in selected_range:
+                    item.item_selected = True
                 else:
-                    Global_TocManager.SelectEntries(Global_TocManager.DrawChain[StartIndex:EndIndex+1], True)
-            else:
-                Global_TocManager.SelectEntries([Entry], True)
-            return {'FINISHED'}
-
-        Global_TocManager.SelectEntries([Entry])
+                    item.item_selected = False
+        else:
+            for item in ui_list:
+                item.item_selected = False
+            list_item.item_selected = True        
+        setattr(context.scene, self.list_id.replace("list", "index"), self.list_index)
         return {'FINISHED'}
     
 class MaterialTextureEntryOperator(Operator):
@@ -2228,6 +2279,47 @@ class MaterialTextureEntryOperator(Operator):
 
     def invoke(self, context, event):
         return {'FINISHED'}
+        
+class StateMachineBlendMaskWeightOperator(Operator):
+    bl_label = "Blend Mask"
+    bl_idname = "helldiver2.blend_mask_weight"
+    bl_description = "Blend Mask Bone Weight"
+    
+    object_id: StringProperty()
+    blend_mask_index: bpy.props.IntProperty()
+    bone_index: bpy.props.IntProperty()
+    bone_weight: bpy.props.FloatProperty()
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "bone_weight")
+        
+    def execute(self, context):
+        Entry = Global_TocManager.GetEntry(self.object_id, StateMachineID)
+        if Entry:
+            Entry.LoadedData.blend_masks[self.blend_mask_index].bone_weights[self.bone_index] = self.bone_weight
+        else:
+            self.report({'ERROR'}, f"Could not find entry for ID: {self.object_id}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+        
+class StateMachineSaveOperator(Operator):
+    bl_label = "Save State Machine"
+    bl_idname = "helldiver2.state_machine_save"
+    bl_description = "Save State Machine"
+    
+    object_id: StringProperty()
+    
+    def execute(self, context):
+        if PatchesNotLoaded(self):
+            return {'CANCELLED'}
+        EntriesIDs = IDsFromString(self.object_id)
+        for EntryID in EntriesIDs:
+            Global_TocManager.Save(int(EntryID), StateMachineID)
+        return{'FINISHED'}
     
 class MaterialShaderVariableEntryOperator(Operator):
     bl_label = "Shader Variable"
@@ -2331,6 +2423,7 @@ class RemoveEntryFromPatchOperator(Operator):
         Entries = EntriesFromStrings(self.object_id, self.object_typeid)
         for Entry in Entries:
             Global_TocManager.RemoveEntryFromPatch(Entry.FileID, Entry.TypeID)
+        LoadEntryLists()
         return{'FINISHED'}
 
 class UndoArchiveEntryModOperator(Operator):
@@ -2616,15 +2709,7 @@ class SaveStingrayUnitOperator(Operator):
         existing_entry = None
         if SwapID and SwapID.isnumeric() and SwapID != ID:
             dest_id = int(SwapID)
-            existing_entry = Global_TocManager.ActivePatch.GetEntry(int(ID), UnitID)
-            if existing_entry:
-                existing_entry.FileID = 0
-        if Global_TocManager.ActivePatch.GetEntry(dest_id, UnitID):
-            Global_TocManager.RemoveEntryFromPatch(dest_id, UnitID)
-        Entry = Global_TocManager.AddEntryToPatch(int(ID), UnitID)
-        Entry.FileID = dest_id
-        if existing_entry:
-            existing_entry.FileID = int(ID)
+        Entry = Global_TocManager.AddEntryToPatchID(Entry, dest_id)
         model = GetObjectsMeshData(Global_TocManager, Global_BoneNames)
         BlenderOpts = bpy.context.scene.Hd2ToolPanelSettings.get_settings_dict()
         if Entry is None:
@@ -2737,18 +2822,9 @@ class BatchSaveStingrayUnitOperator(Operator):
                 continue
             Entry.Load(True, False, True)
             dest_id = int(ID)
-            existing_entry = None
             if SwapID and SwapID.isnumeric() and SwapID != ID:
                 dest_id = int(SwapID)
-                existing_entry = Global_TocManager.ActivePatch.GetEntry(int(ID), UnitID)
-                if existing_entry:
-                    existing_entry.FileID = 0
-            if Global_TocManager.ActivePatch.GetEntry(dest_id, UnitID):
-                Global_TocManager.RemoveEntryFromPatch(dest_id, UnitID)
-            Entry = Global_TocManager.AddEntryToPatch(int(ID), UnitID)
-            Entry.FileID = dest_id
-            if existing_entry:
-                existing_entry.FileID = int(ID)
+            Entry = Global_TocManager.AddEntryToPatchID(Entry, dest_id)
             entries.append(Entry)
         MeshData = GetObjectsMeshData(Global_TocManager, Global_BoneNames)    
         for i, IDitem in enumerate(IDs):
@@ -3138,6 +3214,7 @@ class AddMaterialOperator(Operator):
         # Redraw
         for area in context.screen.areas:
             if area.type == "VIEW_3D": area.tag_redraw()
+        LoadEntryLists()
         
         return{'FINISHED'}
 
@@ -3300,7 +3377,7 @@ class SaveStingrayAnimationOperator(Operator):
             self.report({'ERROR'}, f"Could not find animation entry for Action: {action_name} as EntryID: {entry_id}. Assure your action name starts with a valid ID for the animation entry.")
             return{'CANCELLED'}
         if not animation_entry.IsLoaded: animation_entry.Load(True, False)
-        bones_entry = Global_TocManager.GetEntryByLoadArchive(int(bones_id), BoneID)
+        bones_entry = Global_TocManager.GetEntry(int(bones_id), BoneID, SearchAll=True, IgnorePatch=False)
         bones_data = bones_entry.TocData
         try:
             animation_entry.LoadedData.load_from_armature(context, object, bones_data)
@@ -3529,18 +3606,11 @@ class SelectAllOfTypeOperator(Operator):
     bl_idname = "helldiver2.select_type"
     bl_description = "Selects All of Type in Section"
 
-    object_typeid: StringProperty()
+    list_id: StringProperty()
     def execute(self, context):
-        Entries = GetDisplayData()[0]
-        for EntryInfo in Entries:
-            Entry = EntryInfo[0]
-            if Entry.TypeID == int(self.object_typeid):
-                DisplayEntry = Global_TocManager.GetEntry(Entry.FileID, Entry.TypeID)
-                if DisplayEntry.IsSelected:
-                    #Global_TocManager.DeselectEntries([Entry])
-                    pass
-                else:
-                    Global_TocManager.SelectEntries([Entry], True)
+        _list = getattr(context.scene, self.list_id)
+        for item in _list:
+            item.item_selected = True
         return{'FINISHED'}
     
 class ImportAllOfTypeOperator(Operator):
@@ -3753,7 +3823,7 @@ def RepatchMeshes(self, path):
         Global_TocManager.LoadArchive(path, True, True)
         numMeshesRepatched = 0
         failed = False
-        for entry in Global_TocManager.ActivePatch.TocEntries:
+        for entry in Global_TocManager.ActivePatch.TocEntries: # Fix Later
             if entry.TypeID != UnitID:
                 PrettyPrint(f"Skipping {entry.FileID} as it is not a mesh entry")
                 continue
@@ -3898,7 +3968,45 @@ def CustomPropertyContext(self, context):
     layout.operator("helldiver2.paste_custom_properties", icon= 'PASTEDOWN')
     layout.separator()
     layout.operator("helldiver2.archive_animation_save", icon='ARMATURE_DATA')
+    if bpy.context.object.type == "ARMATURE":
+        if bpy.context.object.get("StateMachineID", None) is not None:
+            layout.operator("helldiver2.search_animations", text="Show Animations for this Armature", icon='VIEWZOOM').state_machine_id = bpy.context.object.get("StateMachineID")
     layout.operator("helldiver2.archive_unit_batchsave", icon= 'FILE_BLEND')
+    
+def CustomBoneContext(self, context):
+    layout = self.layout
+    layout.separator()
+    layout.label(text=Global_SectionHeader)
+    layout.separator()
+    layout.operator("helldiver2.set_bone_animated", text="Set Bone Animated", icon='ARMATURE_DATA').value = True
+    layout.operator("helldiver2.set_bone_animated", text="Set Bone Not Animated", icon='ARMATURE_DATA').value = False
+    
+class SearchArmatureAnimationsOperator(Operator):
+    bl_label = "Search Animations"
+    bl_idname = "helldiver2.search_animations"
+    bl_description = "Show only animations for this armature"
+    
+    state_machine_id: StringProperty(default="0")
+    
+    def execute(self, context):
+        context.scene.Hd2ToolPanelSettings.SearchField = self.state_machine_id
+        global Global_Foldouts
+        for key in Global_Foldouts.keys():
+            Global_Foldouts[key] = (key == str(AnimationID))
+        return {"FINISHED"}
+    
+class SetBoneAnimatedOperator(Operator):
+    bl_label = "Set bone animated state"
+    bl_idname = "helldiver2.set_bone_animated"
+    bl_description = "Sets selected bones' animated state"
+    
+    value: BoolProperty(default=True)
+    def execute(self, context):
+        if bpy.context.object.mode != "EDIT":
+            return {"FINISHED"}
+        for bone in bpy.context.selected_bones:
+            bone["Animated"] = self.value
+        return {"FINISHED"}
 
 class CopyArchiveIDOperator(Operator):
     bl_label = "Copy Archive ID"
@@ -3967,28 +4075,100 @@ class EntrySectionOperator(Operator):
 
     def execute(self, context):
         global Global_Foldouts
-        for i in range(len(Global_Foldouts)):
-            if Global_Foldouts[i][0] == str(self.type):
-                Global_Foldouts[i][1] = not Global_Foldouts[i][1]
-                PrettyPrint(f"Folding foldout: {Global_Foldouts[i]}")
+        try:
+            Global_Foldouts[str(self.type)] = not Global_Foldouts[str(self.type)]
+        except KeyError:
+            pass
+        #for i in range(len(Global_Foldouts)):
+        #    if Global_Foldouts[i][0] == str(self.type):
+        #        Global_Foldouts[i][1] = not Global_Foldouts[i][1]
+        #        PrettyPrint(f"Folding foldout: {Global_Foldouts[i]}")
         return {'FINISHED'}
 #endregion
 
 #region Menus and Panels
+
+def LoadEntryLists():
+    archive = Global_TocManager.ActiveArchive
+    patch = Global_TocManager.ActivePatch
+    for t in Global_TypeIDs:
+        getattr(bpy.context.scene, f"list_{t}").clear()
+    state_machine_warning = False
+    if archive and not bpy.context.scene.Hd2ToolPanelSettings.PatchOnly:
+        for entry_type in archive.TocDict.keys():
+            try:
+                l = getattr(bpy.context.scene, f"list_{entry_type}")
+            except AttributeError:
+                continue
+            for Entry in archive.TocDict[entry_type].values():
+                new_item = l.add()
+                new_item.item_name = str(Entry.FileID)
+                new_item.item_type = str(Entry.TypeID)
+                if Entry.TypeID == MaterialID:
+                    if not Entry.IsLoaded: Entry.Load(True, False)
+                    new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(tex_id) for tex_id in Entry.LoadedData.TexIDs])
+                elif Entry.TypeID == AnimationID:
+                    try:
+                        new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(state_machine_id) for state_machine_id in Global_AnimationMapping[Entry.FileID]])
+                    except KeyError:
+                        state_machine_warning = True
+                        new_item.item_filter_name = new_item.item_name
+                else:
+                    new_item.item_filter_name = new_item.item_name
+    if patch:
+        for entry_type in patch.TocDict.keys():
+            try:
+                l = getattr(bpy.context.scene, f"list_{entry_type}")
+            except AttributeError:
+                continue
+            for Entry in patch.TocDict[entry_type].values():
+                # skip adding entry if not in patchonly mode AND archive contains entry
+                if (not bpy.context.scene.Hd2ToolPanelSettings.PatchOnly) and (archive and entry_type in archive.TocDict and Entry.FileID in archive.TocDict[entry_type]): continue
+                new_item = l.add()
+                new_item.item_name = str(Entry.FileID)
+                new_item.item_type = str(Entry.TypeID)
+                if Entry.TypeID == MaterialID:
+                    if not Entry.IsLoaded: Entry.Load(True, False)
+                    new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(tex_id) for tex_id in Entry.LoadedData.TexIDs])
+                elif Entry.TypeID == AnimationID:
+                    try:
+                        new_item.item_filter_name = f"{new_item.item_name}," + ",".join([str(state_machine_id) for state_machine_id in Global_AnimationMapping[Entry.FileID]])
+                    except KeyError:
+                        state_machine_warning = True
+                        new_item.item_filter_name = new_item.item_name
+                else:
+                    new_item.item_filter_name = new_item.item_name
+    if state_machine_warning:
+        PrettyPrint("State machine not loaded for all animations; filtering animations by armature may not work.", "warn")
 
 def LoadedArchives_callback(scene, context):
     return [(Archive.Name, GetArchiveNameFromID(Archive.Name) if GetArchiveNameFromID(Archive.Name) != "" else Archive.Name, Archive.Name) for Archive in Global_TocManager.LoadedArchives]
 
 def Patches_callback(scene, context):
     return [(Archive.Name, Archive.Name, Archive.Name) for Archive in Global_TocManager.Patches]
+    
+def ChangeLoadedArchive(self, context):
+    Global_TocManager.SetActiveByName(self.LoadedArchives)
+    
+def ChangeActivePatch(self, context):
+    Global_TocManager.SetActivePatchByName(self.Patches)
+
+def ChangePatchOnly(self, context):
+    LoadEntryLists()
+    
+def ChangeSearchString(self, context):
+    print(self)
+    print(context)
+    for t in Global_TypeIDs:
+        setattr(bpy.context.scene, f"filter_{t}", self.SearchField)
 
 class Hd2ToolPanelSettings(PropertyGroup):
     # Patches
-    Patches   : EnumProperty(name="Patches", items=Patches_callback)
-    PatchOnly : BoolProperty(name="Show Patch Entries Only", description = "Filter list to entries present in current patch", default = False)
+    Patches   : EnumProperty(name="Patches", items=Patches_callback, update=ChangeActivePatch)
+    PatchOnly : BoolProperty(name="Show Patch Entries Only", description = "Filter list to entries present in current patch", default = False, update=ChangePatchOnly)
     # Archive
     ContentsExpanded : BoolProperty(default = True)
-    LoadedArchives   : EnumProperty(name="LoadedArchives", items=LoadedArchives_callback)
+    LoadedArchives   : EnumProperty(name="LoadedArchives", items=LoadedArchives_callback, update=ChangeLoadedArchive)
     # Settings
     MenuExpanded     : BoolProperty(default = False)
 
@@ -4011,7 +4191,7 @@ class Hd2ToolPanelSettings(PropertyGroup):
     ParentArmature   : BoolProperty(name="Parent Armatures", description = "Make imported armatures the parent of the imported mesh", default = True)
     SplitUVIslands   : BoolProperty(name="Split UV Islands", description = "Split mesh by UV islands when saving", default = False)
     # Search
-    SearchField      : StringProperty(default = "")
+    SearchField      : StringProperty(default = "", update=ChangeSearchString)
 
     # Tools
     EnableTools           : BoolProperty(name="Special Tools", description = "Enable advanced SDK Tools", default = False)
@@ -4038,6 +4218,107 @@ class Hd2ToolPanelSettings(PropertyGroup):
         dict["Force1Group"] = self.Force1Group
         dict["AutoLods"] = self.AutoLods
         return dict
+        
+class ListItem(PropertyGroup):
+    
+    item_name: StringProperty(
+        name="Name",
+        description = "id",
+        default = "0"
+    )
+    
+    item_type: StringProperty(
+        name="Type",
+        description="type",
+        default="0"
+    )
+    
+    item_filter_name: StringProperty(
+        name="Filter Name",
+        description="Name to use when filtering",
+        default=""
+    )
+    
+    item_selected: BoolProperty(
+        name="Selected",
+        description="Indicates if item is selected",
+        default=False
+    )
+    
+class MY_UL_List(UIList):
+    
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        row = layout.row(align=True)
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            entry_type = int(item.item_type)
+            try:
+                type_icon = Global_IconDict[entry_type]
+            except KeyError:
+                type_icon = "QUESTION"
+            if entry_type == MaterialID:
+                entry = Global_TocManager.GetEntry(int(item.item_name), int(item.item_type))
+                if entry and entry.MaterialTemplate:
+                    type_icon = "NODE_MATERIAL"
+            friendly_name = GetFriendlyNameFromID(int(item.item_name))
+            current_list_index = getattr(context.scene, f"index_{item.item_type}")
+            op = row.operator("helldiver2.archive_entry", icon=type_icon, text=friendly_name, emboss=item.item_selected, depress=item.item_selected)
+            op.list_id = f"list_{item.item_type}" #"active_propname.replace("index", "list").replace("_dummy", "")
+            op.list_index = index
+            #row.label(text=friendly_name, icon = type_icon, depress=True)
+            if entry_type == UnitID:
+                row.operator("helldiver2.archive_unit_save", icon='FILE_BLEND', text="").object_id = item.item_name
+                row.operator("helldiver2.archive_unit_import", icon='IMPORT', text="").object_id = item.item_name
+            elif entry_type == TexID:
+                row.operator("helldiver2.texture_saveblendimage", icon='FILE_BLEND', text="").object_id = item.item_name
+                row.operator("helldiver2.texture_import", icon='IMPORT', text="").object_id = item.item_name
+            elif entry_type == MaterialID:
+                row.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = item.item_name
+                row.operator("helldiver2.material_import", icon='IMPORT', text="").object_id = item.item_name
+                #row.operator("helldiver2.material_showeditor", icon='MOD_LINEART', text="").object_id = str(Entry.FileID)
+                #self.draw_material_editor(Entry, box, row)
+            elif entry_type == AnimationID:
+                row.operator("helldiver2.archive_animation_import", icon="IMPORT", text="").object_id = item.item_name
+            Entry = Global_TocManager.GetEntry(int(item.item_name), int(item.item_type))
+            if Entry is None:
+                return
+            if Global_TocManager.IsInPatch(Entry):
+                props = row.operator("helldiver2.archive_removefrompatch", icon='FAKE_USER_ON', text="")
+                props.object_id     = item.item_name
+                props.object_typeid = item.item_type
+            else:
+                props = row.operator("helldiver2.archive_addtopatch", icon='FAKE_USER_OFF', text="")
+                props.object_id     = item.item_name
+                props.object_typeid = item.item_type
+            if Entry.IsModified:
+                props = row.operator("helldiver2.archive_undo_mod", icon='TRASH', text="")
+                props.object_id     = item.item_name
+                props.object_typeid = item.item_type
+            if Global_TocManager.IsInPatch(Entry) and Global_TocManager.ActiveArchive and not Global_TocManager.ActiveArchive.GetEntry(Entry.FileID, Entry.TypeID):
+                props = row.operator("helldiver2.archive_removefrompatch", icon='X', text="")
+                props.object_id     = str(Entry.FileID)
+                props.object_typeid = str(Entry.TypeID)
+        elif self.layout_type in {'GRID'}: 
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon = "FILE_IMAGE")
+            
+    def filter_items(self, context, data, propname):
+        # Get the filter string from a property, for example
+        # Assuming you have a StringProperty named 'filter_string' on your UILIST instance
+        list_data = getattr(data, propname)
+        flt_flags = []
+        flt_neworder = []
+        if self.filter_name:
+            filter_string = self.filter_name
+        else:
+            filter_string = getattr(data, propname.replace("list", "filter"))
+        if filter_string.startswith("0x"):
+            filter_string = str(hex_to_decimal(filter_string))
+        flt_flags = bpy.types.UI_UL_list.filter_items_by_name(filter_string, self.bitflag_filter_item, list_data, "item_filter_name")
+        if not flt_flags:
+            flt_flags = [self.bitflag_filter_item] * len(list_data)
+        #flt_neworder = bpy.types.UI_UL_list.sort_items_by_name(data, "item_name")
+        
+        return flt_flags, flt_neworder
 
 class HellDivers2ToolsPanel(Panel):
     bl_label = f"Helldivers 2 SDK: Community Edition v{bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}"
@@ -4049,79 +4330,76 @@ class HellDivers2ToolsPanel(Panel):
     def draw_material_editor(self, Entry, layout, row):
         if Entry.IsLoaded:
             mat = Entry.LoadedData
-            if mat.DEV_ShowEditor:
-                for i, t in enumerate(mat.TexIDs):
-                    row = layout.row(); row.separator(factor=2.0)
-                    ddsPath = mat.DEV_DDSPaths[i]
-                    if ddsPath != None: filepath = Path(ddsPath)
-                    label = filepath.name if ddsPath != None else str(t)
-                    if Entry.MaterialTemplate != None:
-                        label = TextureTypeLookup[Entry.MaterialTemplate][i] + ": " + label
-                    material_texture_entry = row.operator("helldiver2.material_texture_entry", icon='FILE_IMAGE', text=label, emboss=False)
-                    material_texture_entry.object_id = str(t)
-                    material_texture_entry.texture_index = str(i)
-                    material_texture_entry.material_id = str(Entry.FileID)
-                    # props = row.operator("helldiver2.material_settex", icon='FILEBROWSER', text="")
-                    # props.object_id = str(Entry.FileID)
-                    # props.tex_idx = i
-                for i, variable in enumerate(mat.ShaderVariables):
-                    row = layout.row(); row.separator(factor=2.0)
-                    split = row.split(factor=0.5)
-                    row = split.column()
-                    row.alignment = 'RIGHT'
-                    name = variable.ID
-                    if variable.name != "": name = variable.name
-                    row.label(text=f"{variable.klassName}: {name}", icon='OPTIONS')
-                    row = split.column()
-                    row.alignment = 'LEFT'
-                    sections = len(variable.values)
-                    if sections == 3: sections = 4 # add an extra for the color picker
-                    row = row.split(factor=1/sections)
-                    for j, value in enumerate(variable.values):
-                        ShaderVariable = row.operator("helldiver2.material_shader_variable", text=str(round(value, 2)))
-                        ShaderVariable.value = value
-                        ShaderVariable.object_id = str(Entry.FileID)
-                        ShaderVariable.variable_index = i
-                        ShaderVariable.value_index = j
-                    if len(variable.values) == 3:
-                        ColorPicker = row.operator("helldiver2.material_shader_variable_color", text="", icon='EYEDROPPER')
-                        ColorPicker.object_id = str(Entry.FileID)
-                        ColorPicker.variable_index = i
+            for i, t in enumerate(mat.TexIDs):
+                row = layout.row(); row.separator(factor=2.0)
+                ddsPath = mat.DEV_DDSPaths[i]
+                if ddsPath != None: filepath = Path(ddsPath)
+                label = filepath.name if ddsPath != None else str(t)
+                if Entry.MaterialTemplate != None:
+                    label = TextureTypeLookup[Entry.MaterialTemplate][i] + ": " + label
+                material_texture_entry = row.operator("helldiver2.material_texture_entry", icon='FILE_IMAGE', text=label, emboss=False)
+                material_texture_entry.object_id = str(t)
+                material_texture_entry.texture_index = str(i)
+                material_texture_entry.material_id = str(Entry.FileID)
+                # props = row.operator("helldiver2.material_settex", icon='FILEBROWSER', text="")
+                # props.object_id = str(Entry.FileID)
+                # props.tex_idx = i
+            for i, variable in enumerate(mat.ShaderVariables):
+                row = layout.row(); row.separator(factor=2.0)
+                split = row.split(factor=0.5)
+                row = split.column()
+                row.alignment = 'RIGHT'
+                name = variable.ID
+                if variable.name != "": name = variable.name
+                row.label(text=f"{variable.klassName}: {name}", icon='OPTIONS')
+                row = split.column()
+                row.alignment = 'LEFT'
+                sections = len(variable.values)
+                if sections == 3: sections = 4 # add an extra for the color picker
+                row = row.split(factor=1/sections)
+                for j, value in enumerate(variable.values):
+                    ShaderVariable = row.operator("helldiver2.material_shader_variable", text=str(round(value, 2)))
+                    ShaderVariable.value = value
+                    ShaderVariable.object_id = str(Entry.FileID)
+                    ShaderVariable.variable_index = i
+                    ShaderVariable.value_index = j
+                if len(variable.values) == 3:
+                    ColorPicker = row.operator("helldiver2.material_shader_variable_color", text="", icon='EYEDROPPER')
+                    ColorPicker.object_id = str(Entry.FileID)
+                    ColorPicker.variable_index = i
 
-    def draw_entry_buttons(self, box, row, Entry, PatchOnly):
-        if Entry.TypeID == UnitID:
-            row.operator("helldiver2.archive_unit_save", icon='FILE_BLEND', text="").object_id = str(Entry.FileID)
-            row.operator("helldiver2.archive_unit_import", icon='IMPORT', text="").object_id = str(Entry.FileID)
-        elif Entry.TypeID == TexID:
-            row.operator("helldiver2.texture_saveblendimage", icon='FILE_BLEND', text="").object_id = str(Entry.FileID)
-            row.operator("helldiver2.texture_import", icon='IMPORT', text="").object_id = str(Entry.FileID)
-        elif Entry.TypeID == MaterialID:
-            row.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = str(Entry.FileID)
-            row.operator("helldiver2.material_import", icon='IMPORT', text="").object_id = str(Entry.FileID)
-            row.operator("helldiver2.material_showeditor", icon='MOD_LINEART', text="").object_id = str(Entry.FileID)
-            self.draw_material_editor(Entry, box, row)
-        elif Entry.TypeID == AnimationID:
-            row.operator("helldiver2.archive_animation_import", icon="IMPORT", text="").object_id = str(Entry.FileID)
-        #elif Entry.TypeID == ParticleID:
-            #row.operator("helldiver2.particle_save", icon='FILE_BLEND', text = "").object_id = str(Entry.FileID)
-            #row.operator("helldiver2.archive_particle_import", icon='IMPORT', text = "").object_id = str(Entry.FileID)
-        if Global_TocManager.IsInPatch(Entry):
-            props = row.operator("helldiver2.archive_removefrompatch", icon='FAKE_USER_ON', text="")
-            props.object_id     = str(Entry.FileID)
-            props.object_typeid = str(Entry.TypeID)
-        else:
-            props = row.operator("helldiver2.archive_addtopatch", icon='FAKE_USER_OFF', text="")
-            props.object_id     = str(Entry.FileID)
-            props.object_typeid = str(Entry.TypeID)
-        if Entry.IsModified:
-            props = row.operator("helldiver2.archive_undo_mod", icon='TRASH', text="")
-            props.object_id     = str(Entry.FileID)
-            props.object_typeid = str(Entry.TypeID)
-        if PatchOnly:
-            props = row.operator("helldiver2.archive_removefrompatch", icon='X', text="")
-            props.object_id     = str(Entry.FileID)
-            props.object_typeid = str(Entry.TypeID)
-
+    def draw_state_machine_editor(self, state_machine_entry, bones_entry, layout, row):
+        if state_machine_entry.IsLoaded:
+            state_machine = state_machine_entry.LoadedData
+            i = len(state_machine.layers) - 1
+            for i, blend_mask in enumerate(state_machine.blend_masks):
+                if f"blend_mask{i}" not in Global_Foldouts:
+                    Global_Foldouts[f"blend_mask{i}"] = False
+                blend_mask_show = Global_Foldouts[f"blend_mask{i}"]
+                row = layout.row()
+                split = row.split()
+                fold_icon = "DOWNARROW_HLT" if blend_mask_show else "RIGHTARROW"
+                sub = split.row(align=True)
+                
+                sub.operator("helldiver2.collapse_section", text=f"Blend Mask {i}", icon=fold_icon, emboss=False).type = f"blend_mask{i}"
+                if blend_mask_show:
+                    for j, weight in enumerate(blend_mask.bone_weights):
+                        row = layout.row()
+                        split = row.split()
+                        row.alignment = "CENTER"
+                        text=f"Bone {j}: Weight {weight}"
+                        if bones_entry and bones_entry.IsLoaded:
+                            text = f"{bones_entry.LoadedData.Names[j]}"
+                        split.label(text=text)
+                        op = split.operator("helldiver2.blend_mask_weight", text=f"Weight: {weight}")
+                        op.object_id = str(state_machine_entry.FileID)
+                        op.bone_index = j
+                        op.bone_weight = weight
+                        op.blend_mask_index = i
+                i -= 1
+                    
+            # draw the values for the bone blend masks for each layer
+    
     def draw(self, context):
         layout = self.layout
         scene = context.scene
@@ -4155,19 +4433,19 @@ class HellDivers2ToolsPanel(Panel):
             row.separator()
 
         # Draw Settings, Documentation and Spreadsheet
-        mainbox = layout.box()
-        row = mainbox.row()
+        settings_box = layout.box()
+        row = settings_box.row()
         row.prop(scene.Hd2ToolPanelSettings, "MenuExpanded",
             icon="DOWNARROW_HLT" if scene.Hd2ToolPanelSettings.MenuExpanded else "RIGHTARROW",
             icon_only=True, emboss=False, text="Settings")
         row.label(icon="SETTINGS")
         
         if scene.Hd2ToolPanelSettings.MenuExpanded or not Global_gamepathIsValid:
-            row = mainbox.grid_flow(columns=2)
-            row = mainbox.row(); row.separator(); row.label(text="Display Types"); box = row.box(); row = box.grid_flow(columns=1)
+            row = settings_box.grid_flow(columns=2)
+            row = settings_box.row(); row.separator(); row.label(text="Display Types"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "ShowExtras")
             row.prop(scene.Hd2ToolPanelSettings, "FriendlyNames")
-            row = mainbox.row(); row.separator(); row.label(text="Import Options"); box = row.box(); row = box.grid_flow(columns=1)
+            row = settings_box.row(); row.separator(); row.label(text="Import Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "ImportMaterials")
             row.prop(scene.Hd2ToolPanelSettings, "ImportLods")
             row.prop(scene.Hd2ToolPanelSettings, "ImportGroup0")
@@ -4177,7 +4455,7 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "RemoveGoreMeshes")
             row.prop(scene.Hd2ToolPanelSettings, "ParentArmature")
             row.prop(scene.Hd2ToolPanelSettings, "ImportArmature")
-            row = mainbox.row(); row.separator(); row.label(text="Export Options"); box = row.box(); row = box.grid_flow(columns=1)
+            row = settings_box.row(); row.separator(); row.label(text="Export Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "Force3UVs")
             row.prop(scene.Hd2ToolPanelSettings, "Force1Group")
             row.prop(scene.Hd2ToolPanelSettings, "AutoLods")
@@ -4186,7 +4464,7 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "GenerateRandomTextureIDs")
             row.prop(scene.Hd2ToolPanelSettings, "OnlySaveCustomTextures")
             row.prop(scene.Hd2ToolPanelSettings, "SplitUVIslands")
-            row = mainbox.row(); row.separator(); row.label(text="Other Options"); box = row.box(); row = box.grid_flow(columns=1)
+            row = settings_box.row(); row.separator(); row.label(text="Other Options"); box = row.box(); row = box.grid_flow(columns=1)
             row.prop(scene.Hd2ToolPanelSettings, "SaveNonSDKMaterials")
             row.prop(scene.Hd2ToolPanelSettings, "SaveUnsavedOnWrite")
             row.prop(scene.Hd2ToolPanelSettings, "AutoSaveUnitMaterials")
@@ -4195,11 +4473,11 @@ class HellDivers2ToolsPanel(Panel):
             row.prop(scene.Hd2ToolPanelSettings, "MergeArmatures")
 
             #Custom Searching tools
-            row = mainbox.row(); row.separator(); row.label(text="Special Tools"); box = row.box(); row = box.grid_flow(columns=1)
+            row = settings_box.row(); row.separator(); row.label(text="Special Tools"); box = row.box(); row = box.grid_flow(columns=1)
             # Draw Bulk Loader Extras
             row.prop(scene.Hd2ToolPanelSettings, "EnableTools")
             if scene.Hd2ToolPanelSettings.EnableTools:
-                row = mainbox.row(); box = row.box(); row = box.grid_flow(columns=1)
+                row = settings_box.row(); box = row.box(); row = box.grid_flow(columns=1)
                 #row.label()
                 row.label(text="WARNING! Developer Tools, Please Know What You Are Doing!")
                 row.prop(scene.Hd2ToolPanelSettings, "UnloadEmptyArchives")
@@ -4215,11 +4493,11 @@ class HellDivers2ToolsPanel(Panel):
                 search = box.row()
                 search.label(text=Global_searchpath)
                 search.operator("helldiver2.change_searchpath", icon='FILEBROWSER')
-                mainbox.separator()
-            row = mainbox.row()
+                settings_box.separator()
+            row = settings_box.row()
             row.label(text=Global_gamepath)
             row.operator("helldiver2.change_filepath", icon='FILEBROWSER')
-            mainbox.separator()
+            settings_box.separator()
 
         if not Global_gamepathIsValid:
             row = layout.row()
@@ -4251,8 +4529,8 @@ class HellDivers2ToolsPanel(Panel):
         row.operator("helldiver2.archives_import_manual", icon= 'VIEWZOOM', text= "")
         row.operator("helldiver2.archive_import", icon= 'FILEBROWSER', text= "").is_patch = False
         row = layout.row()
-        if len(Global_TocManager.LoadedArchives) > 0:
-            Global_TocManager.SetActiveByName(scene.Hd2ToolPanelSettings.LoadedArchives)
+        #if len(Global_TocManager.LoadedArchives) > 0:
+        #    Global_TocManager.SetActiveByName(scene.Hd2ToolPanelSettings.LoadedArchives)
 
 
         # Draw Patch Stuff
@@ -4265,13 +4543,16 @@ class HellDivers2ToolsPanel(Panel):
 
         row = layout.row()
         row.prop(scene.Hd2ToolPanelSettings, "Patches", text="Patches")
-        if len(Global_TocManager.Patches) > 0:
-            Global_TocManager.SetActivePatchByName(scene.Hd2ToolPanelSettings.Patches)
+        #if len(Global_TocManager.Patches) > 0:
+        #    Global_TocManager.SetActivePatchByName(scene.Hd2ToolPanelSettings.Patches)
         row.operator("helldiver2.rename_patch", icon='GREASEPENCIL', text="")
         row.operator("helldiver2.archive_import", icon= 'FILEBROWSER', text="").is_patch = True
 
         # Draw Archive Contents
-        row = layout.row(); row = layout.row()
+        
+        #contents_header, contents_panel = layout.panel("hd2_panel_archive_contents", default_closed=False)
+        contents_header = layout.row()
+        
         title = "No Archive Loaded"
         if Global_TocManager.ActiveArchive != None:
             ArchiveID = Global_TocManager.ActiveArchive.Name
@@ -4280,12 +4561,18 @@ class HellDivers2ToolsPanel(Panel):
         if Global_TocManager.ActivePatch != None and scene.Hd2ToolPanelSettings.PatchOnly:
             name = Global_TocManager.ActivePatch.Name
             title = f"Patch: {name}    File: {Global_TocManager.ActivePatch.Name}"
-        row.prop(scene.Hd2ToolPanelSettings, "ContentsExpanded",
+            
+        #contents_header.label(text=title)
+        contents_header.prop(scene.Hd2ToolPanelSettings, "ContentsExpanded",
             icon="DOWNARROW_HLT" if scene.Hd2ToolPanelSettings.ContentsExpanded else "RIGHTARROW",
             icon_only=True, emboss=False, text=title)
-        row.prop(scene.Hd2ToolPanelSettings, "PatchOnly", text="")
-        row.operator("helldiver2.copy_archive_id", icon='COPY_ID', text="")
-        row.operator("helldiver2.archive_object_dump_import_by_id", icon='PACKAGE', text="")
+        contents_header.prop(scene.Hd2ToolPanelSettings, "PatchOnly", text="")
+        contents_header.operator("helldiver2.copy_archive_id", icon='COPY_ID', text="")
+        contents_header.operator("helldiver2.archive_object_dump_import_by_id", icon='PACKAGE', text="")
+        
+        #if not contents_panel:
+        #    return
+        #layout = contents_panel
 
 
         # Get Display Data
@@ -4296,134 +4583,109 @@ class HellDivers2ToolsPanel(Panel):
         # Draw Contents
         NewFriendlyNames = []
         NewFriendlyIDs = []
-        if scene.Hd2ToolPanelSettings.ContentsExpanded:
-            if len(DisplayTocEntries) == 0: return
+        if not scene.Hd2ToolPanelSettings.ContentsExpanded: return
+        if len(DisplayTocEntries) == 0: return
 
-            # Draw Search Bar
-            row = layout.row(); row = layout.row()
-            row.prop(scene.Hd2ToolPanelSettings, "SearchField", icon='VIEWZOOM', text="")
-
-            DrawChain = []
-            for Type in DisplayTocTypes:
-                # check if there is any entry of this type that matches search field
-                # TODO: should probably make a better way to do this
-                bFound = False
-                for EntryInfo in DisplayTocEntries:
-                    Entry = EntryInfo[0]
-                    if Entry.TypeID == Type.TypeID:
-                        searchTerm = str(scene.Hd2ToolPanelSettings.SearchField)
-                        if searchTerm.startswith("0x"):
-                            searchTerm = str(hex_to_decimal(searchTerm))
-                        if str(Entry.FileID).find(searchTerm) != -1:
-                            bFound = True
-                if not bFound: continue
-
-                # Get Type Icon
-                type_icon = 'FILE'
-                show = None
-                showExtras = scene.Hd2ToolPanelSettings.ShowExtras
-                EntryNum = 0
-                global Global_Foldouts
-                if Type.TypeID == UnitID:
-                    type_icon = 'FILE_3D'
-                elif Type.TypeID == TexID:
-                    type_icon = 'FILE_IMAGE'
-                elif Type.TypeID == MaterialID:
-                    type_icon = 'MATERIAL' 
-                elif Type.TypeID == ParticleID:
-                    type_icon = 'PARTICLES'
-                elif Type.TypeID == AnimationID: 
-                    type_icon = 'ARMATURE_DATA'
-                elif showExtras:
-                    if Type.TypeID == BoneID: type_icon = 'BONE_DATA'
-                    elif Type.TypeID == WwiseBankID:  type_icon = 'OUTLINER_DATA_SPEAKER'
-                    elif Type.TypeID == WwiseDepID: type_icon = 'OUTLINER_DATA_SPEAKER'
-                    elif Type.TypeID == WwiseStreamID:  type_icon = 'OUTLINER_DATA_SPEAKER'
-                    elif Type.TypeID == WwiseMetaDataID: type_icon = 'OUTLINER_DATA_SPEAKER'
-                    elif Type.TypeID == StateMachineID: type_icon = 'DRIVER'
-                    elif Type.TypeID == StringID: type_icon = 'WORDWRAP_ON'
-                    elif Type.TypeID == PhysicsID: type_icon = 'PHYSICS'
-                else:
-                    continue
+        # Draw Search Bar
+        row = layout.row(); #row = layout.row()
+        row.prop(scene.Hd2ToolPanelSettings, "SearchField", icon='VIEWZOOM', text="")
+        global Global_Foldouts
+        for Type in sorted(DisplayTocTypes, key=lambda e: e.TypeID):
+            if Global_Foldouts.get(str(Type.TypeID), None) is None: # move to only init these keys once
+                fold = Type.TypeID in [MaterialID, TexID, UnitID]
+                Global_Foldouts[str(Type.TypeID)] = fold
+            show = Global_Foldouts.get(str(Type.TypeID), False)
+            fold_icon = "DOWNARROW_HLT" if show else "RIGHTARROW"
+            # Get Type Icon
+            type_icon = 'FILE'
+            showExtras = scene.Hd2ToolPanelSettings.ShowExtras
+            if not showExtras and Type.TypeID not in [AnimationID, ParticleID, UnitID, TexID, MaterialID]:
+                continue
+            try:
+                type_icon = Global_IconDict[Type.TypeID]
+            except KeyError:
+                type_icon = "QUESTION"
+            if len(getattr(context.scene, f"list_{Type.TypeID}")) == 0:
+                continue
                 
-                for section in Global_Foldouts:
-                    if section[0] == str(Type.TypeID):
-                        show = section[1]
-                        break
-                if show == None:
-                    fold = False
-                    if Type.TypeID == MaterialID or Type.TypeID == TexID or Type.TypeID == UnitID: fold = True
-                    foldout = [str(Type.TypeID), fold]
-                    Global_Foldouts.append(foldout)
-                    PrettyPrint(f"Adding Foldout ID: {foldout}")
+            # Draw Type Header
+            box = layout.box(); row = box.row()
+            typeName = GetTypeNameFromID(Type.TypeID)
+            split = row.split()
+            
+            sub = split.row(align=True)
+            sub.operator("helldiver2.collapse_section", text=f"{typeName}: {str(Type.TypeID)}", icon=fold_icon, emboss=False).type = str(Type.TypeID)
+
+            # Skip drawling entries if section hidden
+            if not show: 
+                sub.label(icon=type_icon)
+                continue
+            
+            #sub.operator("helldiver2.import_type", icon='IMPORT', text="").object_typeid = str(Type.TypeID)
+            sub.operator("helldiver2.select_type", icon='RESTRICT_SELECT_OFF', text="").list_id = f"list_{Type.TypeID}"
+            # Draw Add Material Button
+            
+            if typeName == "material": sub.operator("helldiver2.material_add", icon='FILE_NEW', text="")
+            # Draw Type Body
+            if show:
+                box.template_list("MY_UL_List", f"list_{Type.TypeID}", scene, f"list_{Type.TypeID}", scene, f"index_{Type.TypeID}_dummy", rows=10)
+                if Type.TypeID == StateMachineID:
+                    if "state_machine_editor" not in Global_Foldouts: # move to only init keys once
+                        Global_Foldouts["state_machine_editor"] = False
+                    state_machine_editor_show = Global_Foldouts["state_machine_editor"]
+                    row = box.row()
+                    split = row.split()
+                    fold_icon = "DOWNARROW_HLT" if state_machine_editor_show else "RIGHTARROW"
+                    sub = split.row(align=True)
                     
-
-                fold_icon = "DOWNARROW_HLT" if show else "RIGHTARROW"
-
-                # Draw Type Header
-                box = layout.box(); row = box.row()
-                typeName = GetTypeNameFromID(Type.TypeID)
-                split = row.split()
-                
-                sub = split.row(align=True)
-                sub.operator("helldiver2.collapse_section", text=f"{typeName}: {str(Type.TypeID)}", icon=fold_icon, emboss=False).type = str(Type.TypeID)
-
-                # Skip drawling entries if section hidden
-                if not show: 
-                    sub.label(icon=type_icon)
-                    continue
-                
-                #sub.operator("helldiver2.import_type", icon='IMPORT', text="").object_typeid = str(Type.TypeID)
-                sub.operator("helldiver2.select_type", icon='RESTRICT_SELECT_OFF', text="").object_typeid = str(Type.TypeID)
-                # Draw Add Material Button
-                
-                if typeName == "material": sub.operator("helldiver2.material_add", icon='FILE_NEW', text="")
-
-                # Draw Archive Entries
-                col = box.column()
-                for EntryInfo in DisplayTocEntries:
-                    Entry = EntryInfo[0]
-                    PatchOnly = EntryInfo[1]
-                    # Exclude entries that should not be drawn
-                    if Entry.TypeID != Type.TypeID: continue
-                    searchTerm = str(scene.Hd2ToolPanelSettings.SearchField)
-                    if searchTerm.startswith("0x"):
-                        searchTerm = str(hex_to_decimal(searchTerm))
-                    if str(Entry.FileID).find(searchTerm) == -1: continue
-                    # Deal with friendly names
-                    FriendlyName = str(Entry.FileID)
-                    if scene.Hd2ToolPanelSettings.FriendlyNames:
-                        if len(Global_TocManager.SavedFriendlyNameIDs) > len(DrawChain) and Global_TocManager.SavedFriendlyNameIDs[len(DrawChain)] == Entry.FileID:
-                            FriendlyName = Global_TocManager.SavedFriendlyNames[len(DrawChain)]
-                        else:
-                            try:
-                                FriendlyName = Global_TocManager.SavedFriendlyNames[Global_TocManager.SavedFriendlyNameIDs.index(Entry.FileID)]
-                                NewFriendlyNames.append(FriendlyName)
-                                NewFriendlyIDs.append(Entry.FileID)
-                            except:
-                                FriendlyName = GetFriendlyNameFromID(Entry.FileID)
-                                NewFriendlyNames.append(FriendlyName)
-                                NewFriendlyIDs.append(Entry.FileID)
-
-
-                    # Draw Entry
-                    PatchEntry = Global_TocManager.GetEntry(int(Entry.FileID), int(Entry.TypeID))
-                    PatchEntry.DEV_DrawIndex = len(DrawChain)
+                    header_label = "State Machine Editor"
+                    mat_item = None
+                    if state_machine_editor_show:
+                        mat_list = getattr(context.scene, f"list_{Type.TypeID}")
+                        mat_index = getattr(context.scene, f"index_{Type.TypeID}")
+                        if mat_index < len(mat_list):
+                            mat_item = mat_list[mat_index]
+                            Entry = Global_TocManager.GetEntry(int(mat_item.item_name), int(mat_item.item_type))
+                            BonesEntry = Global_TocManager.GetEntry(int(mat_item.item_name), BoneID)
+                            if Entry:
+                                if not Entry.IsLoaded:
+                                    Entry.Load(True, False)
+                                if BonesEntry:
+                                    if not BonesEntry.IsLoaded:
+                                        BonesEntry.Load(True, False)
+                                self.draw_state_machine_editor(Entry, BonesEntry, box.row().column(align=True), None)
+                                header_label = f"State Machine Editor: {mat_item.item_name}"
+                    sub.operator("helldiver2.collapse_section", text=header_label, icon=fold_icon, emboss=False).type = "state_machine_editor"
+                    if state_machine_editor_show and mat_item: sub.operator("helldiver2.state_machine_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
+                    #if material_editor_show and mat_item: sub.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
+                    # add operator to save state machine
+                if Type.TypeID == MaterialID:
+                    # draw material editor
+                    if "material_editor" not in Global_Foldouts: # move to only init this key once
+                        Global_Foldouts["material_editor"] = False
+                    material_editor_show = Global_Foldouts["material_editor"]
+                    row = box.row()
+                    split = row.split()
+                    fold_icon = "DOWNARROW_HLT" if material_editor_show else "RIGHTARROW"
+                    sub = split.row(align=True)
                     
-                    previous_type_icon = type_icon
-                    if PatchEntry.MaterialTemplate != None:
-                        type_icon = "NODE_MATERIAL"
-
-                    row = col.row(align=True); row.separator()
-                    props = row.operator("helldiver2.archive_entry", icon=type_icon, text=FriendlyName, emboss=PatchEntry.IsSelected, depress=PatchEntry.IsSelected)
-                    type_icon = previous_type_icon
-                    props.object_id     = str(Entry.FileID)
-                    props.object_typeid = str(Entry.TypeID)
-                    # Draw Entry Buttons
-                    self.draw_entry_buttons(col, row, PatchEntry, PatchOnly)
-                    # Update Draw Chain
-                    DrawChain.append(PatchEntry)
-            Global_TocManager.DrawChain = DrawChain
+                    #material_editor_body = row.column()
+                    #material_editor_header, material_editor_panel = panel_body.panel(f"hd2_panel_material_editor", default_closed=True)
+                    header_label = "Material Editor"
+                    mat_item = None
+                    if material_editor_show:
+                        mat_list = getattr(context.scene, f"list_{Type.TypeID}")
+                        mat_index = getattr(context.scene, f"index_{Type.TypeID}")
+                        if mat_index < len(mat_list):
+                            mat_item = mat_list[mat_index]
+                            Entry = Global_TocManager.GetEntry(int(mat_item.item_name), int(mat_item.item_type))
+                            if Entry:
+                                if not Entry.IsLoaded:
+                                    Entry.Load(True, False)
+                                self.draw_material_editor(Entry, box.row().column(align=True), None)
+                                header_label = f"Material Editor: {mat_item.item_name}"
+                    sub.operator("helldiver2.collapse_section", text=header_label, icon=fold_icon, emboss=False).type = "material_editor"
+                    if material_editor_show and mat_item: sub.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
         if scene.Hd2ToolPanelSettings.FriendlyNames:  
             Global_TocManager.SavedFriendlyNames = NewFriendlyNames
             Global_TocManager.SavedFriendlyNameIDs = NewFriendlyIDs
@@ -4431,7 +4693,7 @@ class HellDivers2ToolsPanel(Panel):
 class WM_MT_button_context(Menu):
     bl_label = "Entry Context Menu"
 
-    def draw_entry_buttons(self, row, Entry):
+    def draw_entry_buttons(row, Entry):
         if not Entry.IsSelected:
             Global_TocManager.SelectEntries([Entry])
 
@@ -4578,7 +4840,7 @@ class WM_MT_button_context(Menu):
         if SingleEntry:
             row.operator("helldiver2.archive_setfriendlyname", icon='WORDWRAP_ON', text="Set Friendly Name").object_id = str(Entry.FileID)
             
-    def draw_material_editor_context_buttons(self, layout, FileID, MaterialID, TextureIndex):
+    def draw_material_editor_context_buttons(layout, FileID, MaterialID, TextureIndex):
         row = layout
         row.separator()
         row.label(text=Global_SectionHeader)
@@ -4591,21 +4853,132 @@ class WM_MT_button_context(Menu):
         props.object_typeid = str(TexID)
         props.material_id = str(MaterialID)
         props.texture_index = str(TextureIndex)
+        
+    def draw_ui_list_buttons(layout, _list, list_item):
+        selected_items = [item for item in _list if item.item_selected]
+        FileIDStr = ",".join([item.item_name for item in selected_items])
+        TypeIDStr = ",".join([item.item_type for item in selected_items])
+        item_type = int(list_item.item_type)
+        item_typename = GetTypeNameFromID(item_type)
+        entry_string = "Entry" if len(selected_items) == 1 else "Entries"
+        Entry = Global_TocManager.GetEntry(int(list_item.item_name), int(list_item.item_type))
+        
+        layout.separator()
+        layout.label(text=Global_SectionHeader)
 
+        # Draw copy buttons
+        layout.separator()
+        props = layout.operator("helldiver2.archive_copy", icon='COPYDOWN', text=f"Copy {len(selected_items)} Entr{'ies' if len(selected_items) > 1 else 'y'}")
+        props.object_id     = FileIDStr
+        props.object_typeid = TypeIDStr
+        if len(Global_TocManager.CopyBuffer) != 0:
+            layout.operator("helldiver2.archive_paste", icon='PASTEDOWN', text="Paste "+str(len(Global_TocManager.CopyBuffer))+" Entries")
+            layout.operator("helldiver2.archive_clearclipboard", icon='TRASH', text="Clear Clipboard")
+        if len(selected_items) == 1:
+            props = layout.operator("helldiver2.archive_duplicate", icon='DUPLICATE', text="Duplicate Entry")
+            props.object_id     = list_item.item_name
+            props.object_typeid = list_item.item_type
+        if Global_TocManager.ActivePatch and Global_TocManager.ActivePatch.GetEntry(int(list_item.item_name), int(list_item.item_type)):
+            props = layout.operator("helldiver2.archive_removefrompatch", icon='X', text=f"Remove {len(selected_items)} {entry_string} From Patch")
+            props.object_id     = FileIDStr
+            props.object_typeid = TypeIDStr
+        else:
+            props = layout.operator("helldiver2.archive_addtopatch", icon='PLUS', text=f"Add {len(selected_items)} {entry_string} To Patch")
+            props.object_id     = FileIDStr
+            props.object_typeid = TypeIDStr
+
+        # Draw import buttons
+        # TODO: Add generic import buttons
+        layout.separator()
+        if item_type == UnitID:       layout.operator("helldiver2.archive_unit_import", icon='IMPORT', text=f"Import {len(selected_items)} Mesh{'es' if len(selected_items) > 1 else ''}").object_id = FileIDStr
+        elif item_type == TexID:      layout.operator("helldiver2.texture_import",      icon='IMPORT', text=f"Import {len(selected_items)} Texture{'s' if len(selected_items) > 1 else ''}").object_id = FileIDStr
+        elif item_type == MaterialID: layout.operator("helldiver2.material_import",     icon='IMPORT', text=f"Import {len(selected_items)} Material{'s' if len(selected_items) > 1 else ''}").object_id = FileIDStr
+        #elif AreAllParticles:
+            #layout.operator("helldiver2.archive_particle_import", icon='IMPORT', text=ImportParticleName).object_id = FileIDStr
+            
+        # Draw export buttons
+        layout.separator()
+        props = layout.operator("helldiver2.archive_object_dump_import", icon='PACKAGE', text=f"Import {len(selected_items)} Object Dump{'s' if len(selected_items) > 1 else ''}")
+        props.object_id     = FileIDStr
+        props.object_typeid = TypeIDStr
+        props = layout.operator("helldiver2.archive_object_dump_export", icon='PACKAGE', text=f"Export {len(selected_items)} Object Dump{'s' if len(selected_items) > 1 else ''}")
+        props.object_id     = FileIDStr
+        props.object_typeid = TypeIDStr
+        # Draw dump import button
+        # if AreAllMaterials and SingleEntry: layout.operator("helldiver2.archive_object_dump_import", icon="IMPORT", text="Import Raw Dump").object_id = FileIDStr
+        # Draw save buttons
+        layout.separator()
+        if item_type == UnitID:
+            if len(selected_items) == 1:
+                layout.operator("helldiver2.archive_unit_save", icon='FILE_BLEND', text="Save Mesh").object_id = list_item.item_name
+            else:
+                layout.operator("helldiver2.archive_unit_batchsave", icon='FILE_BLEND', text=f"Save {len(selected_items)} Meshes")
+        elif item_type == TexID:
+            layout.operator("helldiver2.texture_saveblendimage", icon='FILE_BLEND', text=f"Save {len(selected_items)} Blender Texture{'s' if len(selected_items) > 1 else ''}").object_id = FileIDStr
+            layout.separator()
+            layout.operator("helldiver2.texture_savefromdds", icon='FILE_IMAGE', text=f"Import {len(selected_items)} DDS Texture{'s' if len(selected_items) > 1 else ''}").object_id = FileIDStr
+            layout.operator("helldiver2.texture_savefrompng", icon='FILE_IMAGE', text=f"Import {len(selected_items)} PNG Texture{'s' if len(selected_items) > 1 else ''}").object_id = FileIDStr
+            layout.separator()
+            layout.operator("helldiver2.texture_batchexport", icon='OUTLINER_OB_IMAGE', text=f"Export {len(selected_items)} DDS Texture{'s' if len(selected_items) > 1 else ''}").object_id = FileIDStr
+            layout.operator("helldiver2.texture_batchexport_png", icon='OUTLINER_OB_IMAGE', text=f"Export {len(selected_items)} PNG Texture{'s' if len(selected_items) > 1 else ''}").object_id = FileIDStr
+        elif item_type == MaterialID:
+            layout.operator("helldiver2.material_save", icon='FILE_BLEND', text=f"Save {len(selected_items)} Material{'s' if len(selected_items) > 1 else ''}").object_id = FileIDStr
+            if len(selected_items) == 1:
+                if Entry and Entry.LoadedData:
+                    layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Parent Material Entry ID").text = str(Entry.LoadedData.ParentMaterialID)
+            #if SingleEntry:
+            #    layout.operator("helldiver2.material_set_template", icon='MATSHADERBALL').entry_id = str(Entry.FileID)
+            #    if Entry.LoadedData != None:
+            #        layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Parent Material Entry ID").text = str(Entry.LoadedData.ParentMaterialID)
+        #elif AreAllParticles:
+            #layout.operator("helldiver2.particle_save", icon='FILE_BLEND', text=SaveParticleName).object_id = FileIDStr
+        # Draw copy ID buttons
+        if len(selected_items) == 1:
+            layout.separator()
+            layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Entry ID").text = list_item.item_name
+            layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Entry Hex ID").text = str(hex(int(list_item.item_name)))
+            layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Type ID").text  = list_item.item_type
+            layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Friendly Name").text  = GetFriendlyNameFromID(int(list_item.item_name))
+            if Global_TocManager.IsInPatch(Entry):
+                props = layout.operator("helldiver2.archive_entryrename", icon='TEXT', text="Rename")
+                props.object_id     = list_item.item_name
+                props.object_typeid = list_item.item_type
+        else:
+            layout.separator()
+            layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Entry ID").text = ",".join([item.item_name for item in selected_items])
+            layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Entry Hex ID").text = ",".join([str(hex(int(item.item_name))) for item in selected_items])
+            layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Type ID").text  = list_item.item_type
+            layout.operator("helldiver2.copytest", icon='COPY_ID', text="Copy Friendly Name").text  = GetFriendlyNameFromID(int(list_item.item_name))
+        if Entry.IsModified:
+            layout.separator()
+            props = layout.operator("helldiver2.archive_undo_mod", icon='TRASH', text=f"Undo {len(selected_items)} Modification{'s' if len(selected_items) > 1 else ''}")
+            props.object_id     = FileIDStr
+            props.object_typeid = TypeIDStr
+
+        if len(selected_items) == 1:
+            layout.operator("helldiver2.archive_setfriendlyname", icon='WORDWRAP_ON', text="Set Friendly Name").object_id = list_item.item_name
+        
     def draw(self, context):
         value = getattr(context, "button_operator", None)
         menuName = type(value).__name__
         if menuName == "HELLDIVER2_OT_archive_entry":
             layout = self.layout
-            FileID = getattr(value, "object_id")
-            TypeID = getattr(value, "object_typeid")
-            self.draw_entry_buttons(layout, Global_TocManager.GetEntry(int(FileID), int(TypeID)))
+            list_index = getattr(value, "list_index")
+            list_id = getattr(value, "list_id")
+            _list = getattr(context.scene, list_id)
+            list_item = _list[list_index]
+            WM_MT_button_context.draw_ui_list_buttons(layout, _list, list_item)
         elif menuName == "HELLDIVER2_OT_material_texture_entry":
             layout = self.layout
             FileID = getattr(value, "object_id")
             MaterialID = getattr(value, "material_id")
             TextureIndex = getattr(value, "texture_index")
-            self.draw_material_editor_context_buttons(layout, FileID, MaterialID, TextureIndex)
+            WM_MT_button_context.draw_material_editor_context_buttons(layout, FileID, MaterialID, TextureIndex)
+        elif menuName == "":
+            layout = self.layout
+            FileID = getattr(value, "object_id")
+            TypeID = getattr(value, "object_typeid")
+            WM_MT_button_context.draw_entry_buttons(layout, Global_TocManager.GetEntry(int(FileID), int(TypeID)))
             
 
 #endregion
@@ -4683,9 +5056,27 @@ classes = (
     ImportDumpByIDOperator,
     SearchByEntryIDInput,
     ManuallyLoadArchivesOperator,
+    SetBoneAnimatedOperator,
+    SearchArmatureAnimationsOperator,
+    StateMachineBlendMaskWeightOperator,
+    StateMachineSaveOperator,
 )
 
 Global_TocManager = TocManager()
+
+class DotDict(dict):
+        
+    def __getattr__(self, name):
+        return dict.__getitem__(self, name)
+        
+    def __setattr__(self, name, value):
+        dict.__setitem__(self, name, value)
+    
+def SetSelected(t):
+    def wrapper(scene, value):
+        scene[f"index_{t}_dummy"] = 5000000
+    return wrapper
+
 
 def register():
     if not os.path.exists(Global_texconvpath): raise Exception("Texconv is not found, please install Texconv in /deps/")
@@ -4703,6 +5094,20 @@ def register():
     Scene.Hd2ToolPanelSettings = PointerProperty(type=Hd2ToolPanelSettings)
     bpy.utils.register_class(WM_MT_button_context)
     bpy.types.VIEW3D_MT_object_context_menu.append(CustomPropertyContext)
+    bpy.types.VIEW3D_MT_armature_context_menu.append(CustomBoneContext)
+    #bpy.types.VIEW3D_MT_pose_context_menu
+    #bpy.types.VIEW3D_MT_armature_context_menu
+    #bpy.types.VIEW3D_MT_
+    #for name in dir(bpy.types):
+    #    if "context" in name:
+    #        print(name)
+    bpy.utils.register_class(MY_UL_List)
+    bpy.utils.register_class(ListItem)
+    for t in Global_TypeIDs: # make all this into an item in another collection property
+        setattr(bpy.types.Scene, f"list_{t}", CollectionProperty(type = ListItem))
+        setattr(bpy.types.Scene, f"index_{t}", IntProperty(name = f"index_{t}", default = 0))
+        setattr(bpy.types.Scene, f"filter_{t}", StringProperty(name = f"filter_{t}", default = ""))
+        setattr(bpy.types.Scene, f"index_{t}_dummy", IntProperty(name = f"index_{t}_dummy", default = 5000000, set=SetSelected(t)))
 
 def unregister():
     bpy.utils.unregister_class(WM_MT_button_context)
@@ -4710,7 +5115,12 @@ def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
     bpy.types.VIEW3D_MT_object_context_menu.remove(CustomPropertyContext)
-
+    bpy.types.VIEW3D_MT_armature_context_menu.remove(CustomBoneContext)
+    for t in Global_TypeIDs:
+        delattr(bpy.types.Scene, f"list_{t}")
+        delattr(bpy.types.Scene, f"index_{t}")
+    bpy.utils.unregister_class(MY_UL_List)
+    bpy.utils.unregister_class(ListItem)
 
 if __name__=="__main__":
     register()

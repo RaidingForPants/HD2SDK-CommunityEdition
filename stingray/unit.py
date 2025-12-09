@@ -33,6 +33,7 @@ class StingrayMeshFile:
         self.UnreversedLODGroupListData = bytearray()
         self.UnreversedLODGroupListDataOffset = 0
         self.UnkHeaderData1 = bytearray()
+        self.StateMachineRef = self.UnkRef2 = self.LodGroupOffset = 0
         self.NameHash = 0
         self.LightListOffset = 0
         self.LoadMaterialSlotNames = True
@@ -96,7 +97,9 @@ class StingrayMeshFile:
         self.BonesRef           = f.uint64(self.BonesRef)
         if f.IsWriting():         f.uint64(0)
         else: self.CompositeRef = f.uint64(self.CompositeRef)
-        self.HeaderData1        = f.bytes(self.HeaderData1, 24)
+        self.UnkRef2            = f.uint64(self.UnkRef2)
+        self.StateMachineRef    = f.uint64(self.StateMachineRef)
+        self.HeaderData1        = f.uint64(self.HeaderData1)
         self.UnreversedLODGroupListDataOffset = f.uint32(self.UnreversedLODGroupListDataOffset)
         self.TransformInfoOffset= f.uint32(self.TransformInfoOffset)
         self.LightListOffset    = f.uint32(self.LightListOffset)
@@ -1593,7 +1596,33 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     transform_info = stingray_mesh_entry.TransformInfo
     light_list = stingray_mesh_entry.LightList
     lod_index = og_object["BoneInfoIndex"]
+    bone_entry = Global_TocManager.GetEntryByLoadArchive(stingray_mesh_entry.BonesRef, BoneID)
+    modified_bone_entry = False
     bone_names = []
+    bone_data = None
+    state_machine_data = None
+    state_machine_entry = Global_TocManager.GetEntryByLoadArchive(stingray_mesh_entry.StateMachineRef, StateMachineID)
+    if bone_entry is None:
+        PrettyPrint("This unit does not have any animated bone data, unable to edit bone animated state", "warn")
+    else:
+        if Global_TocManager.IsInPatch(bone_entry):
+            Global_TocManager.RemoveEntryFromPatch(bone_entry.FileID, BoneID)
+        bone_entry = Global_TocManager.AddEntryToPatch(bone_entry.FileID, BoneID)
+        if bone_entry:
+            if not bone_entry.IsLoaded:
+                bone_entry.Load()
+            bone_data = bone_entry.LoadedData
+    if state_machine_entry is None:
+        PrettyPrint("This unit does not have any state machine data, unable to edit bone animated state", "warn")
+    else:
+        if Global_TocManager.IsInPatch(state_machine_entry):
+            Global_TocManager.RemoveEntryFromPatch(state_machine_entry.FileID, StateMachineID)
+        state_machine_entry = Global_TocManager.AddEntryToPatch(state_machine_entry.FileID, StateMachineID)
+        if state_machine_entry:
+            if not state_machine_entry.IsLoaded:
+                state_machine_entry.Load()
+            state_machine_data = state_machine_entry.LoadedData
+
         
     # get armature object
     prev_obj = bpy.context.view_layer.objects.active
@@ -1606,6 +1635,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             break
     if armature_obj is not None:
         was_hidden = armature_obj.hide_get()
+        state_machine = armature_obj.get("StateMachineID", None)
         armature_obj.hide_set(False)
         bpy.context.view_layer.objects.active = armature_obj
         bpy.ops.object.mode_set(mode='EDIT')
@@ -1627,6 +1657,41 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 transform_info.TransformEntries.append(l)
                 transform_info.NumTransforms += 1
                 transform_index = len(transform_info.NameHashes) - 1
+            
+            # set animated
+            try:
+                animated = bone['Animated']
+                if animated and name_hash not in bone_data.BoneHashes:
+                    bone_data.BoneHashes.append(name_hash)
+                    bone_data.Names.append(bone.name)
+                    bone_data.NumNames += 1
+                    modified_bone_entry = True
+                    for blend_mask in state_machine_data.blend_masks:
+                        blend_mask.bone_count += 1
+                        blend_mask.bone_weights.append(0.0)
+                if not animated and name_hash in bone_data.BoneHashes: # this WILL require redoing all animations
+                    list_index = bone_data.BoneHashes.index(name_hash)
+                    bone_data.BoneHashes.pop(list_index)
+                    bone_data.Names.pop(list_index)
+                    bone_data.NumNames -= 1
+                    modified_bone_entry = True
+                    for blend_mask in state_machine_data.blend_masks:
+                        blend_mask.bone_count -= 1
+                        blend_mask.bone_weights.pop(list_index)
+                    if state_machine_data:
+                        for animation in state_machine_data.animation_ids:
+                            animation_data = Global_TocManager.GetEntry(animation, AnimationID, IgnorePatch=False, SearchAll=True)
+                            if not animation_data.IsLoaded:
+                                animation_data.Load(False, False)
+                            animation_data.LoadedData.remove_bone(list_index)
+                            if Global_TocManager.IsInPatch(animation_data):
+                                Global_TocManager.RemoveEntryFromPatch(animation, AnimationID)
+                            Global_TocManager.AddEntryToPatch(animation, AnimationID)
+                            Global_TocManager.Save(animation, AnimationID)
+                    else:
+                        raise Exception("No state machine property on armature, unable to automatically remove bone data from animations; please set a valid StateMachineID property.")
+            except (KeyError, AttributeError) as e:
+                print(e)
             
             # set bone matrix
             loc, rot, scale = bone.matrix.decompose()
@@ -1678,7 +1743,11 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         for obj in prev_objs:
             obj.select_set(True)
         bpy.context.view_layer.objects.active = prev_obj
-        bpy.ops.object.mode_set(mode=prev_mode)   
+        bpy.ops.object.mode_set(mode=prev_mode)
+        
+    if modified_bone_entry:
+        bone_entry.Save()
+        state_machine_entry.Save()
     
     # get lights
     if armature_obj is not None:
@@ -1909,7 +1978,7 @@ def NameFromMesh(mesh, id, customization_info, bone_names, use_sufix=True):
 
     return name
 
-def CreateModel(stingray_unit, id, Global_BoneNames):
+def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry):
     model, customization_info, bone_names, transform_info, bone_info, lights = stingray_unit.RawMeshes, stingray_unit.CustomizationInfo, stingray_unit.BoneNames, stingray_unit.TransformInfo, stingray_unit.BoneInfoArray, stingray_unit.LightList
     imported_lights = False
     if len(model) < 1: return
@@ -2063,6 +2132,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                 armature.show_names = True
                 skeletonObj = bpy.data.objects.new(f"{id}_rig", armature)
                 skeletonObj['BonesID'] = str(stingray_unit.BonesRef)
+                skeletonObj['StateMachineID'] = str(stingray_unit.StateMachineRef)
                 skeletonObj.show_in_front = True
                 
             if bpy.context.scene.Hd2ToolPanelSettings.MakeCollections:
@@ -2097,10 +2167,20 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                         boneName = Global_BoneNames[boneHash]
                     else:
                         boneName = str(boneHash)
+                    animated = False
+                    if bones_entry and boneName in bones_entry.Names:
+                        animated = True
+                    try:
+                        b = int(boneName)
+                        if bones_entry and b in bones_entry.BoneHashes:
+                            animated = True
+                    except ValueError:
+                        pass
                     newBone = armature.edit_bones.get(boneName)
                     if newBone is None:
                         newBone = armature.edit_bones.new(boneName)
                         newBone.tail = 0, 0.05, 0
+                        if bones_entry: newBone['Animated'] = animated
                         doPoseBone[newBone.name] = True
                     else:
                         doPoseBone[newBone.name] = False
@@ -2125,10 +2205,20 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
                         boneName = Global_BoneNames[boneHash]
                     else:
                         boneName = str(boneHash)
+                    animated = False
+                    if bones_entry and boneName in bones_entry.Names:
+                        animated = True
+                    try:
+                        b = int(boneName)
+                        if bones_entry and b in bones_entry.BoneHashes:
+                            animated = True
+                    except ValueError:
+                        pass
                     newBone = armature.edit_bones.get(boneName)
                     if newBone is None:
                         newBone = armature.edit_bones.new(boneName)
                         newBone.tail = 0, 0.05, 0
+                        if bones_entry: newBone['Animated'] = animated
                         doPoseBone[newBone.name] = True
                     else:
                         doPoseBone[newBone.name] = False
