@@ -4219,6 +4219,25 @@ class HellDivers2ToolsPanel(Panel):
                     ColorPicker.object_id = str(Entry.FileID)
                     ColorPicker.variable_index = i
 
+    def draw_state_machine_editor(self, Entry, layout, row):
+        if Entry.IsLoaded:
+            state_machine = Entry.LoadedData
+            for i, layer in enumerate(state_machine.layers): # not sure if it's always true, but assume all states in a layer use the same blend mask (technically they can have different ones, but that doesn't make too much sense)
+                row = layout.row()
+                row.label(text=f"layer{i}")
+                blend_mask_index = layer.states[0].blend_mask_index
+                if blend_mask_index == 0xFFFFFFFF: # no mask
+                    row.label(text="No blend mask")
+                else:
+                    # load .bones file to get bone names?
+                    blend_mask = state_machine.blend_masks[blend_mask_index]
+                    for j, weight in enumerate(blend_mask.bone_weights):
+                        row = layout.row()
+                        row.label(text=f"Bone {j}: Weight {weight}")
+                    
+                
+            # draw the values for the bone blend masks for each layer
+    
     def draw(self, context):
         layout = self.layout
         scene = context.scene
@@ -4447,6 +4466,31 @@ class HellDivers2ToolsPanel(Panel):
             # Draw Type Body
             if show:
                 box.template_list("MY_UL_List", f"list_{Type.TypeID}", scene, f"list_{Type.TypeID}", scene, f"index_{Type.TypeID}_dummy", rows=10)
+                if Type.TypeID == StateMachineID:
+                    if "state_machine_editor" not in Global_Foldouts: # move to only init keys once
+                        Global_Foldouts["state_machine_editor"] = False
+                    state_machine_editor_show = Global_Foldouts["state_machine_editor"]
+                    row = box.row()
+                    split = row.split()
+                    fold_icon = "DOWNARROW_HLT" if state_machine_editor_show else "RIGHTARROW"
+                    sub = split.row(align=True)
+                    
+                    header_label = "State Machine Editor"
+                    mat_item = None
+                    if state_machine_editor_show:
+                        mat_list = getattr(context.scene, f"list_{Type.TypeID}")
+                        mat_index = getattr(context.scene, f"index_{Type.TypeID}")
+                        if mat_index < len(mat_list):
+                            mat_item = mat_list[mat_index]
+                            Entry = Global_TocManager.GetEntry(int(mat_item.item_name), int(mat_item.item_type))
+                            if Entry:
+                                if not Entry.IsLoaded:
+                                    Entry.Load(True, False)
+                                self.draw_state_machine_editor(Entry, box.row().column(align=True), None)
+                                header_label = f"State Machine Editor: {mat_item.item_name}"
+                    sub.operator("helldiver2.collapse_section", text=header_label, icon=fold_icon, emboss=False).type = "state_machine_editor"
+                    #if material_editor_show and mat_item: sub.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
+                    # add operator to save state machine
                 if Type.TypeID == MaterialID:
                     # draw material editor
                     if "material_editor" not in Global_Foldouts: # move to only init this key once
