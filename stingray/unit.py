@@ -1482,6 +1482,8 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     modified_bone_entry = False
     bone_names = []
     bone_data = None
+    state_machine_data = None
+    state_machine_entry = Global_TocManager.GetEntryByLoadArchive(stingray_mesh_entry.StateMachineRef, StateMachineID)
     if bone_entry is None:
         PrettyPrint("This unit does not have any animated bone data, unable to edit bone animated state", "warn")
     else:
@@ -1492,6 +1494,16 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             if not bone_entry.IsLoaded:
                 bone_entry.Load()
             bone_data = bone_entry.LoadedData
+    if state_machine_entry is None:
+        PrettyPrint("This unit does not have any state machine data, unable to edit bone animated state", "warn")
+    else:
+        if Global_TocManager.IsInPatch(state_machine_entry):
+            Global_TocManager.RemoveEntryFromPatch(state_machine_entry.FileID, StateMachineID)
+        state_machine_entry = Global_TocManager.AddEntryToPatch(state_machine_entry.FileID, StateMachineID)
+        if state_machine_entry:
+            if not state_machine_entry.IsLoaded:
+                state_machine_entry.Load()
+            state_machine_data = state_machine_entry.LoadedData
 
         
     # get armature object
@@ -1536,27 +1548,28 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                     bone_data.Names.append(bone.name)
                     bone_data.NumNames += 1
                     modified_bone_entry = True
+                    for blend_mask in state_machine_data.blend_masks:
+                        blend_mask.bone_count += 1
+                        blend_mask.bone_weights.append(0.0)
                 if not animated and name_hash in bone_data.BoneHashes: # this WILL require redoing all animations
                     list_index = bone_data.BoneHashes.index(name_hash)
                     bone_data.BoneHashes.pop(list_index)
                     bone_data.Names.pop(list_index)
                     bone_data.NumNames -= 1
                     modified_bone_entry = True
-                    if state_machine:
-                        state_machine_data = Global_TocManager.GetEntryByLoadArchive(int(state_machine), StateMachineID)
-                        if state_machine_data:
-                            if not state_machine_data.IsLoaded:
-                                state_machine_data.Load(False, False)
-                            state_machine_data = state_machine_data.LoadedData
-                            for animation in state_machine_data.animation_ids:
-                                animation_data = Global_TocManager.GetEntry(animation, AnimationID, IgnorePatch=False, SearchAll=True)
-                                if not animation_data.IsLoaded:
-                                    animation_data.Load(False, False)
-                                animation_data.LoadedData.remove_bone(list_index)
-                                if Global_TocManager.IsInPatch(animation_data):
-                                    Global_TocManager.RemoveEntryFromPatch(animation, AnimationID)
-                                Global_TocManager.AddEntryToPatch(animation, AnimationID)
-                                Global_TocManager.Save(animation, AnimationID)
+                    for blend_mask in state_machine_data.blend_masks:
+                        blend_mask.bone_count -= 1
+                        blend_mask.bone_weights.pop(list_index)
+                    if state_machine_data:
+                        for animation in state_machine_data.animation_ids:
+                            animation_data = Global_TocManager.GetEntry(animation, AnimationID, IgnorePatch=False, SearchAll=True)
+                            if not animation_data.IsLoaded:
+                                animation_data.Load(False, False)
+                            animation_data.LoadedData.remove_bone(list_index)
+                            if Global_TocManager.IsInPatch(animation_data):
+                                Global_TocManager.RemoveEntryFromPatch(animation, AnimationID)
+                            Global_TocManager.AddEntryToPatch(animation, AnimationID)
+                            Global_TocManager.Save(animation, AnimationID)
                     else:
                         raise Exception("No state machine property on armature, unable to automatically remove bone data from animations; please set a valid StateMachineID property.")
             except (KeyError, AttributeError) as e:
