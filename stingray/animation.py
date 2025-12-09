@@ -416,8 +416,8 @@ class StingrayAnimation:
         tocFile.uint32(size)
 
     def load_from_armature(self, context, armature, bones_data):
-        if self.is_additive_animation:
-            raise AnimationException("Saving additive animations is not yet supported")
+        #if self.is_additive_animation:
+        #    raise AnimationException("Saving additive animations is not yet supported")
         self.entries.clear()
         self.initial_bone_states.clear()
         action = armature.animation_data.action
@@ -438,10 +438,13 @@ class StingrayAnimation:
         # initial bone data = anim frame 0
         
         for bone in armature.pose.bones:
-            if bone.parent is not None:
-                mat = (bone.parent.matrix.inverted() @ bone.matrix)
+            if self.is_additive_animation:
+                mat = bone.matrix_basis
             else:
-                mat = bone.matrix
+                if bone.parent is not None:
+                    mat = (bone.parent.matrix.inverted() @ bone.matrix)
+                else:
+                    mat = bone.matrix
             position, rotation, scale = mat.decompose()
             rotation = (rotation[1], rotation[2], rotation[3], rotation[0])
             position = list(position)
@@ -457,7 +460,7 @@ class StingrayAnimation:
                 initial_state.compress_scale = 0
                 initial_state.position = bone['position']
                 initial_state.rotation = bone['rotation']
-                initial_state.scale = bone['scale']
+                initial_state.scale = [1, 1, 1] if not self.is_additive_animation else [0, 0, 0]
                 self.initial_bone_states.append(initial_state)
             except KeyError:
                 initial_state = AnimationBoneInitialState()
@@ -466,18 +469,30 @@ class StingrayAnimation:
                 initial_state.compress_scale = 0
                 initial_state.position = [0, 0, 0]
                 initial_state.rotation = [0, 0, 0, 1]
-                initial_state.scale = [1, 1, 1]
+                initial_state.scale = [1, 1, 1] if not self.is_additive_animation else [0, 0, 0]
                 self.initial_bone_states.append(initial_state)
-
+        '''        
+        translation = mathutils.Vector(initial_state.position)
+            rotation = mathutils.Quaternion([initial_state.rotation[3], initial_state.rotation[0], initial_state.rotation[1], initial_state.rotation[2]])
+            scale = None
+            matrix = mathutils.Matrix.LocRotScale(translation, rotation, scale)
+            if additive_animation:
+                bone.matrix_basis = matrix
+            else:
+                bone.matrix_basis = inverted_rest_poses[bone.name] @ matrix
+        '''
         for frame in range(1, ceil(end)):
             context.scene.frame_set(frame)
             for bone in armature.pose.bones:
                 if bone.name not in bone_names:
                     continue
-                if bone.parent:
-                    local_transform = bone.parent.matrix.inverted() @ bone.matrix
+                if self.is_additive_animation:
+                    local_transform = bone.matrix_basis
                 else:
-                    local_transform = bone.matrix
+                    if bone.parent:
+                        local_transform = bone.parent.matrix.inverted() @ bone.matrix
+                    else:
+                        local_transform = bone.matrix
                 translation, rotation, scale = local_transform.decompose()
                 
                 # save translation
