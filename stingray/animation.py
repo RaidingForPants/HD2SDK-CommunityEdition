@@ -532,17 +532,22 @@ class StingrayAnimation:
                 bone_names.append(item.decode('utf-8'))
         if int(animation_id) not in state_machine_data.animation_ids:
             raise AnimationException("This animation is not for this armature")
+        blend_mask_index = -1
         layer_num = -1
         for i, layer in enumerate(state_machine_data.layers):
             for state in layer.states:
                 if int(animation_id) in state.animation_ids:
+                    blend_mask_index = state.blend_mask_index
                     layer_num = i
         #if len(self.initial_bone_states) != int.from_bytes(bones_data[0:4], "little"):
         #    raise AnimationException("This animation is not for this armature")
+        action_name = f"{animation_id} (blend mask {blend_mask_index}) (layer {layer_num})"
+        if blend_mask_index == 0xFFFFFFFF:
+            action_name = f"{animation_id} (no blend mask) (layer {layer_num})"
         
         PrettyPrint(f"Creaing action with ID: {animation_id}")
         actions = bpy.data.actions
-        action = actions.new(f"{animation_id} (layer {layer_num})")
+        action = actions.new(action_name)
         action.use_fake_user = True
         armature.animation_data.action = action
         bone_to_index = {bone: bone_names.index(bone) for bone in bone_names}

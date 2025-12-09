@@ -4274,38 +4274,30 @@ class HellDivers2ToolsPanel(Panel):
         if state_machine_entry.IsLoaded:
             state_machine = state_machine_entry.LoadedData
             i = len(state_machine.layers) - 1
-            for layer in reversed(state_machine.layers): # not sure if it's always true, but assume all states in a layer use the same blend mask (technically they can have different ones, but that doesn't make too much sense)
-                if f"layer{i}" not in Global_Foldouts:
-                    Global_Foldouts[f"layer{i}"] = False
-                layer_show = Global_Foldouts[f"layer{i}"]
+            for i, blend_mask in enumerate(state_machine.blend_masks):
+                if f"blend_mask{i}" not in Global_Foldouts:
+                    Global_Foldouts[f"blend_mask{i}"] = False
+                blend_mask_show = Global_Foldouts[f"blend_mask{i}"]
                 row = layout.row()
                 split = row.split()
-                fold_icon = "DOWNARROW_HLT" if layer_show else "RIGHTARROW"
+                fold_icon = "DOWNARROW_HLT" if blend_mask_show else "RIGHTARROW"
                 sub = split.row(align=True)
                 
-                sub.operator("helldiver2.collapse_section", text=f"layer{i}", icon=fold_icon, emboss=False).type = f"layer{i}"
-                if layer_show:
-                    blend_mask_index = layer.states[0].blend_mask_index
-                    if blend_mask_index == 0xFFFFFFFF: # no mask
+                sub.operator("helldiver2.collapse_section", text=f"Blend Mask {i}", icon=fold_icon, emboss=False).type = f"blend_mask{i}"
+                if blend_mask_show:
+                    for j, weight in enumerate(blend_mask.bone_weights):
                         row = layout.row()
+                        split = row.split()
                         row.alignment = "CENTER"
-                        row.label(text="No blend mask")
-                    else:
-                        # load .bones file to get bone names?
-                        blend_mask = state_machine.blend_masks[blend_mask_index]
-                        for j, weight in enumerate(blend_mask.bone_weights):
-                            row = layout.row()
-                            split = row.split()
-                            row.alignment = "CENTER"
-                            text=f"Bone {j}: Weight {weight}"
-                            if bones_entry and bones_entry.IsLoaded:
-                                text = f"{bones_entry.LoadedData.Names[j]}"
-                            split.label(text=text)
-                            op = split.operator("helldiver2.blend_mask_weight", text=f"Weight: {weight}")
-                            op.object_id = str(state_machine_entry.FileID)
-                            op.bone_index = j
-                            op.bone_weight = weight
-                            op.blend_mask_index = blend_mask_index
+                        text=f"Bone {j}: Weight {weight}"
+                        if bones_entry and bones_entry.IsLoaded:
+                            text = f"{bones_entry.LoadedData.Names[j]}"
+                        split.label(text=text)
+                        op = split.operator("helldiver2.blend_mask_weight", text=f"Weight: {weight}")
+                        op.object_id = str(state_machine_entry.FileID)
+                        op.bone_index = j
+                        op.bone_weight = weight
+                        op.blend_mask_index = i
                 i -= 1
                     
             # draw the values for the bone blend masks for each layer
