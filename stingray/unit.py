@@ -501,6 +501,7 @@ class StingrayMeshFile:
         for n in range(len(self.MeshInfoArray)):
             NewMesh     = RawMeshClass()
             Mesh_Info   = self.MeshInfoArray[n]
+            Mesh_Hash   = self.MeshInfoUnk[n]
 
             indexerror = Mesh_Info.StreamIndex >= len(self.StreamInfoArray)
             messageerror = "ERROR" if indexerror else "INFO"
@@ -511,8 +512,30 @@ class StingrayMeshFile:
             Stream_Info = self.StreamInfoArray[Mesh_Info.StreamIndex]
             NewMesh.MeshInfoIndex = n
             NewMesh.MeshID = Mesh_Info.MeshID
-            NewMesh.DEV_Transform = self.TransformInfo.Transforms[Mesh_Info.TransformIndex]
-            NewMesh.DEV_Transform.pos = self.TransformInfo.TransformMatrices[Mesh_Info.TransformIndex].v[12:15]
+            try:
+                base_mesh_transform = self.TransformInfo.TransformMatrices[self.TransformInfo.NameHashes.index(Mesh_Hash)]
+            except ValueError:
+                base_mesh_transform = mathutils.Matrix.Identity(4)
+            group_transform = self.TransformInfo.TransformMatrices[Mesh_Info.TransformIndex]
+            try:
+                game_mesh_transform = self.TransformInfo.TransformMatrices[self.TransformInfo.NameHashes.index(murmur32_hash("game_mesh".encode()))]
+            except ValueError:
+                game_mesh_transform = mathutils.Matrix.Identity(4)
+            
+            identity_matrix = mathutils.Matrix.Identity(4)
+            if isinstance(base_mesh_transform, StingrayMatrix4x4):
+                base_mesh_transform = base_mesh_transform.ToBlenderMatrix()
+            group_transform = group_transform.ToBlenderMatrix()
+            if isinstance(game_mesh_transform, StingrayMatrix4x4):
+                game_mesh_transform = game_mesh_transform.ToBlenderMatrix()
+            
+            if base_mesh_transform != identity_matrix:
+                NewMesh.DEV_Transform = base_mesh_transform
+            elif group_transform != identity_matrix:
+                NewMesh.DEV_Transform = group_transform
+            else:
+                NewMesh.DEV_Transform = game_mesh_transform
+            
             try:
                 NewMesh.DEV_BoneInfo  = self.BoneInfoArray[Mesh_Info.LodIndex]
             except: pass
@@ -1775,11 +1798,16 @@ def CreateModel(stingray_unit, id, Global_BoneNames):
         # make object from mesh
         new_object = bpy.data.objects.new(name, new_mesh)
         # set transform
-        local_transform = mesh.DEV_Transform
-        new_object.scale = local_transform.scale
-        new_object.location = local_transform.pos
+        translation, rotation, scale = mesh.DEV_Transform.decompose()
+        new_object.scale = scale
+        new_object.location = translation
         new_object.rotation_mode = 'QUATERNION'
-        new_object.rotation_quaternion = mathutils.Matrix([local_transform.rot.x, local_transform.rot.y, local_transform.rot.z]).to_quaternion()
+        new_object.rotation_quaternion = rotation
+        #local_transform = mesh.DEV_Transform
+        #new_object.scale = local_transform.scale
+        #new_object.location = local_transform.pos
+        #new_object.rotation_mode = 'QUATERNION'
+        #new_object.rotation_quaternion = mathutils.Matrix([local_transform.rot.x, local_transform.rot.y, local_transform.rot.z]).to_quaternion()
 
         # set object properties
         new_object["MeshInfoIndex"] = mesh.MeshInfoIndex

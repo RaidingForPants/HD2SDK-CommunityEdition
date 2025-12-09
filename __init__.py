@@ -784,7 +784,7 @@ class StreamToc:
         self.StreamFile = MemoryStream(IOMode = "write")
         self.Serialize()
         if path == None: path = self.Path
-        min_siuze = 256 * len(self.TocEntries)
+        min_size = 256 * len(self.TocEntries)
         if len(self.TocFile.Data) < min_size:
             self.TocFile.Data.extend(bytearray(min_size-len(self.TocFile.Data)))
 
@@ -1639,17 +1639,22 @@ def LoadStingrayUnit(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject, 
 def SaveStingrayUnit(self, ID, TocData, GpuData, StreamData, StingrayMesh, BlenderOpts=None):
     if BlenderOpts and BlenderOpts.get("AutoLods"):
         lod0 = None
-        for mesh in StingrayMesh.RawMeshes:
+        lod0_idx = 0
+        for i, mesh in enumerate(StingrayMesh.RawMeshes):
             if mesh.LodIndex == 0:
                 lod0 = mesh
+                lod0_idx = i
                 break
         # print(lod0)
         if lod0 != None:
+            lod0_name = StingrayMesh.MeshInfoUnk[i]
             for n in range(len(StingrayMesh.RawMeshes)):
                 if StingrayMesh.RawMeshes[n].IsLod():
                     newmesh = copy.copy(lod0)
                     newmesh.MeshInfoIndex = StingrayMesh.RawMeshes[n].MeshInfoIndex
                     StingrayMesh.RawMeshes[n] = newmesh
+                    mesh_name = StingrayMesh.MeshInfoUnk[n]
+                    StingrayMesh.TransformInfo.TransformMatrices[StingrayMesh.TransformInfo.NameHashes.index(mesh_name)] = StingrayMesh.TransformInfo.TransformMatrices[StingrayMesh.TransformInfo.NameHashes.index(lod0_name)]
     toc  = MemoryStream(IOMode = "write")
     gpu  = MemoryStream(IOMode = "write")
     StingrayMesh.Serialize(toc, gpu, Global_TocManager, BlenderOpts=BlenderOpts)
