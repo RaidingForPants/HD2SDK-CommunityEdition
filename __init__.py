@@ -599,6 +599,7 @@ class TocEntry:
         if self.TypeID == ParticleID: callback = SaveStingrayDump
         if self.TypeID == AnimationID: callback = SaveStingrayAnimation
         if self.TypeID == BoneID: callback = SaveStingrayBones
+        if self.TypeID == StateMachineID: callback = SaveStingrayStateMachine
         if callback == None: callback = SaveStingrayDump
 
         if self.IsLoaded:
@@ -1118,6 +1119,11 @@ def LoadStingrayStateMachine(ID, TocData, GpuData, StreamData, Reload, MakeBlend
     state_machine = StingrayStateMachine()
     state_machine.Serialize(toc)
     return state_machine
+    
+def SaveStingrayStateMachine(self, ID, TocData, GpuData, StreamData, StateMachine):
+    toc = MemoryStream(IOMode = "write")
+    StateMachine.Serialize(toc)
+    return [toc.Data, b"", b""]
     
 def SaveStingrayAnimation(self, ID, TocData, GpuData, StreamData, Animation):
     toc = MemoryStream(IOMode = "write")
@@ -2233,6 +2239,21 @@ class StateMachineBlendMaskWeightOperator(Operator):
     
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
+        
+class StateMachineSaveOperator(Operator):
+    bl_label = "Save State Machine"
+    bl_idname = "helldiver2.state_machine_save"
+    bl_description = "Save State Machine"
+    
+    object_id: StringProperty()
+    
+    def execute(self, context):
+        if PatchesNotLoaded(self):
+            return {'CANCELLED'}
+        EntriesIDs = IDsFromString(self.object_id)
+        for EntryID in EntriesIDs:
+            Global_TocManager.Save(int(EntryID), StateMachineID)
+        return{'FINISHED'}
     
 class MaterialShaderVariableEntryOperator(Operator):
     bl_label = "Shader Variable"
@@ -4248,7 +4269,8 @@ class HellDivers2ToolsPanel(Panel):
     def draw_state_machine_editor(self, state_machine_entry, bones_entry, layout, row):
         if state_machine_entry.IsLoaded:
             state_machine = state_machine_entry.LoadedData
-            for i, layer in enumerate(state_machine.layers): # not sure if it's always true, but assume all states in a layer use the same blend mask (technically they can have different ones, but that doesn't make too much sense)
+            i = len(state_machine.layers) - 1
+            for layer in reversed(state_machine.layers): # not sure if it's always true, but assume all states in a layer use the same blend mask (technically they can have different ones, but that doesn't make too much sense)
                 if f"layer{i}" not in Global_Foldouts:
                     Global_Foldouts[f"layer{i}"] = False
                 layer_show = Global_Foldouts[f"layer{i}"]
@@ -4280,6 +4302,7 @@ class HellDivers2ToolsPanel(Panel):
                             op.bone_index = j
                             op.bone_weight = weight
                             op.blend_mask_index = blend_mask_index
+                i -= 1
                     
             # draw the values for the bone blend masks for each layer
     
@@ -4538,6 +4561,7 @@ class HellDivers2ToolsPanel(Panel):
                                 self.draw_state_machine_editor(Entry, BonesEntry, box.row().column(align=True), None)
                                 header_label = f"State Machine Editor: {mat_item.item_name}"
                     sub.operator("helldiver2.collapse_section", text=header_label, icon=fold_icon, emboss=False).type = "state_machine_editor"
+                    if state_machine_editor_show and mat_item: sub.operator("helldiver2.state_machine_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
                     #if material_editor_show and mat_item: sub.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
                     # add operator to save state machine
                 if Type.TypeID == MaterialID:
@@ -4939,6 +4963,7 @@ classes = (
     SetBoneAnimatedOperator,
     SearchArmatureAnimationsOperator,
     StateMachineBlendMaskWeightOperator,
+    StateMachineSaveOperator,
 )
 
 Global_TocManager = TocManager()
