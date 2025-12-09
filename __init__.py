@@ -2207,6 +2207,32 @@ class MaterialTextureEntryOperator(Operator):
 
     def invoke(self, context, event):
         return {'FINISHED'}
+        
+class StateMachineBlendMaskWeightOperator(Operator):
+    bl_label = "Blend Mask"
+    bl_idname = "helldiver2.blend_mask_weight"
+    bl_description = "Blend Mask Bone Weight"
+    
+    object_id: StringProperty()
+    blend_mask_index: bpy.props.IntProperty()
+    bone_index: bpy.props.IntProperty()
+    bone_weight: bpy.props.FloatProperty()
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "bone_weight")
+        
+    def execute(self, context):
+        Entry = Global_TocManager.GetEntry(self.object_id, StateMachineID)
+        if Entry:
+            Entry.LoadedData.blend_masks[self.blend_mask_index].bone_weights[self.bone_index] = self.bone_weight
+        else:
+            self.report({'ERROR'}, f"Could not find entry for ID: {self.object_id}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
     
 class MaterialShaderVariableEntryOperator(Operator):
     bl_label = "Shader Variable"
@@ -4219,23 +4245,42 @@ class HellDivers2ToolsPanel(Panel):
                     ColorPicker.object_id = str(Entry.FileID)
                     ColorPicker.variable_index = i
 
-    def draw_state_machine_editor(self, Entry, layout, row):
-        if Entry.IsLoaded:
-            state_machine = Entry.LoadedData
+    def draw_state_machine_editor(self, state_machine_entry, bones_entry, layout, row):
+        if state_machine_entry.IsLoaded:
+            state_machine = state_machine_entry.LoadedData
             for i, layer in enumerate(state_machine.layers): # not sure if it's always true, but assume all states in a layer use the same blend mask (technically they can have different ones, but that doesn't make too much sense)
+                if f"layer{i}" not in Global_Foldouts:
+                    Global_Foldouts[f"layer{i}"] = False
+                layer_show = Global_Foldouts[f"layer{i}"]
                 row = layout.row()
-                row.label(text=f"layer{i}")
-                blend_mask_index = layer.states[0].blend_mask_index
-                if blend_mask_index == 0xFFFFFFFF: # no mask
-                    row.label(text="No blend mask")
-                else:
-                    # load .bones file to get bone names?
-                    blend_mask = state_machine.blend_masks[blend_mask_index]
-                    for j, weight in enumerate(blend_mask.bone_weights):
-                        row = layout.row()
-                        row.label(text=f"Bone {j}: Weight {weight}")
-                    
+                split = row.split()
+                fold_icon = "DOWNARROW_HLT" if layer_show else "RIGHTARROW"
+                sub = split.row(align=True)
                 
+                sub.operator("helldiver2.collapse_section", text=f"layer{i}", icon=fold_icon, emboss=False).type = f"layer{i}"
+                if layer_show:
+                    blend_mask_index = layer.states[0].blend_mask_index
+                    if blend_mask_index == 0xFFFFFFFF: # no mask
+                        row = layout.row()
+                        row.alignment = "CENTER"
+                        row.label(text="No blend mask")
+                    else:
+                        # load .bones file to get bone names?
+                        blend_mask = state_machine.blend_masks[blend_mask_index]
+                        for j, weight in enumerate(blend_mask.bone_weights):
+                            row = layout.row()
+                            split = row.split()
+                            row.alignment = "CENTER"
+                            text=f"Bone {j}: Weight {weight}"
+                            if bones_entry and bones_entry.IsLoaded:
+                                text = f"{bones_entry.LoadedData.Names[j]}"
+                            split.label(text=text)
+                            op = split.operator("helldiver2.blend_mask_weight", text=f"Weight: {weight}")
+                            op.object_id = str(state_machine_entry.FileID)
+                            op.bone_index = j
+                            op.bone_weight = weight
+                            op.blend_mask_index = blend_mask_index
+                    
             # draw the values for the bone blend masks for each layer
     
     def draw(self, context):
@@ -4483,10 +4528,14 @@ class HellDivers2ToolsPanel(Panel):
                         if mat_index < len(mat_list):
                             mat_item = mat_list[mat_index]
                             Entry = Global_TocManager.GetEntry(int(mat_item.item_name), int(mat_item.item_type))
+                            BonesEntry = Global_TocManager.GetEntry(int(mat_item.item_name), BoneID)
                             if Entry:
                                 if not Entry.IsLoaded:
                                     Entry.Load(True, False)
-                                self.draw_state_machine_editor(Entry, box.row().column(align=True), None)
+                                if BonesEntry:
+                                    if not BonesEntry.IsLoaded:
+                                        BonesEntry.Load(True, False)
+                                self.draw_state_machine_editor(Entry, BonesEntry, box.row().column(align=True), None)
                                 header_label = f"State Machine Editor: {mat_item.item_name}"
                     sub.operator("helldiver2.collapse_section", text=header_label, icon=fold_icon, emboss=False).type = "state_machine_editor"
                     #if material_editor_show and mat_item: sub.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
@@ -4889,6 +4938,7 @@ classes = (
     SearchByEntryIDInput,
     SetBoneAnimatedOperator,
     SearchArmatureAnimationsOperator,
+    StateMachineBlendMaskWeightOperator,
 )
 
 Global_TocManager = TocManager()

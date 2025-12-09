@@ -34,15 +34,15 @@ class StingrayStateMachine:
             self.layers.append(new_layer)
             
         # get blend masks
-        memory_stream.seek(offset_start + self.blend_mask_offset)
-        self.blend_mask_count = memory_stream.uint32(self.blend_mask_count)
-        print(f"Num blend masks:{self.blend_mask_count}")
-        blend_mask_offsets = [memory_stream.uint32(t) for t in range(self.blend_mask_count)]
-        for offset in blend_mask_offsets:
-            memory_stream.seek(offset_start + self.blend_mask_offset + offset)
-            new_blend_mask = BlendMask()
-            new_blend_mask.load(memory_stream)
-            self.blend_masks.append(new_blend_mask)
+        if self.blend_mask_count > 0:
+            memory_stream.seek(offset_start + self.blend_mask_offset)
+            self.blend_mask_count = memory_stream.uint32(self.blend_mask_count)
+            blend_mask_offsets = [memory_stream.uint32(t) for t in range(self.blend_mask_count)]
+            for offset in blend_mask_offsets:
+                memory_stream.seek(offset_start + self.blend_mask_offset + offset)
+                new_blend_mask = BlendMask()
+                new_blend_mask.load(memory_stream)
+                self.blend_masks.append(new_blend_mask)
             
         for layer in self.layers:
             for state in layer.states:
