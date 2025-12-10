@@ -4486,7 +4486,10 @@ class HellDivers2ToolsPanel(Panel):
                         row.alignment = "CENTER"
                         text=f"Bone {j}: Weight {weight}"
                         if bones_entry and bones_entry.IsLoaded:
-                            text = f"{bones_entry.LoadedData.Names[j]}"
+                            try:
+                                text = f"{bones_entry.LoadedData.Names[j]}"
+                            except IndexError:
+                                pass
                         split.label(text=text)
                         op = split.operator("helldiver2.blend_mask_weight", text=f"Weight: {weight}")
                         op.object_id = str(state_machine_entry.FileID)
@@ -4742,8 +4745,8 @@ class HellDivers2ToolsPanel(Panel):
                         mat_index = getattr(context.scene, f"index_{Type.TypeID}")
                         if mat_index < len(mat_list):
                             mat_item = mat_list[mat_index]
-                            Entry = Global_TocManager.GetEntry(int(mat_item.item_name), int(mat_item.item_type))
-                            BonesEntry = Global_TocManager.GetEntry(int(mat_item.item_name), BoneID)
+                            Entry = Global_TocManager.GetEntry(int(mat_item.item_name), int(mat_item.item_type), SearchAll=True, IgnorePatch=False)
+                            BonesEntry = Global_TocManager.GetEntry(int(mat_item.item_name), BoneID, SearchAll=True, IgnorePatch=False)
                             if Entry:
                                 if not Entry.IsLoaded:
                                     Entry.Load(True, False)
