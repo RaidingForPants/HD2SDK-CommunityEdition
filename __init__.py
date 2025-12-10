@@ -29,7 +29,7 @@ import importlib
 # Blender
 import bpy
 from bpy_extras.io_utils import ImportHelper, ExportHelper
-from bpy.props import StringProperty, BoolProperty, IntProperty, EnumProperty, PointerProperty, CollectionProperty
+from bpy.props import StringProperty, BoolProperty, IntProperty, EnumProperty, PointerProperty, CollectionProperty, FloatProperty
 from bpy.types import Panel, Operator, PropertyGroup, Scene, Menu, OperatorFileListElement, UIList
 
 # other addon code
@@ -1682,11 +1682,14 @@ def LoadStingrayUnit(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject, 
     StingrayMesh.NameHash = int(ID)
     StingrayMesh.LoadMaterialSlotNames = LoadMaterialSlotNames
     StingrayMesh.Serialize(toc, gpu, Global_TocManager)
-    bones_entry = Global_TocManager.GetEntryByLoadArchive(StingrayMesh.BonesRef, BoneID)
+    bones_entry = Global_TocManager.GetEntry(StingrayMesh.BonesRef, BoneID, SearchAll=True, IgnorePatch=False)
     if bones_entry and not bones_entry.IsLoaded:
         bones_entry.Load(False, False)
-    if MakeBlendObject and bones_entry: CreateModel(StingrayMesh, str(ID), Global_BoneNames, bones_entry.LoadedData)
-    elif MakeBlendObject: CreateModel(StingrayMesh, str(ID), Global_BoneNames, None)
+    state_machine_entry = Global_TocManager.GetEntry(StingrayMesh.StateMachineRef, StateMachineID, SearchAll=True, IgnorePatch=False)
+    if state_machine_entry and not state_machine_entry.IsLoaded:
+        state_machine_entry.Load(False, False)
+    if MakeBlendObject and bones_entry and state_machine_entry: CreateModel(StingrayMesh, str(ID), Global_BoneNames, bones_entry.LoadedData, state_machine_entry.LoadedData)
+    elif MakeBlendObject: CreateModel(StingrayMesh, str(ID), Global_BoneNames, None, None)
     return StingrayMesh
 
 def SaveStingrayUnit(self, ID, TocData, GpuData, StreamData, StingrayMesh, BlenderOpts=None):
@@ -3980,6 +3983,8 @@ def CustomBoneContext(self, context):
     layout.separator()
     layout.operator("helldiver2.set_bone_animated", text="Set Bone Animated", icon='ARMATURE_DATA').value = True
     layout.operator("helldiver2.set_bone_animated", text="Set Bone Not Animated", icon='ARMATURE_DATA').value = False
+    layout.operator("helldiver2.set_bone_ragdoll", text="Set Jiggle Bone", icon="ARMATURE_DATA").value = True
+    layout.operator("helldiver2.set_bone_ragdoll", text="Set Not Jiggle Bone", icon="ARMATURE_DATA").value = False
     
 class SearchArmatureAnimationsOperator(Operator):
     bl_label = "Search Animations"
@@ -4007,6 +4012,41 @@ class SetBoneAnimatedOperator(Operator):
         for bone in bpy.context.selected_bones:
             bone["Animated"] = self.value
         return {"FINISHED"}
+        
+class SetBoneRagdollOperator(Operator):
+    bl_label = "Set bone ragdoll state"
+    bl_idname = "helldiver2.set_bone_ragdoll"
+    bl_description = "Sets bone to jiggle"
+    
+    value: BoolProperty(default=True)
+    def execute(self, context):
+        if bpy.context.object.mode != "EDIT":
+            return {"FINISHED"}
+        for bone in bpy.context.selected_bones:
+            bone["Jiggle"] = self.value
+            if self.value:
+                bone["Weight"] = 0.0
+                bone["Gravity"] = -9.8
+                bone["Param 3"] = 0.0
+                bone["Param 4"] = 0.0
+                bone["Param 5"] = 0.0
+                bone["Param 6"] = 0.0
+                bone["Param 7"] = 0.0
+                bone["Param 8"] = 0.0
+                bone["Param 9"] = 0.0
+            else:
+                bone.pop("Weight")
+                bone.pop("Gravity")
+                bone.pop("Param 3")
+                bone.pop("Param 4")
+                bone.pop("Param 5")
+                bone.pop("Param 6")
+                bone.pop("Param 7")
+                bone.pop("Param 8")
+                bone.pop("Param 9")
+                
+        return {"FINISHED"}
+        
 
 class CopyArchiveIDOperator(Operator):
     bl_label = "Copy Archive ID"
@@ -4243,6 +4283,62 @@ class ListItem(PropertyGroup):
         name="Selected",
         description="Indicates if item is selected",
         default=False
+    )
+    
+class RagdollProperty(PropertyGroup):
+    
+    weight: FloatProperty(
+        name="Weight",
+        description="Bone Weight",
+        default=0.0
+    )
+    
+    gravity: FloatProperty(
+        name="Gravity",
+        description="Strength of Gravity",
+        default=-9.8
+    )
+    
+    param3: FloatProperty(
+        name="Param 3",
+        description="Unknown Param",
+        default=0
+    )
+    
+    param4: FloatProperty(
+        name="Param 4",
+        description="Unknown Param",
+        default=0
+    )
+    
+    param5: FloatProperty(
+        name="Param 5",
+        description="Unknown Param",
+        default=0
+    )
+    
+    param6: FloatProperty(
+        name="Param 6",
+        description="Unknown Param",
+        default=0
+    )
+    
+    param7: FloatProperty(
+        name="Param 7",
+        description="Unknown Param",
+        default=0
+    )
+    
+    param8: FloatProperty(
+        name="Param 8",
+        description="Unknown Param",
+        default=0
+    )
+    
+    param9: FloatProperty(
+        name="Param 9",
+        description="Unknown Param",
+        default=0
     )
     
 class MY_UL_List(UIList):
@@ -5060,6 +5156,7 @@ classes = (
     SearchArmatureAnimationsOperator,
     StateMachineBlendMaskWeightOperator,
     StateMachineSaveOperator,
+    SetBoneRagdollOperator,
 )
 
 Global_TocManager = TocManager()

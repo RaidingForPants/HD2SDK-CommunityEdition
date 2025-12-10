@@ -1598,6 +1598,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     lod_index = og_object["BoneInfoIndex"]
     bone_entry = Global_TocManager.GetEntryByLoadArchive(stingray_mesh_entry.BonesRef, BoneID)
     modified_bone_entry = False
+    modified_state_machine = False
     bone_names = []
     bone_data = None
     state_machine_data = None
@@ -1666,6 +1667,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                     bone_data.Names.append(bone.name)
                     bone_data.NumNames += 1
                     modified_bone_entry = True
+                    modified_state_machine = True
                     for blend_mask in state_machine_data.blend_masks:
                         blend_mask.bone_count += 1
                         blend_mask.bone_weights.append(0.0)
@@ -1675,6 +1677,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                     bone_data.Names.pop(list_index)
                     bone_data.NumNames -= 1
                     modified_bone_entry = True
+                    modified_state_machine = True
                     for blend_mask in state_machine_data.blend_masks:
                         blend_mask.bone_count -= 1
                         blend_mask.bone_weights.pop(list_index)
@@ -1692,6 +1695,31 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                         raise Exception("No state machine property on armature, unable to automatically remove bone data from animations; please set a valid StateMachineID property.")
             except (KeyError, AttributeError) as e:
                 print(e)
+                
+            # set ragdoll
+            try:
+                bone_index = bone_data.BoneHashes.index(name_hash)
+                modified_state_machine = True
+                print(f"Setting jiggle bone for {bone.name}")
+                state_machine_data.remove_ragdoll(bone_index)
+                ragdoll = bone['Jiggle']
+                print(ragdoll)
+                weight = bone["Weight"]
+                gravity = bone["Gravity"]
+                param3 = bone["Param 3"]
+                param4 = bone["Param 4"]
+                param5 = bone["Param 5"]
+                param6 = bone["Param 6"]
+                param7 = bone["Param 7"]
+                param8 = bone["Param 8"]
+                param9 = bone["Param 9"]
+                params = [weight, gravity, param3, param4, param5, param6, param7, param8, param9]
+                if ragdoll:
+                    state_machine_data.set_ragdoll(bone_index, params)
+            except (KeyError, AttributeError) as e:
+                pass
+            except ValueError as e:
+                pass
             
             # set bone matrix
             loc, rot, scale = bone.matrix.decompose()
@@ -1747,6 +1775,8 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         
     if modified_bone_entry:
         bone_entry.Save()
+        
+    if modified_state_machine:
         state_machine_entry.Save()
     
     # get lights
@@ -1978,7 +2008,7 @@ def NameFromMesh(mesh, id, customization_info, bone_names, use_sufix=True):
 
     return name
 
-def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry):
+def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_entry):
     model, customization_info, bone_names, transform_info, bone_info, lights = stingray_unit.RawMeshes, stingray_unit.CustomizationInfo, stingray_unit.BoneNames, stingray_unit.TransformInfo, stingray_unit.BoneInfoArray, stingray_unit.LightList
     imported_lights = False
     if len(model) < 1: return
@@ -2168,8 +2198,16 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry):
                     else:
                         boneName = str(boneHash)
                     animated = False
+                    ragdoll = False
+                    ragdoll_params = []
                     if bones_entry and boneName in bones_entry.Names:
                         animated = True
+                        bone_index = bones_entry.Names.index(boneName)
+                        for r in state_machine_entry.ragdolls:
+                            if r.bone_index == bone_index:
+                                ragdoll = True
+                                ragdoll_params = r.params
+                                break
                     try:
                         b = int(boneName)
                         if bones_entry and b in bones_entry.BoneHashes:
@@ -2181,6 +2219,18 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry):
                         newBone = armature.edit_bones.new(boneName)
                         newBone.tail = 0, 0.05, 0
                         if bones_entry: newBone['Animated'] = animated
+                        if bones_entry:
+                            newBone['Jiggle'] = ragdoll
+                            if ragdoll:
+                                newBone['Weight'] = ragdoll_params[0]
+                                newBone['Gravity'] = ragdoll_params[1]
+                                newBone['Param 3'] = ragdoll_params[2]
+                                newBone['Param 4'] = ragdoll_params[3]
+                                newBone['Param 5'] = ragdoll_params[4]
+                                newBone['Param 6'] = ragdoll_params[5]
+                                newBone['Param 7'] = ragdoll_params[6]
+                                newBone['Param 8'] = ragdoll_params[7]
+                                newBone['Param 9'] = ragdoll_params[8]
                         doPoseBone[newBone.name] = True
                     else:
                         doPoseBone[newBone.name] = False
