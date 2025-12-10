@@ -3983,8 +3983,8 @@ def CustomBoneContext(self, context):
     layout.separator()
     layout.operator("helldiver2.set_bone_animated", text="Set Bone Animated", icon='ARMATURE_DATA').value = True
     layout.operator("helldiver2.set_bone_animated", text="Set Bone Not Animated", icon='ARMATURE_DATA').value = False
-    layout.operator("helldiver2.set_bone_ragdoll", text="Set Jiggle Bone", icon="ARMATURE_DATA").value = True
-    layout.operator("helldiver2.set_bone_ragdoll", text="Set Not Jiggle Bone", icon="ARMATURE_DATA").value = False
+    #layout.operator("helldiver2.set_bone_ragdoll", text="Set Jiggle Bone", icon="ARMATURE_DATA").value = True
+    #layout.operator("helldiver2.set_bone_ragdoll", text="Set Not Jiggle Bone", icon="ARMATURE_DATA").value = False
     
 class SearchArmatureAnimationsOperator(Operator):
     bl_label = "Search Animations"

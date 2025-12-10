@@ -1697,6 +1697,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 print(e)
                 
             # set ragdoll
+            '''
             try:
                 bone_index = bone_data.BoneHashes.index(name_hash)
                 modified_state_machine = True
@@ -1720,6 +1721,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 pass
             except ValueError as e:
                 pass
+            '''
             
             # set bone matrix
             loc, rot, scale = bone.matrix.decompose()
@@ -2219,6 +2221,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                         newBone = armature.edit_bones.new(boneName)
                         newBone.tail = 0, 0.05, 0
                         if bones_entry: newBone['Animated'] = animated
+                        '''
                         if bones_entry:
                             newBone['Jiggle'] = ragdoll
                             if ragdoll:
@@ -2231,6 +2234,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                                 newBone['Param 7'] = ragdoll_params[6]
                                 newBone['Param 8'] = ragdoll_params[7]
                                 newBone['Param 9'] = ragdoll_params[8]
+                        '''
                         doPoseBone[newBone.name] = True
                     else:
                         doPoseBone[newBone.name] = False
