@@ -1671,6 +1671,16 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                     for blend_mask in state_machine_data.blend_masks:
                         blend_mask.bone_count += 1
                         blend_mask.bone_weights.append(0.0)
+                    if state_machine_data:
+                        for animation in state_machine_data.animation_ids:
+                            animation_data = Global_TocManager.GetEntry(animation, AnimationID, IgnorePatch=False, SearchAll=True)
+                            if not animation_data.IsLoaded:
+                                animation_data.Load(False, False)
+                            animation_data.LoadedData.add_bone()
+                            if Global_TocManager.IsInPatch(animation_data):
+                                Global_TocManager.RemoveEntryFromPatch(animation, AnimationID)
+                            Global_TocManager.AddEntryToPatch(animation, AnimationID)
+                            Global_TocManager.Save(animation, AnimationID)
                 if not animated and name_hash in bone_data.BoneHashes: # this WILL require redoing all animations
                     list_index = bone_data.BoneHashes.index(name_hash)
                     bone_data.BoneHashes.pop(list_index)

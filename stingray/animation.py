@@ -425,6 +425,20 @@ class StingrayAnimation:
         output_stream = MemoryStream(IOMode="write")
         self.Serialize(output_stream)
         self.file_size = len(output_stream.Data)
+        
+    def add_bone(self):
+        initial_state = AnimationBoneInitialState()
+        initial_state.compress_position = 0
+        initial_state.compress_rotation = 0
+        initial_state.compress_scale = 0
+        initial_state.position = [0, 0, 0]
+        initial_state.rotation = [0, 0, 0, 1]
+        initial_state.scale = [1, 1, 1] if not self.is_additive_animation else [0, 0, 0]
+        self.initial_bone_states.append(initial_state)
+        self.bone_count += 1
+        output_stream = MemoryStream(IOMode="write")
+        self.Serialize(output_stream)
+        self.file_size = len(output_stream.Data)
 
     def load_from_armature(self, context, armature, bones_data):
         #if self.is_additive_animation:
