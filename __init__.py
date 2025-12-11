@@ -1704,14 +1704,12 @@ def SaveStingrayUnit(self, ID, TocData, GpuData, StreamData, StingrayMesh, Blend
                 break
         # print(lod0)
         if lod0 != None:
-            lod0_name = StingrayMesh.MeshInfoUnk[i]
             for n in range(len(StingrayMesh.RawMeshes)):
                 if StingrayMesh.RawMeshes[n].IsLod():
                     newmesh = copy.copy(lod0)
                     newmesh.MeshInfoIndex = StingrayMesh.RawMeshes[n].MeshInfoIndex
                     StingrayMesh.RawMeshes[n] = newmesh
-                    mesh_name = StingrayMesh.MeshInfoUnk[n]
-                    StingrayMesh.TransformInfo.TransformMatrices[StingrayMesh.TransformInfo.NameHashes.index(mesh_name)] = StingrayMesh.TransformInfo.TransformMatrices[StingrayMesh.TransformInfo.NameHashes.index(lod0_name)]
+                    StingrayMesh.TransformInfo.TransformMatrices[StingrayMesh.MeshInfoArray[n].TransformIndex] = StingrayMesh.TransformInfo.TransformMatrices[StingrayMesh.MeshInfoArray[lod0.MeshInfoIndex].TransformIndex]
     toc  = MemoryStream(IOMode = "write")
     gpu  = MemoryStream(IOMode = "write")
     StingrayMesh.Serialize(toc, gpu, Global_TocManager, BlenderOpts=BlenderOpts)
