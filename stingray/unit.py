@@ -5,11 +5,11 @@ import bpy
 import random
 import bmesh
 
-from ..memoryStream import MemoryStream, MakeTenBitUnsigned, TenBitUnsigned
-from ..logger import PrettyPrint
-from ..hashlists.hash import murmur32_hash
+from ..utils.memoryStream import MemoryStream, MakeTenBitUnsigned, TenBitUnsigned
+from ..utils.logger import PrettyPrint
+from ..utils.hashing import murmur32_hash
 
-from ..constants import *
+from ..utils.constants import *
 
 Global_MaterialSlotNames = {}
 

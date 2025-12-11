@@ -42,9 +42,15 @@ from .stingray import bones as bones_m
 from .stingray import composite_unit as composite_unit_m
 from .stingray import unit as unit_m
 from .stingray import state_machine as state_machine_m
-from .hashlists import hash as hash_m
 from .utils import slim as slim_m
+from .utils import hashing as hash_m
+from .utils import memoryStream as memoryStream_m
+from .utils import logger as logger_m
+from .utils import constants as constants_m
 
+importlib.reload(constants_m)
+importlib.reload(memoryStream_m)
+importlib.reload(logger_m)
 importlib.reload(animation_m)
 importlib.reload(raw_dump_m)
 importlib.reload(material_m)
@@ -68,15 +74,10 @@ from .stingray.composite_unit import StingrayCompositeMesh
 from .stingray.unit import CreateModel, GetObjectsMeshData, StingrayMeshFile
 from .utils.slim import is_slim_version, load_package, get_package_toc, slim_init
 
-from .hashlists.hash import murmur64_hash
-
-# Local
-# NOTE: Not bothering to do importlib reloading shit because these modules are unlikely to be modified frequently enough to warrant testing without Blender restarts
-from .memoryStream import MemoryStream
-from .logger import PrettyPrint
-
-
-from .constants import *
+from .utils.hashing import murmur64_hash
+from .utils.memoryStream import MemoryStream
+from .utils.logger import PrettyPrint
+from .utils.constants import *
 
 #endregion
 

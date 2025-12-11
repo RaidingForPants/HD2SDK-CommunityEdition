@@ -2,7 +2,7 @@ from math import ceil
 
 from .unit import StreamInfo, MeshSectionInfo
 
-from ..memoryStream import MemoryStream
+from ..utils.memoryStream import MemoryStream
 
 class CompositeMeshInfoItem:
     
