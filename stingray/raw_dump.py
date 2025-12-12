@@ -1,4 +1,4 @@
-from ..memoryStream import MemoryStream
+from ..utils.memoryStream import MemoryStream
 
 class StingrayRawDump:
     def __init__(self):

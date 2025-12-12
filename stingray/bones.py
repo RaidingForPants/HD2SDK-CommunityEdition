@@ -1,5 +1,5 @@
-from ..logger import PrettyPrint
-from ..memoryStream import MemoryStream
+from ..utils.logger import PrettyPrint
+from ..utils.memoryStream import MemoryStream
 
 class StingrayBones:
     def __init__(self, Global_BoneNames):
@@ -15,6 +15,8 @@ class StingrayBones:
             self.LODLevels = [0 for n in range(self.NumLODLevels)]
         self.UnkArray1 = [f.float32(value) for value in self.UnkArray1]
         self.BoneHashes = [f.uint32(value) for value in self.BoneHashes]
+        if not f.IsReading():
+            self.LODLevels = [self.NumNames] * self.NumLODLevels
         self.LODLevels = [f.uint32(value) for value in self.LODLevels]
         if f.IsReading():
             Data = f.read().split(b"\x00")
