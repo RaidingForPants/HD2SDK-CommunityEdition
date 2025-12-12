@@ -4733,7 +4733,7 @@ class HellDivers2ToolsPanel(Panel):
                     if "state_machine_editor" not in Global_Foldouts: # move to only init keys once
                         Global_Foldouts["state_machine_editor"] = False
                     state_machine_editor_show = Global_Foldouts["state_machine_editor"]
-                    row = box.row()
+                    row = box.box()
                     split = row.split()
                     fold_icon = "DOWNARROW_HLT" if state_machine_editor_show else "RIGHTARROW"
                     sub = split.row(align=True)
@@ -4753,7 +4753,7 @@ class HellDivers2ToolsPanel(Panel):
                                 if BonesEntry:
                                     if not BonesEntry.IsLoaded:
                                         BonesEntry.Load(True, False)
-                                self.draw_state_machine_editor(Entry, BonesEntry, box.row().column(align=True), None)
+                                self.draw_state_machine_editor(Entry, BonesEntry, row.row().column(align=True), None)
                                 header_label = f"State Machine Editor: {mat_item.item_name}"
                     sub.operator("helldiver2.collapse_section", text=header_label, icon=fold_icon, emboss=False).type = "state_machine_editor"
                     if state_machine_editor_show and mat_item: sub.operator("helldiver2.state_machine_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
@@ -4764,7 +4764,7 @@ class HellDivers2ToolsPanel(Panel):
                     if "material_editor" not in Global_Foldouts: # move to only init this key once
                         Global_Foldouts["material_editor"] = False
                     material_editor_show = Global_Foldouts["material_editor"]
-                    row = box.row()
+                    row = box.box()
                     split = row.split()
                     fold_icon = "DOWNARROW_HLT" if material_editor_show else "RIGHTARROW"
                     sub = split.row(align=True)
@@ -4782,7 +4782,7 @@ class HellDivers2ToolsPanel(Panel):
                             if Entry:
                                 if not Entry.IsLoaded:
                                     Entry.Load(True, False)
-                                self.draw_material_editor(Entry, box.row().column(align=True), None)
+                                self.draw_material_editor(Entry, row.row().column(align=True), None)
                                 header_label = f"Material Editor: {mat_item.item_name}"
                     sub.operator("helldiver2.collapse_section", text=header_label, icon=fold_icon, emboss=False).type = "material_editor"
                     if material_editor_show and mat_item: sub.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
