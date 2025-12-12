@@ -2291,7 +2291,7 @@ class StateMachineBlendMaskWeightOperator(Operator):
     object_id: StringProperty()
     blend_mask_index: bpy.props.IntProperty()
     bone_index: bpy.props.IntProperty()
-    bone_weight: bpy.props.FloatProperty()
+    bone_weight: bpy.props.FloatProperty(min = 0.0, max = 1.0)
     
     def draw(self, context):
         layout = self.layout
@@ -4490,7 +4490,8 @@ class HellDivers2ToolsPanel(Panel):
                             except IndexError:
                                 pass
                         split.label(text=text)
-                        op = split.operator("helldiver2.blend_mask_weight", text=f"Weight: {weight}")
+                        display_weight = round(weight, 2)
+                        op = split.operator("helldiver2.blend_mask_weight", text=f"Weight: {display_weight}")
                         op.object_id = str(state_machine_entry.FileID)
                         op.bone_index = j
                         op.bone_weight = weight
@@ -4698,7 +4699,7 @@ class HellDivers2ToolsPanel(Panel):
             # Get Type Icon
             type_icon = 'FILE'
             showExtras = scene.Hd2ToolPanelSettings.ShowExtras
-            if not showExtras and Type.TypeID not in [AnimationID, ParticleID, UnitID, TexID, MaterialID]:
+            if not showExtras and Type.TypeID not in [AnimationID, ParticleID, UnitID, TexID, MaterialID, StateMachineID]:
                 continue
             try:
                 type_icon = Global_IconDict[Type.TypeID]
