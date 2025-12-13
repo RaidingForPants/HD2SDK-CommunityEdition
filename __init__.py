@@ -2506,7 +2506,8 @@ class RenamePatchEntryOperator(Operator):
         if Entry == None and self.material_id == "":
             raise Exception(f"Entry does not exist in patch (cannot rename non patch entries) ID: {self.object_id} TypeID: {self.object_typeid}")
         if Entry != None and self.NewFileID != "":
-            Entry.FileID = int(self.NewFileID)
+            Global_TocManager.RemoveEntryFromPatch(Entry.FileID, Entry.TypeID)
+            Global_TocManager.AddEntryToPatchID(Entry, int(self.NewFileID))
 
         # Are we renaming via a texture entry in a material?
         if self.material_id != "" and self.texture_index != "":
@@ -4140,7 +4141,8 @@ def LoadEntryLists():
                 l = getattr(bpy.context.scene, f"list_{entry_type}")
             except AttributeError:
                 continue
-            for Entry in archive.TocDict[entry_type].values():
+            for entry_id in sorted(archive.TocDict[entry_type].keys()):
+                Entry = archive.TocDict[entry_type][entry_id]
                 new_item = l.add()
                 new_item.item_name = str(Entry.FileID)
                 new_item.item_type = str(Entry.TypeID)
@@ -4161,7 +4163,8 @@ def LoadEntryLists():
                 l = getattr(bpy.context.scene, f"list_{entry_type}")
             except AttributeError:
                 continue
-            for Entry in patch.TocDict[entry_type].values():
+            for entry_id in sorted(patch.TocDict[entry_type].keys()):
+                Entry = patch.TocDict[entry_type][entry_id]
                 # skip adding entry if not in patchonly mode AND archive contains entry
                 if (not bpy.context.scene.Hd2ToolPanelSettings.PatchOnly) and (archive and entry_type in archive.TocDict and Entry.FileID in archive.TocDict[entry_type]): continue
                 new_item = l.add()
