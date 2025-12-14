@@ -1,4 +1,5 @@
 from math import ceil, sqrt
+import math
 
 import mathutils
 import bpy
@@ -1191,6 +1192,10 @@ class Light:
     BOX = 2 # area?
     DIRECTIONAL = 3 # sun
     
+    CAST_SHADOW = 0x1
+    DISABLED = 0x2
+    INDIRECT_LIGHTING = 0x4
+
     def __init__(self):
         self.name_hash = self.bone_index = self.falloff_start = self.falloff_end = self.start_angle = self.end_angle = self.unk0 = self.flags = self.light_type = 0
         self.intensity = self.falloff_exp = 1
@@ -1808,20 +1813,27 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             if isinstance(blend_light_data, bpy.types.SpotLight):
                 target_light.end_angle = blend_light_data.spot_size
                 target_light.light_type = Light.SPOT
-                print("spot")
+                target_light.falloff_end = blend_light_data.cutoff_distance
             elif isinstance(blend_light_data, bpy.types.PointLight):
                 target_light.light_type = Light.OMNI
-                print("point")
+                target_light.falloff_end = blend_light_data.cutoff_distance
             elif isinstance(blend_light_data, bpy.types.AreaLight):
                 target_light.light_type = Light.BOX
+                target_light.falloff_start = -(blend_light_data.size/2)   # -X
+                target_light.falloff_end = blend_light_data.size/2        # +X
+                target_light.falloff_exp = 0                              # -Y
+                target_light.start_angle = -blend_light_data.size_y/2     # -Z
+                target_light.end_angle = blend_light_data.cutoff_distance # +Y
+                target_light.unk0 = blend_light_data.size_y/2             # +Z
             elif isinstance(blend_light_data, bpy.types.SunLight):
                 target_light.light_type = Light.DIRECTIONAL
-            print(type(blend_light_data))
-            print(blend_light_data.type)
+                target_light.end_angle = math.pi
             color = blend_light_data.color
             intensity = blend_light_data.energy
+            target_light.flags = 0
+            if blend_light_data.use_shadow:
+                target_light.flags |= Light.CAST_SHADOW
             target_light.color = [color.r * intensity, color.g*intensity, color.b*intensity]
-            target_light.falloff_end = blend_light_data.cutoff_distance
             if new_light:
                 light_list.lights.append(target_light)
         bpy.ops.object.mode_set(mode=prev_mode)  
@@ -2355,6 +2367,10 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                     blend_light.cutoff_distance = light.falloff_end
                     #blend_light.exposure = light.falloff_exp
                     blend_light.energy = sqrt(sum([component**2 for component in light.color]))
+                if target_light.flags & Light.CAST_SHADOW:
+                    blend_light.use_shadow = True
+                else:
+                    blend_light.use_shadow = False
                 light_object = bpy.data.objects.new(name = str(light.name_hash), object_data = blend_light)
                 bpy.context.collection.objects.link(light_object)
                 rotation_matrix = mathutils.Matrix.Rotation(1.57079632679, 4, 'X')
