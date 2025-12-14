@@ -1785,7 +1785,11 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             light_bone_index = -1
             for i, bone in enumerate(armature_obj.data.edit_bones):
                 if bone.name == blender_light.parent_bone:
-                    light_bone_index = i
+                    try:
+                        bone_name_hash = int(bone.name)
+                    except:
+                        bone_name_hash = murmur32_hash(bone.name.encode())
+                    light_bone_index = transform_info.NameHashes.index(bone_name_hash)
                     break
             if light_bone_index == -1:
                 PrettyPrint("Failed to find bone")
@@ -2356,16 +2360,17 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                 rotation_matrix = mathutils.Matrix.Rotation(1.57079632679, 4, 'X')
                 if armature:
                     for index, bone in enumerate(armature.edit_bones):
-                        if index == light.bone_index:
+                        try:
+                            bone_name_hash = int(bone.name)
+                        except:
+                            bone_name_hash = murmur32_hash(bone.name.encode())
+                        if transform_info.NameHashes.index(bone_name_hash) == light.bone_index:
                             light_object.parent = skeletonObj
                             light_object.parent_bone = bone.name
                             light_object.parent_type = "BONE"
                             light_object.matrix_parent_inverse = light_object.matrix_parent_inverse.inverted() @ rotation_matrix
                             break
             bpy.ops.object.mode_set(mode=current_mode)
-
-                    
-            
             
         
         # -- || ASSIGN MATERIALS || -- #
