@@ -2367,7 +2367,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                     blend_light.cutoff_distance = light.falloff_end
                     #blend_light.exposure = light.falloff_exp
                     blend_light.energy = sqrt(sum([component**2 for component in light.color]))
-                if target_light.flags & Light.CAST_SHADOW:
+                if light.flags & Light.CAST_SHADOW:
                     blend_light.use_shadow = True
                 else:
                     blend_light.use_shadow = False
