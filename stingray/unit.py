@@ -1768,10 +1768,10 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         bpy.context.view_layer.objects.active = prev_obj
         bpy.ops.object.mode_set(mode=prev_mode)
         
-    if modified_bone_entry:
+    if modified_bone_entry and bone_entry:
         bone_entry.Save()
         
-    if modified_state_machine:
+    if modified_state_machine and state_machine_entry:
         state_machine_entry.Save()
     
     # get lights
