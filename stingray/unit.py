@@ -1195,6 +1195,7 @@ class Light:
     CAST_SHADOW = 0x1
     DISABLED = 0x2
     INDIRECT_LIGHTING = 0x4
+    VOLUMETRIC_FOG = 0x10
 
     def __init__(self):
         self.name_hash = self.bone_index = self.falloff_start = self.falloff_end = self.start_angle = self.end_angle = self.unk0 = self.flags = self.light_type = 0
@@ -1768,10 +1769,10 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         bpy.context.view_layer.objects.active = prev_obj
         bpy.ops.object.mode_set(mode=prev_mode)
         
-    if modified_bone_entry:
+    if modified_bone_entry and bone_entry:
         bone_entry.Save()
         
-    if modified_state_machine:
+    if modified_state_machine and state_machine_entry:
         state_machine_entry.Save()
     
     # get lights
@@ -1830,9 +1831,15 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 target_light.end_angle = math.pi
             color = blend_light_data.color
             intensity = blend_light_data.energy
-            target_light.flags = 0
+            target_light.flags = target_light.flags & 0b11101110
             if blend_light_data.use_shadow:
                 target_light.flags |= Light.CAST_SHADOW
+            try:
+                if blend_light_data['Volumetric']:
+                    target_light.flags |= Light.VOLUMETRIC_FOG
+            except Exception as e:
+                print(e)
+                    
             target_light.color = [color.r * intensity, color.g*intensity, color.b*intensity]
             if new_light:
                 light_list.lights.append(target_light)
@@ -2375,7 +2382,15 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                     blend_light.use_shadow = True
                 else:
                     blend_light.use_shadow = False
+                if light.flags & Light.VOLUMETRIC_FOG:
+                    blend_light['Volumetric'] = True
+                else:
+                    blend_light['Volumetric'] = False
+                blend_light.use_custom_distance = True
                 light_object = bpy.data.objects.new(name = str(light.name_hash), object_data = blend_light)
+                light_object.lock_rotation = (True, True, True)
+                light_object.lock_location = (True, True, True)
+                light_object.lock_scale = (True, True, True)
                 bpy.context.collection.objects.link(light_object)
                 rotation_matrix = mathutils.Matrix.Rotation(1.57079632679, 4, 'X')
                 if armature:
