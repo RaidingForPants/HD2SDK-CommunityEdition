@@ -2291,7 +2291,7 @@ class StateMachineBlendMaskWeightOperator(Operator):
     object_id: StringProperty()
     blend_mask_index: bpy.props.IntProperty()
     bone_index: bpy.props.IntProperty()
-    bone_weight: bpy.props.FloatProperty()
+    bone_weight: bpy.props.FloatProperty(min = 0.0, max = 1.0)
     
     def draw(self, context):
         layout = self.layout
@@ -3984,6 +3984,7 @@ def CustomBoneContext(self, context):
     layout.separator()
     layout.operator("helldiver2.set_bone_animated", text="Set Bone Animated", icon='ARMATURE_DATA').value = True
     layout.operator("helldiver2.set_bone_animated", text="Set Bone Not Animated", icon='ARMATURE_DATA').value = False
+    layout.operator("helldiver2.add_light", icon='OUTLINER_OB_LIGHT')
     #layout.operator("helldiver2.set_bone_ragdoll", text="Set Jiggle Bone", icon="ARMATURE_DATA").value = True
     #layout.operator("helldiver2.set_bone_ragdoll", text="Set Not Jiggle Bone", icon="ARMATURE_DATA").value = False
     
@@ -4047,7 +4048,31 @@ class SetBoneRagdollOperator(Operator):
                 bone.pop("Param 9")
                 
         return {"FINISHED"}
-        
+
+class AddLightOperator(Operator):
+    bl_label = "Add HD2 Light"
+    bl_idname = "helldiver2.add_light"
+    bl_description = "Adds a HD2 light to the selected bone"
+    
+    def execute(self, context):
+        if bpy.context.object.mode != "EDIT":
+            return {"FINISHED"}
+        bone = bpy.context.active_bone
+        armature = bpy.context.active_object
+        bpy.ops.object.mode_set(mode="OBJECT")
+        bpy.ops.object.light_add(type="SPOT", rotation=(1.5708, 0, 0))
+        light = bpy.context.active_object
+        light.parent = armature
+        light.parent_type = 'BONE'
+        light.parent_bone = bone.name
+        light.lock_rotation = (True, True, True)
+        light.lock_location = (True, True, True)
+        light.lock_scale = (True, True, True)
+        light.data.use_custom_distance = True
+        light.data.cutoff_distance = 50.0
+        light.data.energy = 1000.0
+        light.data.show_cone = True
+        return {"FINISHED"}
 
 class CopyArchiveIDOperator(Operator):
     bl_label = "Copy Archive ID"
@@ -4493,7 +4518,8 @@ class HellDivers2ToolsPanel(Panel):
                             except IndexError:
                                 pass
                         split.label(text=text)
-                        op = split.operator("helldiver2.blend_mask_weight", text=f"Weight: {weight}")
+                        display_weight = round(weight, 2)
+                        op = split.operator("helldiver2.blend_mask_weight", text=f"Weight: {display_weight}")
                         op.object_id = str(state_machine_entry.FileID)
                         op.bone_index = j
                         op.bone_weight = weight
@@ -4701,7 +4727,7 @@ class HellDivers2ToolsPanel(Panel):
             # Get Type Icon
             type_icon = 'FILE'
             showExtras = scene.Hd2ToolPanelSettings.ShowExtras
-            if not showExtras and Type.TypeID not in [AnimationID, ParticleID, UnitID, TexID, MaterialID]:
+            if not showExtras and Type.TypeID not in [AnimationID, ParticleID, UnitID, TexID, MaterialID, StateMachineID]:
                 continue
             try:
                 type_icon = Global_IconDict[Type.TypeID]
@@ -4735,7 +4761,7 @@ class HellDivers2ToolsPanel(Panel):
                     if "state_machine_editor" not in Global_Foldouts: # move to only init keys once
                         Global_Foldouts["state_machine_editor"] = False
                     state_machine_editor_show = Global_Foldouts["state_machine_editor"]
-                    row = box.row()
+                    row = box.box()
                     split = row.split()
                     fold_icon = "DOWNARROW_HLT" if state_machine_editor_show else "RIGHTARROW"
                     sub = split.row(align=True)
@@ -4755,7 +4781,7 @@ class HellDivers2ToolsPanel(Panel):
                                 if BonesEntry:
                                     if not BonesEntry.IsLoaded:
                                         BonesEntry.Load(True, False)
-                                self.draw_state_machine_editor(Entry, BonesEntry, box.row().column(align=True), None)
+                                self.draw_state_machine_editor(Entry, BonesEntry, row.row().column(align=True), None)
                                 header_label = f"State Machine Editor: {mat_item.item_name}"
                     sub.operator("helldiver2.collapse_section", text=header_label, icon=fold_icon, emboss=False).type = "state_machine_editor"
                     if state_machine_editor_show and mat_item: sub.operator("helldiver2.state_machine_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
@@ -4766,7 +4792,7 @@ class HellDivers2ToolsPanel(Panel):
                     if "material_editor" not in Global_Foldouts: # move to only init this key once
                         Global_Foldouts["material_editor"] = False
                     material_editor_show = Global_Foldouts["material_editor"]
-                    row = box.row()
+                    row = box.box()
                     split = row.split()
                     fold_icon = "DOWNARROW_HLT" if material_editor_show else "RIGHTARROW"
                     sub = split.row(align=True)
@@ -4784,7 +4810,7 @@ class HellDivers2ToolsPanel(Panel):
                             if Entry:
                                 if not Entry.IsLoaded:
                                     Entry.Load(True, False)
-                                self.draw_material_editor(Entry, box.row().column(align=True), None)
+                                self.draw_material_editor(Entry, row.row().column(align=True), None)
                                 header_label = f"Material Editor: {mat_item.item_name}"
                     sub.operator("helldiver2.collapse_section", text=header_label, icon=fold_icon, emboss=False).type = "material_editor"
                     if material_editor_show and mat_item: sub.operator("helldiver2.material_save", icon='FILE_BLEND', text="").object_id = mat_item.item_name
@@ -5163,6 +5189,7 @@ classes = (
     StateMachineBlendMaskWeightOperator,
     StateMachineSaveOperator,
     SetBoneRagdollOperator,
+    AddLightOperator,
 )
 
 Global_TocManager = TocManager()
