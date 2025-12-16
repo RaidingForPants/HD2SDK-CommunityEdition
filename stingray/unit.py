@@ -2338,6 +2338,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                     light_type = "POINT"
                     blend_light = bpy.data.lights.new(name = str(light.name_hash), type=light_type)
                     blend_light.color = mathutils.Color(mathutils.Vector(light.color).normalized().to_tuple())
+                    blend_light.use_custom_distance = True
                     blend_light.cutoff_distance = light.falloff_end
                     #blend_light.exposure = light.falloff_exp
                     blend_light.energy = sqrt(sum([component**2 for component in light.color]))
@@ -2345,6 +2346,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                     light_type = "SPOT"
                     blend_light = bpy.data.lights.new(name = str(light.name_hash), type=light_type)
                     blend_light.color = mathutils.Color(mathutils.Vector(light.color).normalized().to_tuple())
+                    blend_light.use_custom_distance = True
                     blend_light.cutoff_distance = light.falloff_end
                     #blend_light.exposure = light.falloff_exp
                     blend_light.energy = sqrt(sum([component**2 for component in light.color]))
@@ -2354,6 +2356,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                     light_type = "AREA"
                     blend_light = bpy.data.lights.new(name = str(light.name_hash), type=light_type)
                     blend_light.color = mathutils.Color(mathutils.Vector(light.color).normalized().to_tuple())
+                    blend_light.use_custom_distance = True
                     blend_light.cutoff_distance = light.falloff_end
                     #blend_light.exposure = light.falloff_exp
                     blend_light.energy = sqrt(sum([component**2 for component in light.color]))
@@ -2364,6 +2367,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                     light_type = "SUN"
                     blend_light = bpy.data.lights.new(name = str(light.name_hash), type=light_type)
                     blend_light.color = mathutils.Color(mathutils.Vector(light.color).normalized().to_tuple())
+                    blend_light.use_custom_distance = True
                     blend_light.cutoff_distance = light.falloff_end
                     #blend_light.exposure = light.falloff_exp
                     blend_light.energy = sqrt(sum([component**2 for component in light.color]))

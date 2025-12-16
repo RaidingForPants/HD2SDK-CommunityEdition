@@ -3984,6 +3984,7 @@ def CustomBoneContext(self, context):
     layout.separator()
     layout.operator("helldiver2.set_bone_animated", text="Set Bone Animated", icon='ARMATURE_DATA').value = True
     layout.operator("helldiver2.set_bone_animated", text="Set Bone Not Animated", icon='ARMATURE_DATA').value = False
+    layout.operator("helldiver2.add_light", icon='OUTLINER_OB_LIGHT')
     #layout.operator("helldiver2.set_bone_ragdoll", text="Set Jiggle Bone", icon="ARMATURE_DATA").value = True
     #layout.operator("helldiver2.set_bone_ragdoll", text="Set Not Jiggle Bone", icon="ARMATURE_DATA").value = False
     
@@ -4047,7 +4048,31 @@ class SetBoneRagdollOperator(Operator):
                 bone.pop("Param 9")
                 
         return {"FINISHED"}
-        
+
+class AddLightOperator(Operator):
+    bl_label = "Add HD2 Light"
+    bl_idname = "helldiver2.add_light"
+    bl_description = "Adds a HD2 light to the selected bone"
+    
+    def execute(self, context):
+        if bpy.context.object.mode != "EDIT":
+            return {"FINISHED"}
+        bone = bpy.context.active_bone
+        armature = bpy.context.active_object
+        bpy.ops.object.mode_set(mode="OBJECT")
+        bpy.ops.object.light_add(type="SPOT", rotation=(1.5708, 0, 0))
+        light = bpy.context.active_object
+        light.parent = armature
+        light.parent_type = 'BONE'
+        light.parent_bone = bone.name
+        light.lock_rotation = (True, True, True)
+        light.lock_location = (True, True, True)
+        light.lock_scale = (True, True, True)
+        light.data.use_custom_distance = True
+        light.data.cutoff_distance = 50.0
+        light.data.energy = 1000.0
+        light.data.show_cone = True
+        return {"FINISHED"}
 
 class CopyArchiveIDOperator(Operator):
     bl_label = "Copy Archive ID"
@@ -5164,6 +5189,7 @@ classes = (
     StateMachineBlendMaskWeightOperator,
     StateMachineSaveOperator,
     SetBoneRagdollOperator,
+    AddLightOperator,
 )
 
 Global_TocManager = TocManager()
