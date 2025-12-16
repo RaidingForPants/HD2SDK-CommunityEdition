@@ -103,7 +103,10 @@
         "aaebfbedc571fd7a":	"DS-10 Big Game Hunter",
         "1e2ba3712fa1b030":	"RS-100 Sanctioner",
         "18e9f450ff227f68":	"RS-67 Null Cipher",
-        "85d392768bf6a259":	"RS-89 Shadow Paragon"
+        "85d392768bf6a259":	"RS-89 Shadow Paragon",
+        "6d07f1a7176ae5d0": "RS-20 Constrictor",
+        "27d61c15acfeaa0e": "RS-40 Beast of Prey",
+        "da1948db72db5343": "RS-6 Fiend Destroyer"
     },
 
     "Helmet": {
@@ -203,7 +206,10 @@
         "4b92ff9a0256159f":	"DS-10 Big Game Hunter",
         "b977f9d5411386d0":	"RS-100 Sanctioner",
         "b0db976d98b02a95":	"RS-67 Null Cipher",
-        "804e40c3115e9650":	"RS-89 Shadow Paragon"
+        "804e40c3115e9650":	"RS-89 Shadow Paragon",
+        "2c5f7890ce9b75b6": "RS-20 Constrictor",
+        "afecffb25e09988d": "RS-40 Beast of Prey",
+        "42d4df4c690e6491": "RS-6 Fiend Destroyer"
     },
 
     "Cape": {
@@ -276,7 +282,11 @@
         "4a45ba0bf67fa055":	"Gilded Quill",
         "acb713baebf37d9c":	"Triangulation Veil",
         "e60cceadd539b1d2":	"Pillar of the Abyss",
-        "7d2167bff3ebc3d5":	"Veridical Ideology"
+        "7d2167bff3ebc3d5":	"Veridical Ideology",
+        "61f85b8c1bf97b03": "Foe Rent Asunder",
+        "fd679c4070acb043": "Mark of the Constrictor",
+        "8ca53afa7fb23710": "De-Forester's Sailcloth",
+        "25839eed0400603b": "Against the Tyrant Cloud"
     },
 
     "Icons": { 
@@ -482,7 +492,8 @@
         "40f2a2ce5c20418f": "StA-52 Assault Rifle",
         "82751a054bdfd075": "AR-32 Pacifier",
         "fd3eef9a0329b2c2": "MA5C Assault Rifle",
-        "ebc7888cf3886e91": "AR-2 Coyote"
+        "ebc7888cf3886e91": "AR-2 Coyote",
+        "49f1972458f7ccec": "AR/GL-21 One-Two"
     },
 
     "Marksman Rifle": {
@@ -563,7 +574,7 @@
     "Support Weapon": {
         "6ad7cc21015a5f85": "AC-8 Autocannon",
         "2a9fb8f5d0576eae": "ARC-3 Arc Thrower",
-        "ea6967f8565a2d76": "APW-1 Anti-Materiel Rifle & PLAS-39 Accelerator",
+        "ea6967f8565a2d76": "APW-1 Anti-Materiel Rifle",
         "c40e3b3fa79052ec": "CQC-1 One True Flag",
         "de96cd7cc69628bc": "EAT-17 Expendable Anti-Tank",
         "530bb611a14b6ce3": "FAF-14 Spear",
@@ -582,7 +593,10 @@
         "93fa804787551c15": "SH-51 Directional Shield",
         "5795e99a988d10b7": "StA-X3 W.A.S.P. Launcher",
         "750605cfc0173701": "TX-41 Sterilizer",
-        "5d68e55823acd1bf": "EAT-700 Expendable Napalm"
+        "5d68e55823acd1bf": "EAT-700 Expendable Napalm",
+        "b2c627b3ba7e0c0a": "M-1000 Maxigun",
+        "eeebc5fd26fe0f40": "CQC-9 Defoliation Tool",
+        "351506bb55187cf9": "PLAS-39 Accelerator"
     },
 
     "Unreleased": {
@@ -674,6 +688,7 @@
         "be6c260fadcb8719": "AX/AR-23 Guard Dog",
         "35f4ca4fa00d380a":	"AX/TX-13 Guard Dog Dog Breath Backpack",
         "e62ab45bad7f6ca3": "AX/ARC-3 Guard Dog K-9 Backpack",
+        "82ec28278bf9b79a": "AX/FLAM-75 Guard Dog Hot Dog",
         "9514b4daa7f4c881":	"Terminid Larva",
         "346d785d6ca13ff4":	"B-100 Portable Hellbomb",
         "1dfe6f7a3c7ebefb":	"LIFT-860 Hover Pack",
