@@ -1195,6 +1195,7 @@ class Light:
     CAST_SHADOW = 0x1
     DISABLED = 0x2
     INDIRECT_LIGHTING = 0x4
+    VOLUMETRIC_FOG = 0x10
 
     def __init__(self):
         self.name_hash = self.bone_index = self.falloff_start = self.falloff_end = self.start_angle = self.end_angle = self.unk0 = self.flags = self.light_type = 0
@@ -1830,9 +1831,15 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 target_light.end_angle = math.pi
             color = blend_light_data.color
             intensity = blend_light_data.energy
-            target_light.flags = 0
+            target_light.flags = target_light.flags & 0b11101110
             if blend_light_data.use_shadow:
                 target_light.flags |= Light.CAST_SHADOW
+            try:
+                if blender_light['Volumetric']:
+                    target_light.flags |= Light.VOLUMETRIC_FOG
+            except:
+                pass
+                    
             target_light.color = [color.r * intensity, color.g*intensity, color.b*intensity]
             if new_light:
                 light_list.lights.append(target_light)
