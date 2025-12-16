@@ -4072,6 +4072,7 @@ class AddLightOperator(Operator):
         light.data.cutoff_distance = 50.0
         light.data.energy = 1000.0
         light.data.show_cone = True
+        light.data['Volumetric'] = False
         return {"FINISHED"}
 
 class CopyArchiveIDOperator(Operator):

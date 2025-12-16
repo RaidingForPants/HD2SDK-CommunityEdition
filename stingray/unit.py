@@ -1835,10 +1835,10 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             if blend_light_data.use_shadow:
                 target_light.flags |= Light.CAST_SHADOW
             try:
-                if blender_light_data['Volumetric']:
+                if blend_light_data['Volumetric']:
                     target_light.flags |= Light.VOLUMETRIC_FOG
-            except:
-                pass
+            except Exception as e:
+                print(e)
                     
             target_light.color = [color.r * intensity, color.g*intensity, color.b*intensity]
             if new_light:
@@ -2382,7 +2382,15 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                     blend_light.use_shadow = True
                 else:
                     blend_light.use_shadow = False
+                if light.flags & Light.VOLUMETRIC_FOG:
+                    blend_light['Volumetric'] = True
+                else:
+                    blend_light['Volumetric'] = False
+                blend_light.use_custom_distance = True
                 light_object = bpy.data.objects.new(name = str(light.name_hash), object_data = blend_light)
+                light_object.lock_rotation = (True, True, True)
+                light_object.lock_location = (True, True, True)
+                light_object.lock_scale = (True, True, True)
                 bpy.context.collection.objects.link(light_object)
                 rotation_matrix = mathutils.Matrix.Rotation(1.57079632679, 4, 'X')
                 if armature:
