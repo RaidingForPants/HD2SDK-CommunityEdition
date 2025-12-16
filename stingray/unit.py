@@ -1835,7 +1835,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             if blend_light_data.use_shadow:
                 target_light.flags |= Light.CAST_SHADOW
             try:
-                if blender_light['Volumetric']:
+                if blender_light_data['Volumetric']:
                     target_light.flags |= Light.VOLUMETRIC_FOG
             except:
                 pass
