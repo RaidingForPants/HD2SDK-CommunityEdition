@@ -14,6 +14,7 @@ from copy import deepcopy
 import copy
 from math import ceil
 from pathlib import Path
+import mathutils
 import os
 import configparser
 import requests
@@ -4059,20 +4060,25 @@ class AddLightOperator(Operator):
             return {"FINISHED"}
         bone = bpy.context.active_bone
         armature = bpy.context.active_object
-        bpy.ops.object.mode_set(mode="OBJECT")
-        bpy.ops.object.light_add(type="SPOT", rotation=(1.5708, 0, 0))
-        light = bpy.context.active_object
-        light.parent = armature
-        light.parent_type = 'BONE'
-        light.parent_bone = bone.name
-        light.lock_rotation = (True, True, True)
-        light.lock_location = (True, True, True)
-        light.lock_scale = (True, True, True)
-        light.data.use_custom_distance = True
-        light.data.cutoff_distance = 50.0
-        light.data.energy = 1000.0
-        light.data.show_cone = True
-        light.data['Volumetric'] = False
+        light_name = f"Light_{r.randint(1, 0xffffffff)}"
+        
+        blend_light = bpy.data.lights.new(name = light_name, type="SPOT")
+        blend_light.use_custom_distance = True
+        blend_light.cutoff_distance = 50.0
+        blend_light.energy = 1000.0
+        blend_light.show_cone = True
+        blend_light['Volumetric'] = False
+        
+        light_object = bpy.data.objects.new(name = light_name, object_data = blend_light)
+        light_object.lock_rotation = (True, True, True)
+        light_object.lock_location = (True, True, True)
+        light_object.lock_scale = (True, True, True)
+        light_object.parent = armature
+        light_object.parent_type = 'BONE'
+        light_object.parent_bone = bone.name
+        light_object.matrix_parent_inverse = light_object.matrix_parent_inverse.inverted() @ mathutils.Matrix.Rotation(1.57079632679, 4, 'X')
+        
+        bpy.context.collection.objects.link(light_object)
         return {"FINISHED"}
 
 class CopyArchiveIDOperator(Operator):
