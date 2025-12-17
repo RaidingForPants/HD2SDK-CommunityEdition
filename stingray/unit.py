@@ -183,11 +183,14 @@ class StingrayMeshFile:
         # Get Customization Info
         UnreversedCustomizationData_Size = 0
         if self.CustomizationInfoOffset > 0:
-            self.CustomizationInfoOffset = f.tell()
+            if f.IsReading():
+                f.seek(self.CustomizationInfoOffset)
+            else:
+                self.CustomizationInfoOffset = f.tell()
             if f.IsReading():
                 if self.UnkHeaderOffset1 > 0:
                     UnreversedCustomizationData_Size = self.UnkHeaderOffset1 - f.tell()
-                if self.ConnectingBoneHashOffset > 0:
+                elif self.ConnectingBoneHashOffset > 0:
                     UnreversedCustomizationData_Size = self.ConnectingBoneHashOffset - f.tell()
                 elif self.BoneInfoOffset > 0:
                     UnreversedCustomizationData_Size = self.BoneInfoOffset-f.tell()
@@ -204,7 +207,10 @@ class StingrayMeshFile:
         # If there is no transform info, this data is already contained in UnreversedLODGroupListData
         if self.UnkHeaderOffset1 > 0:
             data_size = 0
-            self.UnkHeaderOffset1 = f.tell()
+            if f.IsReading():
+                f.seek(self.UnkHeaderOffset1)
+            else:
+                self.UnkHeaderOffset1 = f.tell()
             if f.IsReading():
                 if self.ConnectingBoneHashOffset > 0:
                     data_size = self.ConnectingBoneHashOffset - f.tell()
