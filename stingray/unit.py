@@ -596,11 +596,13 @@ class StingrayMeshFile:
             HasTangents  = False
             HasBiTangents= False
             IsSkinned    = False
+            HasColors    = False
             NumUVs       = 0
             NumBoneIndices = 0
             # get total number of components
             for mesh in OrderedMeshes[stream_idx][0]:
                 if len(mesh.VertexPositions)  > 0: HasPositions  = True
+                if len(mesh.VertexColors)     > 0: HasColors     = True
                 if len(mesh.VertexNormals)    > 0: HasNormals    = True
                 if len(mesh.VertexTangents)   > 0: HasTangents   = True
                 if len(mesh.VertexBiTangents) > 0: HasBiTangents = True
@@ -618,6 +620,8 @@ class StingrayMeshFile:
                     raise Exception("bruh... your mesh doesn't have any vertices")
                 if HasNormals and not len(mesh.VertexNormals)    > 0:
                     mesh.VertexNormals = [[0,0,0] for n in mesh.VertexPositions]
+                if HasColors and not len(mesh.VertexColors) > 0:
+                    mesh.VertexColors = [[0, 0, 0, 0] for n in mesh.VertexColors]
                 if HasTangents and not len(mesh.VertexTangents)   > 0:
                     mesh.VertexTangents = [[0,0,0] for n in mesh.VertexPositions]
                 if HasBiTangents and not len(mesh.VertexBiTangents) > 0:
@@ -633,6 +637,7 @@ class StingrayMeshFile:
                         mesh.VertexUVs.append([[0,0] for n in mesh.VertexPositions])
             # make stream components
             Stream_Info.Components = []
+            if HasColors:     Stream_Info.Components.append(StreamComponentInfo("color", "rgba_r8g8b8a8"))
             if HasPositions:  Stream_Info.Components.append(StreamComponentInfo("position", "vec3_float"))
             if HasNormals:    Stream_Info.Components.append(StreamComponentInfo("normal", "unk_normal"))
             for n in range(NumUVs):
@@ -1317,17 +1322,17 @@ class SerializeFunctions:
         
     def SerializeRGBA8888Component(f: MemoryStream, value):
         if f.IsReading():
+            value = f.vec4_uint8([0,0,0,0])
+            value[0] = min(1, float(value[0]/255))
+            value[1] = min(1, float(value[1]/255))
+            value[2] = min(1, float(value[2]/255))
+            value[3] = min(1, float(value[3]/255))
+        else:
             r = min(255, int(value[0]*255))
             g = min(255, int(value[1]*255))
             b = min(255, int(value[2]*255))
             a = min(255, int(value[3]*255))
             value = f.vec4_uint8([r,g,b,a])
-        else:
-            value = f.vec4_uint8([r,g,b,a])
-            value[0] = min(1, float(value[0]/255))
-            value[1] = min(1, float(value[1]/255))
-            value[2] = min(1, float(value[2]/255))
-            value[3] = min(1, float(value[3]/255))
         return value
         
     def SerializeVec4Uint32Component(f: MemoryStream, value):
