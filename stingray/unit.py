@@ -614,7 +614,6 @@ class StingrayMeshFile:
                     NumUVs = max(3, NumUVs)
                 if IsSkinned and NumBoneIndices > 1 and BlenderOpts.get("Force1Group"):
                     NumBoneIndices = 1
-
             for mesh in OrderedMeshes[stream_idx][0]: # fill default values for meshes which are missing some components
                 if not len(mesh.VertexPositions)  > 0:
                     raise Exception("bruh... your mesh doesn't have any vertices")
@@ -1567,8 +1566,8 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     #normals = NormalsFromPalette(normals)
     # get uvs
     for uvlayer in object.data.uv_layers:
-        if len(uvs) >= 3:
-            break
+        #if len(uvs) >= 3:
+        #    break
         texCoord = [[0,0] for vert in mesh.vertices]
         for face in object.data.polygons:
             for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):
