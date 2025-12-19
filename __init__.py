@@ -4232,10 +4232,18 @@ def ChangePatchOnly(self, context):
     LoadEntryLists()
     
 def ChangeSearchString(self, context):
-    print(self)
-    print(context)
     for t in Global_TypeIDs:
         setattr(bpy.context.scene, f"filter_{t}", self.SearchField)
+        list_data = getattr(bpy.context.scene, f"list_{t}")
+        filter_string = self.SearchField
+        if filter_string.startswith("0x"):
+            filter_string = str(hex_to_decimal(filter_string))
+        flt_flags = bpy.types.UI_UL_list.filter_items_by_name(filter_string, 1073741824, list_data, "item_filter_name")
+        if not flt_flags:
+            flt_flags = [1] * len(list_data)
+        #flt_neworder = bpy.types.UI_UL_list.sort_items_by_name(data, "item_name")
+        for i, item in enumerate(list_data):
+            item.item_visible = (flt_flags[i] != 0)
 
 class Hd2ToolPanelSettings(PropertyGroup):
     # Patches
@@ -4318,6 +4326,12 @@ class ListItem(PropertyGroup):
         name="Selected",
         description="Indicates if item is selected",
         default=False
+    )
+    
+    item_visible: BoolProperty(
+        name="Visible",
+        description="Indicates if item is visible in list",
+        default=True
     )
     
 class RagdollProperty(PropertyGroup):
@@ -4448,7 +4462,6 @@ class MY_UL_List(UIList):
         if not flt_flags:
             flt_flags = [self.bitflag_filter_item] * len(list_data)
         #flt_neworder = bpy.types.UI_UL_list.sort_items_by_name(data, "item_name")
-        
         return flt_flags, flt_neworder
 
 class HellDivers2ToolsPanel(Panel):
@@ -4726,6 +4739,9 @@ class HellDivers2ToolsPanel(Panel):
         row.prop(scene.Hd2ToolPanelSettings, "SearchField", icon='VIEWZOOM', text="")
         global Global_Foldouts
         for Type in sorted(DisplayTocTypes, key=lambda e: e.TypeID):
+            ui_list = getattr(scene, f"list_{Type.TypeID}")
+            if all([not item.item_visible for item in ui_list]):
+                continue
             if Global_Foldouts.get(str(Type.TypeID), None) is None: # move to only init these keys once
                 fold = Type.TypeID in [MaterialID, TexID, UnitID]
                 Global_Foldouts[str(Type.TypeID)] = fold
