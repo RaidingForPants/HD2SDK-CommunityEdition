@@ -4244,8 +4244,9 @@ def ChangeSearchString(self, context):
         if not flt_flags:
             flt_flags = [1] * len(list_data)
         #flt_neworder = bpy.types.UI_UL_list.sort_items_by_name(data, "item_name")
-        for i, item in enumerate(list_data):
-            item.item_visible = (flt_flags[i] != 0)
+        for item in list_data:
+            item.item_visible = not all([flag == 0 for flag in flt_flags])
+            break
 
 class Hd2ToolPanelSettings(PropertyGroup):
     # Patches
@@ -4742,7 +4743,9 @@ class HellDivers2ToolsPanel(Panel):
         global Global_Foldouts
         for Type in sorted(DisplayTocTypes, key=lambda e: e.TypeID):
             ui_list = getattr(scene, f"list_{Type.TypeID}")
-            if all([not item.item_visible for item in ui_list]):
+            if len(ui_list) == 0:
+                continue
+            if not ui_list[0].item_visible:
                 continue
             if Global_Foldouts.get(str(Type.TypeID), None) is None: # move to only init these keys once
                 fold = Type.TypeID in [MaterialID, TexID, UnitID]
