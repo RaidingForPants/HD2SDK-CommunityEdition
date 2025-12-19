@@ -4215,6 +4215,8 @@ def LoadEntryLists():
                     new_item.item_filter_name = new_item.item_name
     if state_machine_warning:
         PrettyPrint("State machine not loaded for all animations; filtering animations by armature may not work.", "warn")
+        
+    ChangeSearchString(bpy.context.scene.Hd2ToolPanelSettings, bpy.context)
 
 def LoadedArchives_callback(scene, context):
     return [(Archive.Name, GetArchiveNameFromID(Archive.Name) if GetArchiveNameFromID(Archive.Name) != "" else Archive.Name, Archive.Name) for Archive in Global_TocManager.LoadedArchives]
