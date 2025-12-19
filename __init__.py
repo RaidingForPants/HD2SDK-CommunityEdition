@@ -1283,7 +1283,7 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
             Global_TocManager.RemoveEntryFromPatch(oldTexID, TexID)
     f = MemoryStream(IOMode="write")
     LoadedData.Serialize(f)
-    return [f.Data, b"", b""]
+    return [f.Data, GpuData, b""]
 
 def AddMaterialToBlend(ID, StingrayMat, EmptyMatExists=False):
     try:
