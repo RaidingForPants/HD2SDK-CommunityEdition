@@ -183,11 +183,14 @@ class StingrayMeshFile:
         # Get Customization Info
         UnreversedCustomizationData_Size = 0
         if self.CustomizationInfoOffset > 0:
-            self.CustomizationInfoOffset = f.tell()
+            if f.IsReading():
+                f.seek(self.CustomizationInfoOffset)
+            else:
+                self.CustomizationInfoOffset = f.tell()
             if f.IsReading():
                 if self.UnkHeaderOffset1 > 0:
                     UnreversedCustomizationData_Size = self.UnkHeaderOffset1 - f.tell()
-                if self.ConnectingBoneHashOffset > 0:
+                elif self.ConnectingBoneHashOffset > 0:
                     UnreversedCustomizationData_Size = self.ConnectingBoneHashOffset - f.tell()
                 elif self.BoneInfoOffset > 0:
                     UnreversedCustomizationData_Size = self.BoneInfoOffset-f.tell()
@@ -204,7 +207,10 @@ class StingrayMeshFile:
         # If there is no transform info, this data is already contained in UnreversedLODGroupListData
         if self.UnkHeaderOffset1 > 0:
             data_size = 0
-            self.UnkHeaderOffset1 = f.tell()
+            if f.IsReading():
+                f.seek(self.UnkHeaderOffset1)
+            else:
+                self.UnkHeaderOffset1 = f.tell()
             if f.IsReading():
                 if self.ConnectingBoneHashOffset > 0:
                     data_size = self.ConnectingBoneHashOffset - f.tell()
@@ -590,11 +596,13 @@ class StingrayMeshFile:
             HasTangents  = False
             HasBiTangents= False
             IsSkinned    = False
+            HasColors    = False
             NumUVs       = 0
             NumBoneIndices = 0
             # get total number of components
             for mesh in OrderedMeshes[stream_idx][0]:
                 if len(mesh.VertexPositions)  > 0: HasPositions  = True
+                if len(mesh.VertexColors)     > 0: HasColors     = True
                 if len(mesh.VertexNormals)    > 0: HasNormals    = True
                 if len(mesh.VertexTangents)   > 0: HasTangents   = True
                 if len(mesh.VertexBiTangents) > 0: HasBiTangents = True
@@ -606,12 +614,13 @@ class StingrayMeshFile:
                     NumUVs = max(3, NumUVs)
                 if IsSkinned and NumBoneIndices > 1 and BlenderOpts.get("Force1Group"):
                     NumBoneIndices = 1
-
             for mesh in OrderedMeshes[stream_idx][0]: # fill default values for meshes which are missing some components
                 if not len(mesh.VertexPositions)  > 0:
                     raise Exception("bruh... your mesh doesn't have any vertices")
                 if HasNormals and not len(mesh.VertexNormals)    > 0:
                     mesh.VertexNormals = [[0,0,0] for n in mesh.VertexPositions]
+                if HasColors and not len(mesh.VertexColors) > 0:
+                    mesh.VertexColors = [[0, 0, 0, 0] for n in mesh.VertexColors]
                 if HasTangents and not len(mesh.VertexTangents)   > 0:
                     mesh.VertexTangents = [[0,0,0] for n in mesh.VertexPositions]
                 if HasBiTangents and not len(mesh.VertexBiTangents) > 0:
@@ -627,6 +636,7 @@ class StingrayMeshFile:
                         mesh.VertexUVs.append([[0,0] for n in mesh.VertexPositions])
             # make stream components
             Stream_Info.Components = []
+            if HasColors:     Stream_Info.Components.append(StreamComponentInfo("color", "rgba_r8g8b8a8"))
             if HasPositions:  Stream_Info.Components.append(StreamComponentInfo("position", "vec3_float"))
             if HasNormals:    Stream_Info.Components.append(StreamComponentInfo("normal", "unk_normal"))
             for n in range(NumUVs):
@@ -1311,17 +1321,17 @@ class SerializeFunctions:
         
     def SerializeRGBA8888Component(f: MemoryStream, value):
         if f.IsReading():
+            value = f.vec4_uint8([0,0,0,0])
+            value[0] = min(1, float(value[0]/255))
+            value[1] = min(1, float(value[1]/255))
+            value[2] = min(1, float(value[2]/255))
+            value[3] = min(1, float(value[3]/255))
+        else:
             r = min(255, int(value[0]*255))
             g = min(255, int(value[1]*255))
             b = min(255, int(value[2]*255))
             a = min(255, int(value[3]*255))
             value = f.vec4_uint8([r,g,b,a])
-        else:
-            value = f.vec4_uint8([r,g,b,a])
-            value[0] = min(1, float(value[0]/255))
-            value[1] = min(1, float(value[1]/255))
-            value[2] = min(1, float(value[2]/255))
-            value[3] = min(1, float(value[3]/255))
         return value
         
     def SerializeVec4Uint32Component(f: MemoryStream, value):
@@ -1556,8 +1566,8 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     #normals = NormalsFromPalette(normals)
     # get uvs
     for uvlayer in object.data.uv_layers:
-        if len(uvs) >= 3:
-            break
+        #if len(uvs) >= 3:
+        #    break
         texCoord = [[0,0] for vert in mesh.vertices]
         for face in object.data.polygons:
             for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):

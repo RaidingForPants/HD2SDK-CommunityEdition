@@ -14,6 +14,7 @@ from copy import deepcopy
 import copy
 from math import ceil
 from pathlib import Path
+import mathutils
 import os
 import configparser
 import requests
@@ -1289,7 +1290,7 @@ def SaveStingrayMaterial(self, ID, TocData, GpuData, StreamData, LoadedData):
             Global_TocManager.RemoveEntryFromPatch(oldTexID, TexID)
     f = MemoryStream(IOMode="write")
     LoadedData.Serialize(f)
-    return [f.Data, b"", b""]
+    return [f.Data, GpuData, b""]
 
 def AddMaterialToBlend(ID, StingrayMat, EmptyMatExists=False):
     try:
@@ -4072,20 +4073,25 @@ class AddLightOperator(Operator):
             return {"FINISHED"}
         bone = bpy.context.active_bone
         armature = bpy.context.active_object
-        bpy.ops.object.mode_set(mode="OBJECT")
-        bpy.ops.object.light_add(type="SPOT", rotation=(1.5708, 0, 0))
-        light = bpy.context.active_object
-        light.parent = armature
-        light.parent_type = 'BONE'
-        light.parent_bone = bone.name
-        light.lock_rotation = (True, True, True)
-        light.lock_location = (True, True, True)
-        light.lock_scale = (True, True, True)
-        light.data.use_custom_distance = True
-        light.data.cutoff_distance = 50.0
-        light.data.energy = 1000.0
-        light.data.show_cone = True
-        light.data['Volumetric'] = False
+        light_name = f"Light_{r.randint(1, 0xffffffff)}"
+        
+        blend_light = bpy.data.lights.new(name = light_name, type="SPOT")
+        blend_light.use_custom_distance = True
+        blend_light.cutoff_distance = 50.0
+        blend_light.energy = 1000.0
+        blend_light.show_cone = True
+        blend_light['Volumetric'] = False
+        
+        light_object = bpy.data.objects.new(name = light_name, object_data = blend_light)
+        light_object.lock_rotation = (True, True, True)
+        light_object.lock_location = (True, True, True)
+        light_object.lock_scale = (True, True, True)
+        light_object.parent = armature
+        light_object.parent_type = 'BONE'
+        light_object.parent_bone = bone.name
+        light_object.matrix_parent_inverse = light_object.matrix_parent_inverse.inverted() @ mathutils.Matrix.Rotation(1.57079632679, 4, 'X')
+        
+        bpy.context.collection.objects.link(light_object)
         return {"FINISHED"}
 
 class CopyArchiveIDOperator(Operator):
@@ -4222,6 +4228,8 @@ def LoadEntryLists():
                     new_item.item_filter_name = new_item.item_name
     if state_machine_warning:
         PrettyPrint("State machine not loaded for all animations; filtering animations by armature may not work.", "warn")
+        
+    ChangeSearchString(bpy.context.scene.Hd2ToolPanelSettings, bpy.context)
 
 def LoadedArchives_callback(scene, context):
     return [(Archive.Name, GetArchiveNameFromID(Archive.Name) if GetArchiveNameFromID(Archive.Name) != "" else Archive.Name, Archive.Name) for Archive in Global_TocManager.LoadedArchives]
@@ -4239,10 +4247,19 @@ def ChangePatchOnly(self, context):
     LoadEntryLists()
     
 def ChangeSearchString(self, context):
-    print(self)
-    print(context)
     for t in Global_TypeIDs:
         setattr(bpy.context.scene, f"filter_{t}", self.SearchField)
+        list_data = getattr(bpy.context.scene, f"list_{t}")
+        filter_string = self.SearchField
+        if filter_string.startswith("0x"):
+            filter_string = str(hex_to_decimal(filter_string))
+        flt_flags = bpy.types.UI_UL_list.filter_items_by_name(filter_string, 1073741824, list_data, "item_filter_name")
+        if not flt_flags:
+            flt_flags = [1] * len(list_data)
+        #flt_neworder = bpy.types.UI_UL_list.sort_items_by_name(data, "item_name")
+        for item in list_data:
+            item.item_visible = not all([flag == 0 for flag in flt_flags])
+            break
 
 class Hd2ToolPanelSettings(PropertyGroup):
     # Patches
@@ -4325,6 +4342,12 @@ class ListItem(PropertyGroup):
         name="Selected",
         description="Indicates if item is selected",
         default=False
+    )
+    
+    item_visible: BoolProperty(
+        name="Visible",
+        description="Indicates if item is visible in list",
+        default=True
     )
     
 class RagdollProperty(PropertyGroup):
@@ -4455,7 +4478,6 @@ class MY_UL_List(UIList):
         if not flt_flags:
             flt_flags = [self.bitflag_filter_item] * len(list_data)
         #flt_neworder = bpy.types.UI_UL_list.sort_items_by_name(data, "item_name")
-        
         return flt_flags, flt_neworder
 
 class HellDivers2ToolsPanel(Panel):
@@ -4733,6 +4755,11 @@ class HellDivers2ToolsPanel(Panel):
         row.prop(scene.Hd2ToolPanelSettings, "SearchField", icon='VIEWZOOM', text="")
         global Global_Foldouts
         for Type in sorted(DisplayTocTypes, key=lambda e: e.TypeID):
+            ui_list = getattr(scene, f"list_{Type.TypeID}")
+            if len(ui_list) == 0:
+                continue
+            if not ui_list[0].item_visible:
+                continue
             if Global_Foldouts.get(str(Type.TypeID), None) is None: # move to only init these keys once
                 fold = Type.TypeID in [MaterialID, TexID, UnitID]
                 Global_Foldouts[str(Type.TypeID)] = fold
