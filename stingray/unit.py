@@ -1670,7 +1670,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                             animation_data = Global_TocManager.GetEntry(animation, AnimationID, IgnorePatch=False, SearchAll=True)
                             if not animation_data.IsLoaded:
                                 animation_data.Load(False, False)
-                            animation_data.LoadedData.add_bone()
+                            animation_data.LoadedData.add_bone(bone)
                             if Global_TocManager.IsInPatch(animation_data):
                                 Global_TocManager.RemoveEntryFromPatch(animation, AnimationID)
                             Global_TocManager.AddEntryToPatch(animation, AnimationID)
@@ -2388,6 +2388,10 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                     blend_light.cutoff_distance = light.falloff_end
                     #blend_light.exposure = light.falloff_exp
                     blend_light.energy = sqrt(sum([component**2 for component in light.color]))
+                else:
+                    print("UNKNOWN LIGHT TYPE")
+                    print(light.light_type)
+                    continue
                 if light.flags & Light.CAST_SHADOW:
                     blend_light.use_shadow = True
                 else:

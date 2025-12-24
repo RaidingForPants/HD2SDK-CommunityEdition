@@ -426,12 +426,16 @@ class StingrayAnimation:
         self.Serialize(output_stream)
         self.file_size = len(output_stream.Data)
         
-    def add_bone(self):
+    def add_bone(self, bone):
         initial_state = AnimationBoneInitialState()
         initial_state.compress_position = 0
         initial_state.compress_rotation = 0
         initial_state.compress_scale = 0
-        initial_state.position = [0, 0, 0]
+        if bone.parent:
+            translation, rotation, scale = (bone.parent.matrix.inverted() @ bone.matrix).decompose()
+        else:
+            translation, rotation, scale = bone.matrix.decompose()
+        initial_state.position = translation.to_tuple()
         initial_state.rotation = [0, 0, 0, 1]
         initial_state.scale = [1, 1, 1] if not self.is_additive_animation else [0, 0, 0]
         self.initial_bone_states.append(initial_state)
