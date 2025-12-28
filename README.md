@@ -34,8 +34,9 @@ Download the [latest release build](https://github.com/Boxofbiscuits97/HD2SDK-Co
 We've taken the time to write a tutorial focused on armor modding which should assist those already moderately familiar with mesh modding and Blender in general. Unfortunately we do not have the means to provide constant support to anyone new to either, but in the event anyone should write a more in-depth tutorial, create a video tutorial, etc, we would be happy to feature it here if it's brought to our attention.
 
 ## Documentation
-To get a more curated list of specific guides, join the [Community Discord](https://discord.gg/ZwjPaZNwH7). But here's the two main things you'll need.
-- [Main Modding Guide Presentation](https://docs.google.com/presentation/d/12SRK-LEdf_-m37FAFdKjXsjNidpBmzUeCm9-onlEFaM)
+To get a more curated list of specific guides, join the [Community Discord](https://discord.gg/ZwjPaZNwH7). But here's the wiki, the legacy guide, and ID archives.
+- [HD2 Modding Wiki](https://boxofbiscuits97.github.io/HD2-Modding-Wiki/)
+- [HD2 Legacy Modding Guide](https://docs.google.com/presentation/d/12SRK-LEdf_-m37FAFdKjXsjNidpBmzUeCm9-onlEFaM)
 - [Archive IDs Spreadsheet](https://docs.google.com/spreadsheets/d/1oQys_OI5DWou4GeRE3mW56j7BIi4M7KftBIPAl1ULFw)
 
 ### Discords
