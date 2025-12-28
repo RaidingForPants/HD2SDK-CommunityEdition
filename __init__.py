@@ -90,7 +90,6 @@ Global_texconvbin        = "texconv" if platform.system() == "Linux" else "texco
 Global_texconvpath       = f"{AddonPath}/deps/{Global_texconvbin}"
 Global_materialpath      = f"{AddonPath}/materials"
 Global_typehashpath      = f"{AddonPath}/hashlists/typehash.txt"
-Global_filehashpath      = f"{AddonPath}/hashlists/filehash.txt"
 Global_friendlynamespath = f"{AddonPath}/hashlists/friendlynames.txt"
 
 Global_archivehashpath   = f"{AddonPath}/hashlists/archivehashes.json"
@@ -395,11 +394,6 @@ def AddFriendlyName(ID, Name):
     SaveFriendlyNames()
 
 def SaveFriendlyNames():
-    with open(Global_filehashpath, 'w') as f:
-        for hash_info in Global_NameHashes:
-            if hash_info[1] != "" and int(hash_info[0]) == murmur64_hash(hash_info[1].encode()):
-                string = str(hash_info[0]) + " " + str(hash_info[1])
-                f.writelines(string+"\n")
     with open(Global_friendlynamespath, 'w') as f:
         for hash_info in Global_NameHashes:
             if hash_info[1] != "":
@@ -420,11 +414,6 @@ def LoadTypeHashes():
 Global_NameHashes = []
 def LoadNameHashes():
     Loaded = []
-    with open(Global_filehashpath, 'r') as f:
-        for line in f.readlines():
-            parts = line.split(" ")
-            Global_NameHashes.append([int(parts[0]), parts[1].replace("\n", "")])
-            Loaded.append(int(parts[0]))
     with open(Global_friendlynamespath, 'r') as f:
         for line in f.readlines():
             parts = line.split(" ", 1)
