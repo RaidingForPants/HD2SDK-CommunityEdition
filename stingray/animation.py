@@ -63,13 +63,13 @@ class AnimationEntry:
             elif subtype == 6:
                 # scale data (uncompressed)
                 data2 = tocFile.vec3_float(temp_arr)
+            elif subtype == 2: # triggers sounds?
+                data2 = bytearray()
             else:
                 PrettyPrint(f"Unknown type/subtype! {type}/{subtype}")
                 self.subtype = subtype
                 self.type = type
                 return
-            #elif subtype != 2:
-            #    pass
         self.data2 = data2
         self.data = data
         self.bone = bone
@@ -138,7 +138,7 @@ class AnimationEntry:
                 # scale data (uncompressed)
                 #data2 = tocFile.vec3_float(temp_arr)
                 tocFile.vec3_float(self.data2)
-            elif subtype != 2:
+            elif subtype == 2: # triggers sounds?
                 pass
  
     
@@ -307,7 +307,7 @@ class StingrayAnimation:
             tocFile.seek(tocFile.tell()-2)
             entry = AnimationEntry()
             entry.Serialize(tocFile)
-            if not (entry.type == 0 and entry.subtype not in [4, 5, 6]):
+            if not (entry.type == 0 and entry.subtype not in [2, 4, 5, 6]):
                 self.entries.append(entry)
         for initial_state in self.initial_bone_states:
             if initial_state.scale[0] == 0:
@@ -447,7 +447,9 @@ class StingrayAnimation:
     def load_from_armature(self, context, armature, bones_data):
         #if self.is_additive_animation:
         #    raise AnimationException("Saving additive animations is not yet supported")
-        self.entries.clear()
+        #self.entries.clear()
+        self.entries = [entry for entry in self.entries if (entry.type == 0 and entry.subtype == 2)]
+        print(len(self.entries))
         self.initial_bone_states.clear()
         action = armature.animation_data.action
         idx = bones_data.index(b"StingrayEntityRoot")
