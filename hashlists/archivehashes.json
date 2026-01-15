@@ -473,7 +473,8 @@
         "1721eee4581a9c54": "G-142 PyroTech",
         "ddcea5fdd4071767": "G-31 Arc",
         "3bf0844097ab595f": "K-2 Throwing Knife",
-        "dbf00f1b8761aba5": "G-7 Pineapple"
+        "dbf00f1b8761aba5": "G-7 Pineapple",
+        "fae34acb79502f53": "TM-01 Lure Mine"
     },
 
     "Standard Throwable": {
@@ -493,14 +494,16 @@
         "82751a054bdfd075": "AR-32 Pacifier",
         "fd3eef9a0329b2c2": "MA5C Assault Rifle",
         "ebc7888cf3886e91": "AR-2 Coyote",
-        "49f1972458f7ccec": "AR/GL-21 One-Two"
+        "49f1972458f7ccec": "AR/GL-21 One-Two",
+        "4709331e1a3c3ac9": "AR-59 Suppressor"
     },
 
     "Marksman Rifle": {
         "68aa9a343aa4333c": "R-2124 Constitution",
         "e829d44fb5653ec4": "R-2 Amendment",
         "2404fa21fe49c32d": "R-63 Diligence & R-63CS Diligence Counter Sniper",
-        "03b4b7a46856ccb2": "R-6 Deadeye"
+        "03b4b7a46856ccb2": "R-6 Deadeye",
+        "9974f498c67d5e20": "R-72 Censor"
     },
 
     "Submachine Gun": {
@@ -519,7 +522,8 @@
         "7af5df78217fd645": "SG-451 Cookout",
         "522be23400cc6086": "SG-20 Halt",
         "31894c33c4ed1e2a": "SG-88 Break-Action Shotgun",
-        "44dd33af0ef2b0d1": "M90A Shotgun"
+        "44dd33af0ef2b0d1": "M90A Shotgun",
+        "793a472e127520d3": "DBS-2 Double Freedom"
     },
 
     "Explosive": {
@@ -550,7 +554,8 @@
         "41ce78fe8f96bebe": "P-72 Crisper",
         "82dcd83d81a385f3": "LAS-7 Dagger, LAS-58 Talon",
         "2844da91583db0f4": "P-11 Stim Pistol",
-        "b779a2f9d0928e03": "GP-20 Ultimatum"
+        "b779a2f9d0928e03": "GP-20 Ultimatum",
+        "1b006880ac88d1cd": "P-35 Re-Educator"
     },
 
     "Melee": {
@@ -692,7 +697,8 @@
         "9514b4daa7f4c881":	"Terminid Larva",
         "346d785d6ca13ff4":	"B-100 Portable Hellbomb",
         "1dfe6f7a3c7ebefb":	"LIFT-860 Hover Pack",
-        "68f670405a504f68": "LIFT-182 Warp Pack"
+        "68f670405a504f68": "LIFT-182 Warp Pack",
+        "bba76437a1c00c1e": "B/MD C4 Pack"
     },
 
     "Turret": {
