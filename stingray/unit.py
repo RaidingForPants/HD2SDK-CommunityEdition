@@ -1458,15 +1458,15 @@ def PrepareMesh(og_object):
     object = duplicate(og_object)
     bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = object
+    mesh = object.data
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.reveal()
     
     if bpy.context.scene.Hd2ToolPanelSettings.SplitUVIslands:
         # merge by distance
-        bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action="SELECT")
         bpy.ops.mesh.remove_doubles(use_unselected=False, use_sharp_edge_from_normals=True)
-        
-    mesh = object.data
-    bpy.ops.object.mode_set(mode='EDIT')
+
     for uv_layer in mesh.uv_layers:
         mesh.uv_layers.active = uv_layer
         try:
