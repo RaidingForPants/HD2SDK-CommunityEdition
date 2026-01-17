@@ -363,7 +363,8 @@ class StingrayAnimation:
                 for value in bone_state.rotation:
                     tocFile.float32(value)
             if bone_state.compress_scale:
-                tocFile.vec3_half(AnimationBoneInitialState.compress_scale(bone_state.scale))
+                for s in AnimationBoneInitialState.compress_scale(bone_state.scale):
+                    tocFile.uint16(s)
             else:
                 tocFile.vec3_float(bone_state.scale)
         for value in self.hashes_floats:
@@ -403,7 +404,8 @@ class StingrayAnimation:
                 for value in bone_state.rotation:
                     tocFile.float32(value)
             if bone_state.compress_scale:
-                tocFile.vec3_half(AnimationBoneInitialState.compress_scale(bone_state.scale))
+                for s in AnimationBoneInitialState.compress_scale(bone_state.scale):
+                    tocFile.uint16(s)
             else:
                 tocFile.vec3_float(bone_state.scale)
         for value in self.hashes_floats:
