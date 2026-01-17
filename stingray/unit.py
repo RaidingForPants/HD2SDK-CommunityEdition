@@ -1596,7 +1596,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     bone_names = []
     bone_data = None
     state_machine_data = None
-    state_machine_entry = Global_TocManager.GetEntryByLoadArchive(stingray_mesh_entry.StateMachineRef, StateMachineID)
+    state_machine_entry = Global_TocManager.GetEntry(stingray_mesh_entry.StateMachineRef, StateMachineID, IgnorePatch=False, SearchAll=True)
     if bone_entry is None:
         PrettyPrint("This unit does not have any animated bone data, unable to edit bone animated state", "warn")
     else:
@@ -1609,9 +1609,8 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     if state_machine_entry is None:
         PrettyPrint("This unit does not have any state machine data, unable to edit bone animated state", "warn")
     else:
-        if Global_TocManager.IsInPatch(state_machine_entry):
-            Global_TocManager.RemoveEntryFromPatch(state_machine_entry.FileID, StateMachineID)
-        state_machine_entry = Global_TocManager.AddEntryToPatch(state_machine_entry.FileID, StateMachineID)
+        if not Global_TocManager.IsInPatch(state_machine_entry):
+            state_machine_entry = Global_TocManager.AddEntryToPatch(state_machine_entry.FileID, StateMachineID)
         if state_machine_entry:
             if not state_machine_entry.IsLoaded:
                 state_machine_entry.Load()
