@@ -2523,6 +2523,7 @@ class RenamePatchEntryOperator(Operator):
                 material.name = self.NewFileID
 
         # Redraw
+        LoadEntryLists()
         for area in context.screen.areas:
             if area.type == "VIEW_3D": area.tag_redraw()
             
@@ -4182,6 +4183,11 @@ def LoadEntryLists():
                 continue
             for entry_id in sorted(archive.TocDict[entry_type].keys()):
                 Entry = archive.TocDict[entry_type][entry_id]
+                if patch:
+                    try:
+                        Entry = patch.TocDict[entry_type][entry_id]
+                    except KeyError:
+                        pass
                 new_item = l.add()
                 new_item.item_name = str(Entry.FileID)
                 new_item.item_type = str(Entry.TypeID)
