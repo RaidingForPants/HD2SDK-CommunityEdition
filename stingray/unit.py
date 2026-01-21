@@ -2358,7 +2358,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
               skeletonObj.animation_data_create()
         
         
-        if not imported_lights:
+        if skeletonObj is not None and not imported_lights:
             imported_lights = True
             current_mode = bpy.context.mode
             bpy.ops.object.mode_set(mode='EDIT')
