@@ -2448,29 +2448,30 @@ class DuplicateEntryOperator(Operator):
     bl_idname = "helldiver2.archive_duplicate"
     bl_description = "Duplicate Selected Entry"
 
-    NewFileID : StringProperty(name="NewFileID", default="")
     def draw(self, context):
-        global Global_randomID
-        PrettyPrint(f"Got ID: {Global_randomID}")
-        self.NewFileID = Global_randomID
         layout = self.layout; row = layout.row()
         row.operator("helldiver2.generate_random_id", icon="FILE_REFRESH")
         row = layout.row()
-        row.prop(self, "NewFileID", icon='COPY_ID')
+        row.prop(context.scene, "new_id_entry", icon="FILE_REFRESH")
 
     object_id: StringProperty()
     object_typeid: StringProperty()
     def execute(self, context):
-        global Global_randomID
         if Global_TocManager.ActivePatch == None:
-            Global_randomID = ""
+            context.scene.new_id_entry = ""
             self.report({'ERROR'}, "No Patches Currently Loaded")
             return {'CANCELLED'}
-        if self.NewFileID == "":
+        if context.scene.new_id_entry == "":
             self.report({'ERROR'}, "No ID was given")
             return {'CANCELLED'}
-        Global_TocManager.DuplicateEntry(int(self.object_id), int(self.object_typeid), int(self.NewFileID))
-        Global_randomID = ""
+        Global_TocManager.DuplicateEntry(int(self.object_id), int(self.object_typeid), int(context.scene.new_id_entry))
+        if int(self.object_typeid) == MaterialID:
+            material = bpy.data.materials.get(self.object_id)
+            new_material = bpy.data.materials.get(context.scene.new_id_entry)
+            if material and not new_material:
+                dup = material.copy()
+                dup.name = context.scene.new_id_entry
+        context.scene.new_id_entry = ""
         return{'FINISHED'}
 
     def invoke(self, context, event):
@@ -2483,9 +2484,8 @@ class GenerateEntryIDOperator(Operator):
     bl_description = "Generates a random ID for the entry"
 
     def execute(self, context):
-        global Global_randomID
-        Global_randomID = str(RandomHash16())
-        PrettyPrint(f"Generated random ID: {Global_randomID}")
+        context.scene.new_id_entry = str(RandomHash16())
+        PrettyPrint(f"Generated random ID: {context.scene.new_id_entry}")
         return{'FINISHED'}
 
 class RenamePatchEntryOperator(Operator):
@@ -2514,6 +2514,13 @@ class RenamePatchEntryOperator(Operator):
         if self.material_id != "" and self.texture_index != "":
             MaterialEntry = Global_TocManager.GetPatchEntry_B(int(self.material_id), int(MaterialID))
             MaterialEntry.LoadedData.TexIDs[int(self.texture_index)] = int(self.NewFileID)
+            
+            
+        # Are we renaming a material? (duplicate Blender material if it exists and give it the new name)
+        if int(self.object_typeid) == MaterialID:
+            material = bpy.data.materials.get(self.object_id)
+            if material:
+                material.name = self.NewFileID
 
         # Redraw
         for area in context.screen.areas:
@@ -5253,12 +5260,6 @@ def register():
     bpy.utils.register_class(WM_MT_button_context)
     bpy.types.VIEW3D_MT_object_context_menu.append(CustomPropertyContext)
     bpy.types.VIEW3D_MT_armature_context_menu.append(CustomBoneContext)
-    #bpy.types.VIEW3D_MT_pose_context_menu
-    #bpy.types.VIEW3D_MT_armature_context_menu
-    #bpy.types.VIEW3D_MT_
-    #for name in dir(bpy.types):
-    #    if "context" in name:
-    #        print(name)
     bpy.utils.register_class(MY_UL_List)
     bpy.utils.register_class(ListItem)
     for t in Global_TypeIDs: # make all this into an item in another collection property
@@ -5266,6 +5267,7 @@ def register():
         setattr(bpy.types.Scene, f"index_{t}", IntProperty(name = f"index_{t}", default = 0))
         setattr(bpy.types.Scene, f"filter_{t}", StringProperty(name = f"filter_{t}", default = ""))
         setattr(bpy.types.Scene, f"index_{t}_dummy", IntProperty(name = f"index_{t}_dummy", default = 5000000, set=SetSelected(t)))
+    bpy.types.Scene.new_id_entry = StringProperty(name="new_id_entry", default="")
 
 def unregister():
     bpy.utils.unregister_class(WM_MT_button_context)
