@@ -321,11 +321,11 @@ def GetDisplayData():
     return [DisplayTocEntries, DisplayTocTypes]
 
 def SaveUnsavedEntries(self):
-    for entry_type, entries in Global_TocManager.ActivePatch.TocDict.items():
-        for Entry in entries.values():
-            if not Entry.IsModified:
-                Global_TocManager.Save(int(Entry.FileID), Entry.TypeID)
-                PrettyPrint(f"Saved {int(Entry.FileID)}")
+    for entries in list(Global_TocManager.ActivePatch.TocDict.values()):
+        for entry in list(entries.values()):
+            if not entry.IsModified:
+                Global_TocManager.Save(int(entry.FileID), entry.TypeID)
+                PrettyPrint(f"Saved {int(entry.FileID)}")
 
 def RandomHash16():
     global Global_previousRandomHash
