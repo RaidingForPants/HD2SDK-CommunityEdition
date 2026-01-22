@@ -3392,19 +3392,18 @@ class SaveStingrayAnimationOperator(Operator):
         if not animation_entry.IsLoaded: animation_entry.Load(True, False)
         bones_entry = Global_TocManager.GetEntry(int(bones_id), BoneID, SearchAll=True, IgnorePatch=False)
         bones_data = bones_entry.TocData
+        if not Global_TocManager.IsInPatch(animation_entry):
+            animation_entry = Global_TocManager.AddEntryToPatch(int(entry_id), AnimationID)
+        else:
+            Global_TocManager.RemoveEntryFromPatch(int(entry_id), AnimationID)
+            animation_entry = Global_TocManager.AddEntryToPatch(int(entry_id), AnimationID)
         try:
             animation_entry.LoadedData.load_from_armature(context, object, bones_data)
         except AnimationException as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
         wasSaved = animation_entry.Save()
-        if wasSaved:
-            if not Global_TocManager.IsInPatch(animation_entry):
-                animation_entry = Global_TocManager.AddEntryToPatch(int(entry_id), AnimationID)
-            else:
-                Global_TocManager.RemoveEntryFromPatch(int(entry_id), AnimationID)
-                animation_entry = Global_TocManager.AddEntryToPatch(int(entry_id), AnimationID)
-        else:
+        if not wasSaved:
             self.report({"ERROR"}, f"Failed to save animation for armature {bpy.context.selected_objects[0].name}.")
             return{'CANCELLED'}
         self.report({'INFO'}, f"Saved Animation")
