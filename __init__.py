@@ -327,11 +327,11 @@ def GetDisplayData():
     return [DisplayTocEntries, DisplayTocTypes]
 
 def SaveUnsavedEntries(self):
-    for entry_type, entries in Global_TocManager.ActivePatch.TocDict.items():
-        for Entry in entries.values():
-            if not Entry.IsModified:
-                Global_TocManager.Save(int(Entry.FileID), Entry.TypeID)
-                PrettyPrint(f"Saved {int(Entry.FileID)}")
+    for entries in list(Global_TocManager.ActivePatch.TocDict.values()):
+        for entry in list(entries.values()):
+            if not entry.IsModified:
+                Global_TocManager.Save(int(entry.FileID), entry.TypeID)
+                PrettyPrint(f"Saved {int(entry.FileID)}")
 
 def RandomHash16():
     global Global_previousRandomHash
@@ -2450,29 +2450,30 @@ class DuplicateEntryOperator(Operator):
     bl_idname = "helldiver2.archive_duplicate"
     bl_description = "Duplicate Selected Entry"
 
-    NewFileID : StringProperty(name="NewFileID", default="")
     def draw(self, context):
-        global Global_randomID
-        PrettyPrint(f"Got ID: {Global_randomID}")
-        self.NewFileID = Global_randomID
         layout = self.layout; row = layout.row()
         row.operator("helldiver2.generate_random_id", icon="FILE_REFRESH")
         row = layout.row()
-        row.prop(self, "NewFileID", icon='COPY_ID')
+        row.prop(context.scene, "new_id_entry", icon="FILE_REFRESH")
 
     object_id: StringProperty()
     object_typeid: StringProperty()
     def execute(self, context):
-        global Global_randomID
         if Global_TocManager.ActivePatch == None:
-            Global_randomID = ""
+            context.scene.new_id_entry = ""
             self.report({'ERROR'}, "No Patches Currently Loaded")
             return {'CANCELLED'}
-        if self.NewFileID == "":
+        if context.scene.new_id_entry == "":
             self.report({'ERROR'}, "No ID was given")
             return {'CANCELLED'}
-        Global_TocManager.DuplicateEntry(int(self.object_id), int(self.object_typeid), int(self.NewFileID))
-        Global_randomID = ""
+        Global_TocManager.DuplicateEntry(int(self.object_id), int(self.object_typeid), int(context.scene.new_id_entry))
+        if int(self.object_typeid) == MaterialID:
+            material = bpy.data.materials.get(self.object_id)
+            new_material = bpy.data.materials.get(context.scene.new_id_entry)
+            if material and not new_material:
+                dup = material.copy()
+                dup.name = context.scene.new_id_entry
+        context.scene.new_id_entry = ""
         return{'FINISHED'}
 
     def invoke(self, context, event):
@@ -2485,9 +2486,8 @@ class GenerateEntryIDOperator(Operator):
     bl_description = "Generates a random ID for the entry"
 
     def execute(self, context):
-        global Global_randomID
-        Global_randomID = str(RandomHash16())
-        PrettyPrint(f"Generated random ID: {Global_randomID}")
+        context.scene.new_id_entry = str(RandomHash16())
+        PrettyPrint(f"Generated random ID: {context.scene.new_id_entry}")
         return{'FINISHED'}
 
 class RenamePatchEntryOperator(Operator):
@@ -2516,8 +2516,16 @@ class RenamePatchEntryOperator(Operator):
         if self.material_id != "" and self.texture_index != "":
             MaterialEntry = Global_TocManager.GetPatchEntry_B(int(self.material_id), int(MaterialID))
             MaterialEntry.LoadedData.TexIDs[int(self.texture_index)] = int(self.NewFileID)
+            
+            
+        # Are we renaming a material? (duplicate Blender material if it exists and give it the new name)
+        if int(self.object_typeid) == MaterialID:
+            material = bpy.data.materials.get(self.object_id)
+            if material:
+                material.name = self.NewFileID
 
         # Redraw
+        LoadEntryLists()
         for area in context.screen.areas:
             if area.type == "VIEW_3D": area.tag_redraw()
             
@@ -3386,19 +3394,18 @@ class SaveStingrayAnimationOperator(Operator):
         if not animation_entry.IsLoaded: animation_entry.Load(True, False)
         bones_entry = Global_TocManager.GetEntry(int(bones_id), BoneID, SearchAll=True, IgnorePatch=False)
         bones_data = bones_entry.TocData
+        if not Global_TocManager.IsInPatch(animation_entry):
+            animation_entry = Global_TocManager.AddEntryToPatch(int(entry_id), AnimationID)
+        else:
+            Global_TocManager.RemoveEntryFromPatch(int(entry_id), AnimationID)
+            animation_entry = Global_TocManager.AddEntryToPatch(int(entry_id), AnimationID)
         try:
             animation_entry.LoadedData.load_from_armature(context, object, bones_data)
         except AnimationException as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
         wasSaved = animation_entry.Save()
-        if wasSaved:
-            if not Global_TocManager.IsInPatch(animation_entry):
-                animation_entry = Global_TocManager.AddEntryToPatch(int(entry_id), AnimationID)
-            else:
-                Global_TocManager.RemoveEntryFromPatch(int(entry_id), AnimationID)
-                animation_entry = Global_TocManager.AddEntryToPatch(int(entry_id), AnimationID)
-        else:
+        if not wasSaved:
             self.report({"ERROR"}, f"Failed to save animation for armature {bpy.context.selected_objects[0].name}.")
             return{'CANCELLED'}
         self.report({'INFO'}, f"Saved Animation")
@@ -4177,6 +4184,11 @@ def LoadEntryLists():
                 continue
             for entry_id in sorted(archive.TocDict[entry_type].keys()):
                 Entry = archive.TocDict[entry_type][entry_id]
+                if patch:
+                    try:
+                        Entry = patch.TocDict[entry_type][entry_id]
+                    except KeyError:
+                        pass
                 new_item = l.add()
                 new_item.item_name = str(Entry.FileID)
                 new_item.item_type = str(Entry.TypeID)
@@ -5255,12 +5267,6 @@ def register():
     bpy.utils.register_class(WM_MT_button_context)
     bpy.types.VIEW3D_MT_object_context_menu.append(CustomPropertyContext)
     bpy.types.VIEW3D_MT_armature_context_menu.append(CustomBoneContext)
-    #bpy.types.VIEW3D_MT_pose_context_menu
-    #bpy.types.VIEW3D_MT_armature_context_menu
-    #bpy.types.VIEW3D_MT_
-    #for name in dir(bpy.types):
-    #    if "context" in name:
-    #        print(name)
     bpy.utils.register_class(MY_UL_List)
     bpy.utils.register_class(ListItem)
     for t in Global_TypeIDs: # make all this into an item in another collection property
@@ -5268,6 +5274,7 @@ def register():
         setattr(bpy.types.Scene, f"index_{t}", IntProperty(name = f"index_{t}", default = 0))
         setattr(bpy.types.Scene, f"filter_{t}", StringProperty(name = f"filter_{t}", default = ""))
         setattr(bpy.types.Scene, f"index_{t}_dummy", IntProperty(name = f"index_{t}_dummy", default = 5000000, set=SetSelected(t)))
+    bpy.types.Scene.new_id_entry = StringProperty(name="new_id_entry", default="")
 
 def unregister():
     bpy.utils.unregister_class(WM_MT_button_context)

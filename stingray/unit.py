@@ -1458,15 +1458,15 @@ def PrepareMesh(og_object):
     object = duplicate(og_object)
     bpy.ops.object.select_all(action='DESELECT')
     bpy.context.view_layer.objects.active = object
+    mesh = object.data
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.reveal()
     
     if bpy.context.scene.Hd2ToolPanelSettings.SplitUVIslands:
         # merge by distance
-        bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action="SELECT")
         bpy.ops.mesh.remove_doubles(use_unselected=False, use_sharp_edge_from_normals=True)
-        
-    mesh = object.data
-    bpy.ops.object.mode_set(mode='EDIT')
+
     for uv_layer in mesh.uv_layers:
         mesh.uv_layers.active = uv_layer
         try:
@@ -1590,19 +1590,18 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     transform_info = stingray_mesh_entry.TransformInfo
     light_list = stingray_mesh_entry.LightList
     lod_index = og_object["BoneInfoIndex"]
-    bone_entry = Global_TocManager.GetEntryByLoadArchive(stingray_mesh_entry.BonesRef, BoneID)
+    bone_entry = Global_TocManager.GetEntry(stingray_mesh_entry.BonesRef, BoneID, IgnorePatch=False, SearchAll=True)
     modified_bone_entry = False
     modified_state_machine = False
     bone_names = []
     bone_data = None
     state_machine_data = None
-    state_machine_entry = Global_TocManager.GetEntryByLoadArchive(stingray_mesh_entry.StateMachineRef, StateMachineID)
+    state_machine_entry = Global_TocManager.GetEntry(stingray_mesh_entry.StateMachineRef, StateMachineID, IgnorePatch=False, SearchAll=True)
     if bone_entry is None:
         PrettyPrint("This unit does not have any animated bone data, unable to edit bone animated state", "warn")
     else:
-        if Global_TocManager.IsInPatch(bone_entry):
-            Global_TocManager.RemoveEntryFromPatch(bone_entry.FileID, BoneID)
-        bone_entry = Global_TocManager.AddEntryToPatch(bone_entry.FileID, BoneID)
+        if not Global_TocManager.IsInPatch(bone_entry):
+            bone_entry = Global_TocManager.AddEntryToPatch(bone_entry.FileID, BoneID)
         if bone_entry:
             if not bone_entry.IsLoaded:
                 bone_entry.Load()
@@ -1610,9 +1609,8 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     if state_machine_entry is None:
         PrettyPrint("This unit does not have any state machine data, unable to edit bone animated state", "warn")
     else:
-        if Global_TocManager.IsInPatch(state_machine_entry):
-            Global_TocManager.RemoveEntryFromPatch(state_machine_entry.FileID, StateMachineID)
-        state_machine_entry = Global_TocManager.AddEntryToPatch(state_machine_entry.FileID, StateMachineID)
+        if not Global_TocManager.IsInPatch(state_machine_entry):
+            state_machine_entry = Global_TocManager.AddEntryToPatch(state_machine_entry.FileID, StateMachineID)
         if state_machine_entry:
             if not state_machine_entry.IsLoaded:
                 state_machine_entry.Load()
@@ -1634,7 +1632,22 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         armature_obj.hide_set(False)
         bpy.context.view_layer.objects.active = armature_obj
         bpy.ops.object.mode_set(mode='EDIT')
-        for bone in armature_obj.data.edit_bones: # I'd like to use edit bones but it doesn't work for some reason
+        
+        # check if animated bones list has changed, and if it has, clear all modded animations for this armature
+        # but keep them in the patch
+        if bone_data:
+            old_bones = sorted(bone_data.BoneHashes)
+            new_bones = sorted([(int(bone.name) if bone.name.isdigit() else murmur32_hash(bone.name.encode("utf-8"))) for bone in armature_obj.data.edit_bones if bone.get('Animated')])
+            if old_bones != new_bones:
+                PrettyPrint("Changes made to animated bones, clearing saved animation data")
+                if state_machine_data:
+                    for animation in state_machine_data.animation_ids:
+                        animation_data = Global_TocManager.GetEntry(animation, AnimationID, IgnorePatch=False, SearchAll=True)
+                        if Global_TocManager.IsInPatch(animation_data):
+                            Global_TocManager.RemoveEntryFromPatch(animation, AnimationID)
+                        Global_TocManager.AddEntryToPatch(animation, AnimationID)
+        
+        for bone in armature_obj.data.edit_bones:
             try:
                 name_hash = int(bone.name)
             except ValueError:
@@ -1670,12 +1683,9 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                             animation_data = Global_TocManager.GetEntry(animation, AnimationID, IgnorePatch=False, SearchAll=True)
                             if not animation_data.IsLoaded:
                                 animation_data.Load(False, False)
-                            animation_data.LoadedData.add_bone()
-                            if Global_TocManager.IsInPatch(animation_data):
-                                Global_TocManager.RemoveEntryFromPatch(animation, AnimationID)
-                            Global_TocManager.AddEntryToPatch(animation, AnimationID)
+                            animation_data.LoadedData.add_bone(bone)
                             Global_TocManager.Save(animation, AnimationID)
-                if not animated and name_hash in bone_data.BoneHashes: # this WILL require redoing all animations
+                if not animated and name_hash in bone_data.BoneHashes:
                     list_index = bone_data.BoneHashes.index(name_hash)
                     bone_data.BoneHashes.pop(list_index)
                     bone_data.Names.pop(list_index)
@@ -1683,17 +1693,20 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                     modified_bone_entry = True
                     modified_state_machine = True
                     for blend_mask in state_machine_data.blend_masks:
-                        blend_mask.bone_count -= 1
-                        blend_mask.bone_weights.pop(list_index)
+                        try:
+                            blend_mask.bone_weights.pop(list_index)
+                            blend_mask.bone_count -= 1
+                        except IndexError: # happens when removing a custom animated bone
+                            pass
                     if state_machine_data:
                         for animation in state_machine_data.animation_ids:
                             animation_data = Global_TocManager.GetEntry(animation, AnimationID, IgnorePatch=False, SearchAll=True)
                             if not animation_data.IsLoaded:
                                 animation_data.Load(False, False)
-                            animation_data.LoadedData.remove_bone(list_index)
-                            if Global_TocManager.IsInPatch(animation_data):
-                                Global_TocManager.RemoveEntryFromPatch(animation, AnimationID)
-                            Global_TocManager.AddEntryToPatch(animation, AnimationID)
+                            try:
+                                animation_data.LoadedData.remove_bone(list_index)
+                            except IndexError: # happens when removing a custom animated bone
+                                pass
                             Global_TocManager.Save(animation, AnimationID)
                     else:
                         raise Exception("No state machine property on armature, unable to automatically remove bone data from animations; please set a valid StateMachineID property.")
@@ -2345,7 +2358,7 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
               skeletonObj.animation_data_create()
         
         
-        if not imported_lights:
+        if skeletonObj is not None and not imported_lights:
             imported_lights = True
             current_mode = bpy.context.mode
             bpy.ops.object.mode_set(mode='EDIT')
@@ -2388,6 +2401,10 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                     blend_light.cutoff_distance = light.falloff_end
                     #blend_light.exposure = light.falloff_exp
                     blend_light.energy = sqrt(sum([component**2 for component in light.color]))
+                else:
+                    print("UNKNOWN LIGHT TYPE")
+                    print(light.light_type)
+                    continue
                 if light.flags & Light.CAST_SHADOW:
                     blend_light.use_shadow = True
                 else:

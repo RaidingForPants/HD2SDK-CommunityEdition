@@ -45,7 +45,20 @@ class StingrayStateMachine:
         self.ragdoll_count = memory_stream.uint32(self.ragdoll_count)
         self.ragdoll_offset = memory_stream.uint32(self.ragdoll_offset)
         
-        self.pre_blend_mask_data = memory_stream.read(self.blend_mask_offset - (memory_stream.tell() - offset_start))
+        if self.blend_mask_offset != 0:
+            self.pre_blend_mask_data = memory_stream.read(self.blend_mask_offset - (memory_stream.tell() - offset_start))
+        elif self.unk_data_00_offset != 0:
+            self.pre_blend_mask_data = memory_stream.read(self.unk_data_00_offset - (memory_stream.tell() - offset_start))
+        elif self.unk_data_01_offset != 0:
+            self.pre_blend_mask_data = memory_stream.read(self.unk_data_01_offset - (memory_stream.tell() - offset_start))
+        elif self.unk_data_02_offset != 0:
+            self.pre_blend_mask_data = memory_stream.read(self.unk_data_02_offset - (memory_stream.tell() - offset_start))
+        elif self.unk_data_03_offset != 0:
+            self.pre_blend_mask_data = memory_stream.read(self.unk_data_03_offset - (memory_stream.tell() - offset_start))
+        elif self.ragdoll_offset != 0:
+            self.pre_blend_mask_data = memory_stream.read(self.ragdoll_offset - (memory_stream.tell() - offset_start))
+        else:
+            print("ERROR LOADING STATE MACHINE") # unknown length for state machine file, will not be able to load properly without length data
         
         # get layers
         memory_stream.seek(offset_start + self.layer_data_offset)
@@ -163,7 +176,6 @@ class StingrayStateMachine:
             self.unk_data_03.save(memory_stream)
             
         # save ragdolls
-        print(self.ragdoll_count)
         if self.ragdoll_count > 0:
             self.ragdoll_offset = memory_stream.tell() - offset_start
             for ragdoll in self.ragdolls:
@@ -186,7 +198,6 @@ class StingrayStateMachine:
         new_ragdoll.bone_index = bone_index
         self.ragdoll_count += 1
         self.ragdolls.append(new_ragdoll)
-        print(self.ragdoll_count)
         
     def remove_ragdoll(self, bone_index):
         idx = -1
@@ -197,7 +208,6 @@ class StingrayStateMachine:
         if idx != -1:
             self.ragdolls.pop(idx)
             self.ragdoll_count -= 1
-        print(self.ragdoll_count)
         
 class Layer:
     
@@ -217,6 +227,16 @@ class Layer:
             new_state = State()
             new_state.load(memory_stream)
             self.states.append(new_state)
+    
+    def save(self, memory_stream): # unused
+        offset_start = memory_stream.tell()
+        self.magic = memory_stream.uint32(self.magic)
+        self.default_state = memory_stream.uint32(self.default_state)
+        self.num_states = memory_stream.uint32(self.num_states)
+        self.state_offsets = [memory_stream.uint32(t) for t in self.state_offsets]
+        for i, state in enumerate(self.states):
+            self.state_offsets[i] = (memory_stream.tell() - offset_start)
+            state.save(memory_stream)
     
 class State:
     
@@ -288,16 +308,67 @@ class Unk00Item:
         self.count = stream.uint32(self.count)
         stream.write(self.data)
         
+class Unk03ItemSection:
+    
+    def __init__(self):
+        self.size = 0
+        self.unk = 0
+        self.data = [bytearray(), bytearray()]
+        self.offsets = [0, 0]
+        self.counts = [0, 0]
+        
+    def load(self, stream):
+        start_offset = stream.tell()
+        self.unk = stream.uint64(self.unk)
+        self.counts[0] =  stream.uint16(0)
+        self.offsets[0] = stream.uint16(0)
+        self.counts[1] =  stream.uint16(0)
+        self.offsets[1] = stream.uint16(0)
+        if self.counts[0] > 0:
+            stream.seek(start_offset + self.offsets[0])
+            self.data[0] = stream.read(4*self.counts[0])
+        if self.counts[1] > 0:
+            stream.seek(start_offset + self.offsets[1])
+            self.data[1] = stream.read(4*self.counts[1])
+
+    # to-do: update offsets if this is ever allowed to be edited
+    def save(self, stream):
+        self.unk = stream.uint64(self.unk)
+        _ = stream.uint16(self.counts[0])
+        _ = stream.uint16(self.offsets[0])
+        _ = stream.uint16(self.counts[1])
+        _ = stream.uint16(self.offsets[1])
+        if self.counts[0] > 0:
+            _ = stream.write(self.data[0])
+        if self.counts[1] > 0:
+            _ = stream.write(self.data[1])
+        
 class Unk03Item:
     
     def __init__(self):
         self.count = 0
-        self.data = bytearray()
+        self.section_offsets = []
+        self.sections = []
         
     def load(self, stream):
+        start_offset = stream.tell()
         self.count = stream.uint32(self.count)
-        self.data = stream.read(self.count * 16 * 14)
-        
+        self.sections = [None] * self.count
+        self.section_offsets = [0] * self.count
+        for i in range(self.count):
+            self.section_offsets[i] = stream.uint32(0)
+        for i in range(self.count):
+            stream.seek(start_offset + self.section_offsets[i])
+            section = Unk03ItemSection()
+            section.load(stream)
+            self.sections[i] = section
+
+    # to-do: update offsets if this is ever allowed to be edited    
     def save(self, stream):
+        start_offset = stream.tell()
         self.count = stream.uint32(self.count)
-        stream.write(self.data)
+        for offset in self.section_offsets:
+            _ = stream.uint32(offset)
+        for i, section in enumerate(self.sections):
+            stream.seek(start_offset + self.section_offsets[i])
+            section.save(stream)
