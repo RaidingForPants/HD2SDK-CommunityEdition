@@ -201,7 +201,7 @@
 8881182940724313260 content/env_shared_forest/assets/weathering/forest_weathering_mask
 2279509978647120743 content/env_shared_forest/assets/weathering/forest_weathering_albedo_graded
 5771061903247604588 Common Sample - Alien Bulb
-11432560202897483622 content/objectives/obj_bugs/retrieve_larva/bug_larva_container_backpack
+11432560202897483622 Terminid Larva
 16147921581624249384 content/level_generation_settings/env_shared/weather_settings/high_altitude_clouds/high_altitude_coverage_map2
 12064036665989730127 content/effects/textures/lens_flares/lens_flare_sun_01
 10619740896249204991 content/levels/lighting/editor_testing/reflection_probe_specular_bake
@@ -1000,7 +1000,7 @@
 18345157310500842396 content/env_super_earth/habs/structures/ruin_scrap_heap_5m_01
 12421182327299345565 content/fac_illuminate/cha_observer/cha_observer
 15774580357443829330 content/fac_illuminate/equipment/illuminate_adept_circle/illuminate_adept_circle
-11601043503813400874 content/fac_helldivers/equipment/backpacks/drone_mg/drone_mg
+11601043503813400874 AX/AR-23 Guard Dog Drone
 6756857302846632676 content/env_cyborg/props/bunker_door_01
 11105721130648470965 content/objectives/obj_common/raise_flag/hellpod_flag
 16789328665547383324 content/fac_helldivers/equipment/support_weapons/railgun/railgun_sabot
@@ -1395,9 +1395,9 @@
 14779495313740428079 content/env_cyborg/props/ammocrate_closed_big_01
 6407688630304991730 content/env_super_earth/habs/utilities/weather_vane_old_01
 2606136244849604321 content/fac_cyborgs/vehicles/cyborg_spawner/wrecks/boss_wreck
-1890476018712837785 content/fac_helldivers/equipment/backpacks/drone_mg/drome_mg_magazine
-2692796710804508396 content/fac_helldivers/equipment/backpacks/drone_mg/drone_mg_backpack
-11756121139324203897 content/fac_helldivers/equipment/backpacks/drone_mg/drone_mg_weapon
+1890476018712837785 AX/AR-23 Guard Dog Magazine
+2692796710804508396 AX/AR-23 Guard Dog Backpack
+11756121139324203897 AX/AR-23 Guard Dog Weapon
 4403088480278491987 content/env_super_earth/habs/utilities/se_pipeline_bend
 9942695107747714208 content/env_super_earth/habs/utilities/xl_elbow_90_side_sharp
 12198535771737971714 content/art_shared/meshes/cube_navmesh_volume
@@ -1603,7 +1603,7 @@
 12287098225181096707 ert/cyborg_scrap_96m_01
 10999731129893469566 g_base/cyborg_tank_trap
 14517712558484802198 ch_wall_3m_135degree_01
-2782525763696284166 rone/media_drone_camera
+2782525763696284166 Camera Guard Dog Attachment
 497192496790422730 cy_camp_phalanx_hard_01
 6628209308951201431 d/cy_mine_marker_single
 14383014008647542868 g_camp_predator_hard_01
@@ -1663,7 +1663,7 @@
 7417615579510982226 acksaffron_sample_4m_01
 5328510968245253181 _cargo_truck_dropoff_03
 182992623115417608 weapon/casings/link_5mm
-3003496806383724538 _cover/expandable_cover
+3003496806383724538 Expandable Cover
 8333326914143541659 /magazine/lmg_box_large
 10358974322213239449 lieutenant_flag/lieutenant_flag
 4269409199117105864 ntral_core_hole_plug_01
@@ -2058,7 +2058,7 @@
 12932116655381949714 upport_pillar_01_static
 15449781694547216312 rport/air_control_tower
 15765174586647248146 s/bug_corpse_charger_01
-16779953258782481441 aultrifle_drum_magazine
+16779953258782481441 AR-23 Drum Mag
 9518279854513374013 ug_tac_shrieker_nest_02
 15920236552887926321 ire_ground_medium_plume
 17594118734305103680 /cy_prime_kill_hulks_01
@@ -2070,7 +2070,7 @@
 16854873943367457242 ship_right_engine_wreck
 371217515047951823 y_detained_prisoners_02
 16249499796136226510 extraction_killhorde_01
-16576307969206587212 tomatic_cannon_backpack
+16576307969206587212 AC-8 Autocannon Pack
 2288319193313691275 _markers/railgun_marker
 8827395923538162987 n_exploration_bunker_02
 15355678926089585987 ons/plasma_rifle_marker
@@ -2267,8 +2267,8 @@
 18322510763745569925 ee_set_02_04_leafy_gibs
 15655580800594019753 ts/cy_sat_trench_16m_02
 1064520352145330610 pon/casings/shotgun_8ga
-11646351279956404590 /drone_generic_backpack
-13818065140795549496 ine/laser_battery_small
+11646351279956404590 Generic Drone Backpack
+13818065140795549496 Standard Heatsink
 16472578507204645895 ry_mine/incendiary_mine
 17297258079668724512 _launcher/mine_launcher
 1404678352540667834 atform_kit_slope_double
@@ -2325,7 +2325,7 @@
 17029449273818478986 t/swamp_bushland_16m_01
 17542535109172955520 t/swamp_bushland_16m_03
 8282331285680803312 e_artifact_sample_3m_01
-5822449117051217313 ink_laserrifle_standard
+5822449117051217313 Standard Heatsink
 1375368963944101018 green_corp_biosphere_02
 13885440358757338530 gen_sub_collect_data_05
 1131446064710253430 cy_sat_minefield_16m_02
@@ -2346,7 +2346,7 @@
 18343770295729215789 tifact_sample_shrine_03
 14411385651761151143 _stalker_spawner_20m_01
 8515224622975059530 _cache_bio_sample_4m_01
-6468799106264970105 kpack/jumppack_backpack
+6468799106264970105 LIFT-850 Jump Pack
 11887883385073101999 rifle_standard_magazine
 3241555748163380294 cy_sat_minefield_20m_01
 12456649099204783320 ug_camp_armored_easy_03
@@ -2398,7 +2398,7 @@
 5013173367511336177 yborg_pipeline_tsection
 18445005886574837521 tivate_oil_pump_hive_12
 317731429996312652 en_sub_siesmic_probe_03
-1353568197974522460 /energy_shield_backpack
+1353568197974522460 SH-32 Shield Generator Pack
 7423294389606505733 easy_frontlinetrench_02
 9487721015951028427 ug_camp_armored_easy_02
 13329290998793222286 escape_pod_satellite_01
@@ -2407,7 +2407,7 @@
 3624365056803792884 en_sub_siesmic_probe_04
 3884242873408244407 eature/bone_creature_06
 16242088275130888802 eature/bone_creature_05
-564645113943917665 lance_magazine_extended
+564645113943917665 R-63 Diligence 20-round
 13970479000496615966 ug_tac_fog_generator_05
 11835963975469053451 _resources/missing_unit
 5344342009845511154 egendarium_sample_3m_01
@@ -2482,13 +2482,13 @@
 633398596845718005 units/cy_tac_gunship_03
 2139581615385328285 ns/cy_trench_wall_3m_x6
 5480181823593116864 its/cy_sat_debris_8m_01
-12439365467465081873 _plasma_pistol_standard
+12439365467465081873 PLAS-15 Loyalist Standard
 16653674489725268507 r_male/cha_fighting_worker_male
 5641428405267160100 SMG-37 Defender
 13093153068183744956 asings/pistol_12mm_long
 14133186296882294161 SMG-72 Pummeler
 18044816879460781764 xtended_magazine_pepper
-5690760409550920280 _backpack/ammo_backpack
+5690760409550920280 B-1 Supply Pack
 5358154537028771113 oration_superuranium_03
 6563007120769998790 b_destroy_ammo_depot_01
 13330155786947888229 ammunition_stockpile_01
@@ -2499,9 +2499,9 @@
 13907623419439883124 extraction_killhorde_02
 15191100519257421067 /scaffolding_support_01
 8423576657775725772 _units/se_extraction_02
-2234115518034825186 dard_missile_projectile
-5259367311712237185 ne/faf_missile_standard
-10287068634025973658 ssile_launcher_backpack
+2234115518034825186 FAF-14 Spear Projectile
+5259367311712237185 FAF-14 Spear Ammo
+10287068634025973658 FAF-14 Spear Backpack
 1415814751654635771 ender_extended_magazine
 4216066899030188547 te_refueling_station_03
 4666615105649546505 iotable_small_01_folded
@@ -2934,13 +2934,13 @@
 8501188729738716653 _units/se_extraction_04
 8468803907470352685 s/gen_war_crater_16m_01
 15163574751229957356 prime_clear_bug_nest_03
-11027915531501354241 _plasma_pistol_extended
+11027915531501354241 PLAS-15 Loyalist Extended
 10585829414170001362 ug_camp_armored_hard_02
 6350080909480148382 gen_prime_raise_flag_02
 6618629811552364586 ifle_drum_magazine_ergo
 213212706452155845 prime_retrieve_larva_01
 12833675536131590181 g_camp_predator_easy_02
-3275834919183443858 ded_magazine_fastreload
+3275834919183443858 AR-23 Liberator 45-Round Ranger
 10323943194243497453 ine_extended_fastreload
 2232346823676129010 l_pipe_accessory_part_2
 13799570749297615626 g_tcs_support_pillar_01
@@ -3115,7 +3115,7 @@
 2529833518230079766 ts/cy_sat_trench_16m_01
 14468519789192387782 id_medium_bugchimney_01
 11664608597180333792 objective_oil_pickup_01
-13710523807626019905 ender_standard_magazine
+13710523807626019905 MP-98 Knight Mag
 8995430076172877824 _kill_alpha_striders_01
 15940471598006358545 s/bug_camp_acid_hard_01
 11465881746343723450 rs_cornerpiece_short_01
@@ -3208,7 +3208,7 @@
 933653454563350283 mission_activate_tcs_01
 10086654503306388020 irport_chair_4_seats_01
 13180095837937427090 ug_camp_generic_easy_02
-2217448057072065667 jet_rifle_drum_magazine
+2217448057072065667 JAR-5 Dominator Mag
 6866602524866869719 azine/grenade_40mm_frag
 12461691755508315868 y_camp_panzer_medium_01
 8084158486128589488 e_destroy_harvesters_02
@@ -3222,7 +3222,7 @@
 17310192988094915596 /level_design/sphere_01
 12523409329206909142 tor_easy_hunternests_02
 5010070954658250637 _cargo_truck_dropoff_01
-14452522868562188951 istol_extended_magazine
+14452522868562188951 P-19 Redeemer
 4932621271560182731 ium_02_satellite_bug_02
 7804744251270833284 y_tac_detector_tower_04
 16965724150372546684 G-13 Incendiary Impact
@@ -3403,7 +3403,7 @@
 4612927062438974594 ts/cy_sat_trench_16m_03
 16867023216246118172 extraction_killhorde_01
 3320385570385962205 nits/il_sat_ruin_20m_04
-8630543079368103156 e/pdw_extended_magazine
+8630543079368103156 SMG-37 Defender Mag
 7678951162187884369 nits/cy_tac_sam_site_03
 11854099019885100039 b_activate_generator_01
 375816934372579658 ts/gen_cache_ammo_4m_01
@@ -3531,7 +3531,7 @@
 17727581056672187308 me_neutralize_cannon_02
 14215564244339320586 fle_drum_magazine_large
 13212272664253913848 units/gen_extraction_03
-16671435828232852140 r_burst_rocket_backpack
+16671435828232852140 RL-77 Airburst Rocket Launcher Pack
 3297783261784572491 saffron_sample_field_01
 16544962736645479679 xploration_se_trench_01
 13563594195668553897 ts/gen_cache_ammo_3m_01
@@ -3772,7 +3772,7 @@
 5030696667446829639 _sat_parking_lot_20m_02
 17869558012532173217 gue_research_station_04
 17083241647592728848 gy_shield/energy_shield
-5729597501657769521 agazine/pistol_magazine
+5729597501657769521 P-2 Peacemaker Mag
 3450733228184264447 gen_sub_collect_data_01
 6450423349635206691 he_ammo_4m_ms51_dupe_04
 4122942087343371866 cy_camp_assault_easy_01
@@ -3863,3 +3863,71 @@
 16777584932715761236 PLAS-45 Epoch
 11882632134944470026 SH-51 Directional Shield
 14733648658679365221 StA-X3 W.A.S.P. Launcher
+17308323378831780460 R-72 Censor
+8110598756017148880 AR-59 Suppressor
+8221051007693717489 DBS-2 Double Freedom
+11201896471107657063 B/MD C4
+3033447149328295793 B/MD C4 Backpack
+5905641205788913469 B/MD C4 Charge Detonator
+11675163230052555240 TM-01 Lure Mine
+14667500224945540068 Guard Dog Drone for K-9/Hot Dog/Guard Dog Rover
+14019044913798069754 AX/ARC-3 Guard Dog K-9 Backpack
+18271568465823421664 AX/ARC-3 Guard Dog K-9 Weapon
+3464783698532994381 AX/FLAM-75 Hot Dog Backpack
+14324723450444766661 AX/FLAM-75 Hot Dog Weapon
+6624453650490018537 AX/LAS-5 Guard Dog Rover Weapon
+1341614955790344216 2x Tube Red Dot Scope
+3503658004598565718 Laser Sight W/ Flashlight
+14897104891499249134 LAS-5 Default Barrel Attachment
+13834130950471716570 AX/TX-13 Dog Breath Backpack
+13834130950471716570 AX/TX-13 Dog Breath Weapon
+8410798392120980739 10g Standard Choke
+13074477769665559454 10g Half Choke
+4244847585173431214 10g Full Choke
+14340382343174070789 10g Duckbill
+769608404923492902 12g Half Choke
+8462610023518099908 12g Full Choke
+10147513372326869849 12g Duckbill Muzzle
+8461770958804471754 5mm Thread Protector
+3375286472059951732 5mm Flash Hider
+6637750995636466699 5mm Muzzle Break
+2931537446798109347 5mm Compensator
+8869063222391656748 8mm Thread Protector
+17998083042837534904 8mm Flash Hider
+12795189377325640140 8mm Muzzle Break
+11580211633362345240 8mm Compensator
+7748723127387084686 12mm Thread Protector
+3560721596127226263 12mm Flash Hider
+2804704169649005861 12mm Muzzle Break
+17042267079945714520 12mm Compensator
+18429164175047304065 Adjudicator Muzzle Break
+4691712668585732061 Angled Foregrip
+4242942856953408323 Angled Foregrip W/ Laser
+12223223486608688232 Bayonet
+13637539437075989295 Counter Sniper Muzzle Break
+15622846233925959454 Muzzle Brake
+5211183018200410695 P-4 Senator Barrel
+13826991243227841058 Pacifier Muzzle Break
+9239560465644030393 Penetrator Muzzle Break
+16624552526519423065 Solo Light
+2559082817754219621 Tenderizer Muzzle Break
+18005146981972618389 Vertical Foregrip
+10757409993037698465 Vertical Foregrip W/ Flashlight
+10825187123122472636 AR-2 Coyote Mag
+1633441327921975190 AR-32 Extended Mag
+4420540739595044300 1.5x Tube Red Dot
+2618761105051491521 2x Support Scope
+4945697432933156965 4x Combat Scope
+7878032900213954322 10x Sniper Scope
+18045803217869572949 Holographic Sight
+18010877653793700566 Iron Sights
+8683669270922933622 Pistol Reflex Sight
+8287102548341161912 PLAS-39 Accelerator Scope
+11366112015617280481 Reflex Sight
+5025563496969204956 Reflex Sight MK.2
+11155000903228636302 B-100 Portable Hellbomb
+9684680887513648452 FAF-14 Spear Sight
+931302122504656470 LIFT-182 Warp Pack Orb
+13012964727571811944 LIFT-182 Warp Pack
+6829725667368330959 LIFT-860 Hover Pack
+18313671109943761465 SH-32 Shield Generator Sheild

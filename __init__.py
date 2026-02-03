@@ -90,7 +90,6 @@ Global_texconvbin        = "texconv" if platform.system() == "Linux" else "texco
 Global_texconvpath       = f"{AddonPath}/deps/{Global_texconvbin}"
 Global_materialpath      = f"{AddonPath}/materials"
 Global_typehashpath      = f"{AddonPath}/hashlists/typehash.txt"
-Global_filehashpath      = f"{AddonPath}/hashlists/filehash.txt"
 Global_friendlynamespath = f"{AddonPath}/hashlists/friendlynames.txt"
 
 Global_archivehashpath   = f"{AddonPath}/hashlists/archivehashes.json"
@@ -174,6 +173,12 @@ TextureTypeLookup = {
         "Alpha Mask",
         "Base Color/Metallic"
     ),
+    "alphaclip+": (
+        "Normal/AO/Roughness",
+        "Emission",
+        "Base Color/Metallic",
+        "Alpha Mask",
+    ),
     "advanced": (
         "",
         "",
@@ -196,6 +201,7 @@ Global_Materials = (
         ("advanced", "Advanced", "A more comlpicated material, that is color, normal, emission and PBR capable which renders in the UI. Sourced from the Illuminate Overseer."),
         ("basic+", "Basic+", "A basic material with a color, normal, and PBR map which renders in the UI, Sourced from a SEAF NPC"),
         ("translucent", "Translucent", "A translucent with a solid set color and normal map. Sourced from the Terminid Larva Backpack."),
+        ("alphaclip+", "Alpha Clip+", "A material that supports an alpha mask which does not render in the UI. Extra features with emission. Sourced from a bot bio processor."),
         ("alphaclip", "Alpha Clip", "A material that supports an alpha mask which does not render in the UI. Sourced from a skeleton pile"),
         ("original", "Original", "The original template used for all mods uploaded to Nexus prior to the addon's public release, which is bloated with additional unnecessary textures. Sourced from a terminid"),
         ("basic", "Basic", "A basic material with a color, normal, and PBR map. Sourced from a trash bag prop"),
@@ -388,11 +394,6 @@ def AddFriendlyName(ID, Name):
     SaveFriendlyNames()
 
 def SaveFriendlyNames():
-    with open(Global_filehashpath, 'w') as f:
-        for hash_info in Global_NameHashes:
-            if hash_info[1] != "" and int(hash_info[0]) == murmur64_hash(hash_info[1].encode()):
-                string = str(hash_info[0]) + " " + str(hash_info[1])
-                f.writelines(string+"\n")
     with open(Global_friendlynamespath, 'w') as f:
         for hash_info in Global_NameHashes:
             if hash_info[1] != "":
@@ -413,11 +414,6 @@ def LoadTypeHashes():
 Global_NameHashes = []
 def LoadNameHashes():
     Loaded = []
-    with open(Global_filehashpath, 'r') as f:
-        for line in f.readlines():
-            parts = line.split(" ")
-            Global_NameHashes.append([int(parts[0]), parts[1].replace("\n", "")])
-            Loaded.append(int(parts[0]))
     with open(Global_friendlynamespath, 'r') as f:
         for line in f.readlines():
             parts = line.split(" ", 1)
@@ -1395,6 +1391,7 @@ def CreateAddonMaterial(ID, StingrayMat, mat, Entry):
     elif Entry.MaterialTemplate == "original": SetupOriginalBlenderMaterial(nodeTree, inputNode, outputNode, bsdf, separateColor, normalMap)
     elif Entry.MaterialTemplate == "emissive": SetupEmissiveBlenderMaterial(nodeTree, inputNode, outputNode, bsdf, separateColor, normalMap)
     elif Entry.MaterialTemplate == "alphaclip": SetupAlphaClipBlenderMaterial(nodeTree, inputNode, outputNode, bsdf, separateColor, normalMap, mat)
+    elif Entry.MaterialTemplate == "alphaclip+": SetupAlphaClipPlusBlenderMaterial(nodeTree, inputNode, outputNode, bsdf, separateColor, normalMap, mat)
     elif Entry.MaterialTemplate == "advanced": SetupAdvancedBlenderMaterial(nodeTree, inputNode, outputNode, bsdf, separateColor, normalMap, TextureNodes, group, mat)
     elif Entry.MaterialTemplate == "translucent": SetupTranslucentBlenderMaterial(nodeTree, inputNode, outputNode, bsdf, separateColor, normalMap, mat)
     
@@ -1442,6 +1439,11 @@ def SetupAlphaClipBlenderMaterial(nodeTree, inputNode, outputNode, bsdf, separat
     nodeTree.links.new(combineColor.outputs['Color'], normalMap.inputs['Color'])
     nodeTree.links.new(normalMap.outputs['Normal'], bsdf.inputs['Normal'])
     nodeTree.links.new(bsdf.outputs['BSDF'], outputNode.inputs['Surface'])
+
+def SetupAlphaClipPlusBlenderMaterial(nodeTree, inputNode, outputNode, bsdf, separateColor, normalMap, mat):
+    SetupAlphaClipBlenderMaterial(nodeTree, inputNode, outputNode, bsdf, separateColor, normalMap, mat)
+    bsdf.inputs['Emission Strength'].default_value = 1
+    nodeTree.links.new(inputNode.outputs['Emission'], bsdf.inputs['Emission Color'])
 
 def SetupNormalMapTemplate(nodeTree, inputNode, normalMap, bsdf):
     separateColorNormal = nodeTree.nodes.new('ShaderNodeSeparateColor')
