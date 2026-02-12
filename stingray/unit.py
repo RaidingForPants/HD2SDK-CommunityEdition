@@ -1968,10 +1968,11 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                         boneIndices.extend([[[0,0,0,0] for n in range(len(mesh.vertices))]]*dif)
                     boneIndices[HDGroupIndex][vert_idx][group_idx] = HDBoneIndex
                     weights[vert_idx][group_idx] = group.weight
+        if boneIndices == []:
+            weights = []
     else:
         boneIndices = []
         weights     = []
-
     
     # set bone matrices in bone index mappings
     # matrices in bone_info are the inverted joint matrices (for some reason)
