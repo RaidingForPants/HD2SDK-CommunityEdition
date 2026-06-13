@@ -2197,7 +2197,7 @@ def NameFromMesh(mesh, id, customization_info, bone_names, use_sufix=True):
 def CreateModel(stingray_unit: StingrayMeshFile, id: int, Global_BoneNames: dict, bones_entry: StingrayBones, state_machine_entry: StingrayStateMachine):
     model, customization_info, bone_names, transform_info, bone_info, lights = stingray_unit.RawMeshes, stingray_unit.CustomizationInfo, stingray_unit.BoneNames, stingray_unit.TransformInfo, stingray_unit.BoneInfoArray, stingray_unit.LightList
     imported_lights = False
-    if len(model) < 1: return
+    #if len(model) < 1: return
     # Make collection
     old_collection = bpy.context.collection
     if bpy.context.scene.Hd2ToolPanelSettings.MakeCollections:
@@ -2620,3 +2620,257 @@ def CreateModel(stingray_unit: StingrayMeshFile, id: int, Global_BoneNames: dict
         # convert bmesh to mesh
         bm.to_mesh(new_object.data)
         bm.free()
+    
+    if len(model) == 0:
+        # -- || ADD BONES || -- #
+        skeletonObj = None
+        armature = None
+        if bpy.context.scene.Hd2ToolPanelSettings.ImportArmature and not bpy.context.scene.Hd2ToolPanelSettings.LegacyWeightNames:
+            if len(bpy.context.selected_objects) > 0:
+                skeletonObj = bpy.context.selected_objects[0]
+            if skeletonObj and skeletonObj.type == 'ARMATURE':
+                armature = skeletonObj.data
+            if armature != None and (bpy.context.scene.Hd2ToolPanelSettings.MergeArmatures or armature.name.startswith(str(id))):
+                PrettyPrint(f"Merging to previous skeleton: {skeletonObj.name}")
+            else:
+                PrettyPrint(f"Creating New Skeleton")
+                armature = bpy.data.armatures.new(f"{id}_skeleton")
+                armature.display_type = "OCTAHEDRAL"
+                armature.show_names = True
+                skeletonObj = bpy.data.objects.new(f"{id}_rig", armature)
+                skeletonObj['BonesID'] = str(stingray_unit.BonesRef)
+                skeletonObj['StateMachineID'] = str(stingray_unit.StateMachineRef)
+                skeletonObj.show_in_front = True
+                
+            if bpy.context.scene.Hd2ToolPanelSettings.MakeCollections:
+                if 'skeletons' not in bpy.data.collections:
+                    collection = bpy.data.collections.new("skeletons")
+                    bpy.context.scene.collection.children.link(collection)
+                else:
+                    collection = bpy.data.collections['skeletons']
+            else:
+                collection = bpy.context.collection
+
+            try:
+                collection.objects.link(skeletonObj)
+            except Exception as e:
+                PrettyPrint(f"{e}", 'warn')
+
+            #bpy.context.active_object = skeletonObj
+            bpy.context.view_layer.objects.active = skeletonObj
+            bpy.ops.object.mode_set(mode='EDIT')
+            bones = None
+            boneParents = None
+            boneTransforms = {}
+            boneMatrices = {}
+            doPoseBone = {}
+            if mesh.LodIndex in [-1, 0]:
+                bones = [None] * transform_info.NumTransforms
+                boneParents = [0] * transform_info.NumTransforms
+                for i, transform in enumerate(transform_info.TransformEntries):
+                    boneParent = transform.ParentBone
+                    boneHash = transform_info.NameHashes[i]
+                    if boneHash in Global_BoneNames: # name of bone
+                        boneName = Global_BoneNames[boneHash]
+                    else:
+                        boneName = str(boneHash)
+                    animated = False
+                    ragdoll = False
+                    ragdoll_params = []
+                    if bones_entry and boneName in bones_entry.Names:
+                        animated = True
+                        bone_index = bones_entry.Names.index(boneName)
+                        for r in state_machine_entry.ragdolls:
+                            if r.bone_index == bone_index:
+                                ragdoll = True
+                                ragdoll_params = r.params
+                                break
+                    try:
+                        b = int(boneName)
+                        if bones_entry and b in bones_entry.BoneHashes:
+                            animated = True
+                    except ValueError:
+                        pass
+                    newBone = armature.edit_bones.get(boneName)
+                    if newBone is None:
+                        newBone = armature.edit_bones.new(boneName)
+                        newBone.tail = 0, 0.05, 0
+                        if bones_entry: newBone['Animated'] = animated
+                        '''
+                        if bones_entry:
+                            newBone['Jiggle'] = ragdoll
+                            if ragdoll:
+                                newBone['Weight'] = ragdoll_params[0]
+                                newBone['Gravity'] = ragdoll_params[1]
+                                newBone['Param 3'] = ragdoll_params[2]
+                                newBone['Param 4'] = ragdoll_params[3]
+                                newBone['Param 5'] = ragdoll_params[4]
+                                newBone['Param 6'] = ragdoll_params[5]
+                                newBone['Param 7'] = ragdoll_params[6]
+                                newBone['Param 8'] = ragdoll_params[7]
+                                newBone['Param 9'] = ragdoll_params[8]
+                        '''
+                        doPoseBone[newBone.name] = True
+                    else:
+                        doPoseBone[newBone.name] = False
+                    bones[i] = newBone
+                    boneParents[i] = boneParent
+                    boneTransforms[newBone.name] = transform_info.Transforms[i]
+                    boneMatrices[newBone.name] = transform_info.TransformMatrices[i]
+            else:
+                b_info = bone_info[mesh.LodIndex]
+                bones = [None] * b_info.NumBones
+                boneParents = [0] * b_info.NumBones
+                for i, bone in enumerate(b_info.Bones): # this is not every bone in the transform_info
+                    boneIndex = b_info.RealIndices[i] # index of bone in transform info
+                    boneParent = transform_info.TransformEntries[boneIndex].ParentBone # index of parent bone in transform info
+                    # index of parent bone in b_info.Bones?
+                    if boneParent in b_info.RealIndices:
+                        boneParentIndex = b_info.RealIndices.index(boneParent)
+                    else:
+                        boneParentIndex = -1
+                    boneHash = transform_info.NameHashes[boneIndex]
+                    if boneHash in Global_BoneNames: # name of bone
+                        boneName = Global_BoneNames[boneHash]
+                    else:
+                        boneName = str(boneHash)
+                    animated = False
+                    if bones_entry and boneName in bones_entry.Names:
+                        animated = True
+                    try:
+                        b = int(boneName)
+                        if bones_entry and b in bones_entry.BoneHashes:
+                            animated = True
+                    except ValueError:
+                        pass
+                    newBone = armature.edit_bones.get(boneName)
+                    if newBone is None:
+                        newBone = armature.edit_bones.new(boneName)
+                        newBone.tail = 0, 0.05, 0
+                        if bones_entry: newBone['Animated'] = animated
+                        doPoseBone[newBone.name] = True
+                    else:
+                        doPoseBone[newBone.name] = False
+                    bones[i] = newBone
+                    boneTransforms[newBone.name] = transform_info.Transforms[boneIndex]
+                    boneMatrices[newBone.name] = transform_info.TransformMatrices[boneIndex]
+                    boneParents[i] = boneParentIndex
+                    
+            # parent all bones
+            for i, bone in enumerate(bones):
+                if boneParents[i] > -1:
+                    bone.parent = bones[boneParents[i]]
+            
+            # pose all bones   
+            bpy.context.view_layer.objects.active = skeletonObj
+            
+            for i, bone in enumerate(armature.edit_bones):
+                try:
+                    if not doPoseBone[bone.name]: continue
+                    a = boneMatrices[bone.name]
+                    mat = mathutils.Matrix.Identity(4)
+                    mat[0] = a.v[0:4]
+                    mat[1] = a.v[4:8]
+                    mat[2] = a.v[8:12]
+                    mat[3] = a.v[12:16]
+                    mat.transpose()
+                    bone.matrix = mat
+                except Exception as e:
+                    PrettyPrint(f"Failed setting bone matricies for: {e}. This may be intended", 'warn')
+                
+            bpy.ops.object.mode_set(mode='OBJECT')
+            
+            # assign armature modifier to the mesh object
+            modifier = new_object.modifiers.get("ARMATURE")
+            if (modifier == None):
+                modifier = new_object.modifiers.new("Armature", "ARMATURE")
+                modifier.object = skeletonObj
+
+            if bpy.context.scene.Hd2ToolPanelSettings.ParentArmature:
+                new_object.parent = skeletonObj
+            
+            # select the armature at the end so we can chain import when merging
+            for obj in bpy.context.selected_objects:
+                obj.select_set(False)
+            skeletonObj.select_set(True)
+            
+            # create empty animation data if it does not exist
+            if not skeletonObj.animation_data:
+              skeletonObj.animation_data_create()
+        
+        
+        if skeletonObj is not None and not imported_lights:
+            imported_lights = True
+            current_mode = bpy.context.mode
+            bpy.ops.object.mode_set(mode='EDIT')
+            for light in lights.lights:
+                blend_light = None
+                if light.light_type == Light.OMNI:
+                    light_type = "POINT"
+                    blend_light = bpy.data.lights.new(name = str(light.name_hash), type=light_type)
+                    blend_light.color = mathutils.Color(mathutils.Vector(light.color).normalized().to_tuple())
+                    blend_light.use_custom_distance = True
+                    blend_light.cutoff_distance = light.falloff_end
+                    #blend_light.exposure = light.falloff_exp
+                    blend_light.energy = sqrt(sum([component**2 for component in light.color]))
+                elif light.light_type == Light.SPOT:
+                    light_type = "SPOT"
+                    blend_light = bpy.data.lights.new(name = str(light.name_hash), type=light_type)
+                    blend_light.color = mathutils.Color(mathutils.Vector(light.color).normalized().to_tuple())
+                    blend_light.use_custom_distance = True
+                    blend_light.cutoff_distance = light.falloff_end
+                    #blend_light.exposure = light.falloff_exp
+                    blend_light.energy = sqrt(sum([component**2 for component in light.color]))
+                    blend_light.spot_size = light.end_angle
+                    blend_light.show_cone = True
+                elif light.light_type == Light.BOX:
+                    light_type = "AREA"
+                    blend_light = bpy.data.lights.new(name = str(light.name_hash), type=light_type)
+                    blend_light.color = mathutils.Color(mathutils.Vector(light.color).normalized().to_tuple())
+                    blend_light.use_custom_distance = True
+                    blend_light.cutoff_distance = light.falloff_end
+                    #blend_light.exposure = light.falloff_exp
+                    blend_light.energy = sqrt(sum([component**2 for component in light.color]))
+                    blend_light.shape = "RECTANGLE"
+                    blend_light.size = 1
+                    blend_light.size_y = 1
+                elif light.light_type == Light.DIRECTIONAL:
+                    light_type = "SUN"
+                    blend_light = bpy.data.lights.new(name = str(light.name_hash), type=light_type)
+                    blend_light.color = mathutils.Color(mathutils.Vector(light.color).normalized().to_tuple())
+                    blend_light.use_custom_distance = True
+                    blend_light.cutoff_distance = light.falloff_end
+                    #blend_light.exposure = light.falloff_exp
+                    blend_light.energy = sqrt(sum([component**2 for component in light.color]))
+                else:
+                    print("UNKNOWN LIGHT TYPE")
+                    print(light.light_type)
+                    continue
+                if light.flags & Light.CAST_SHADOW:
+                    blend_light.use_shadow = True
+                else:
+                    blend_light.use_shadow = False
+                if light.flags & Light.VOLUMETRIC_FOG:
+                    blend_light['Volumetric'] = True
+                else:
+                    blend_light['Volumetric'] = False
+                blend_light.use_custom_distance = True
+                light_object = bpy.data.objects.new(name = str(light.name_hash), object_data = blend_light)
+                light_object.lock_rotation = (True, True, True)
+                light_object.lock_location = (True, True, True)
+                light_object.lock_scale = (True, True, True)
+                bpy.context.collection.objects.link(light_object)
+                rotation_matrix = mathutils.Matrix.Rotation(1.57079632679, 4, 'X')
+                if armature:
+                    for index, bone in enumerate(armature.edit_bones):
+                        try:
+                            bone_name_hash = int(bone.name)
+                        except:
+                            bone_name_hash = murmur32_hash(bone.name.encode())
+                        if transform_info.NameHashes.index(bone_name_hash) == light.bone_index:
+                            light_object.parent = skeletonObj
+                            light_object.parent_bone = bone.name
+                            light_object.parent_type = "BONE"
+                            light_object.matrix_parent_inverse = light_object.matrix_parent_inverse.inverted() @ rotation_matrix
+                            break
+            bpy.ops.object.mode_set(mode=current_mode)
