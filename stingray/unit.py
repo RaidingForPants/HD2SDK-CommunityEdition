@@ -134,12 +134,6 @@ class StingrayMeshFile:
         
         f.seek(f.tell() + 12)
 
-        if f.IsReading() and self.MeshInfoOffset == 0:
-            if bpy.context.scene.Hd2ToolPanelSettings.SkipMeshImportErrors:
-                PrettyPrint(f"Skipping mesh import error due to SkipMeshImportErrors setting.", 'warn')
-                return
-            raise Exception("Unsupported Mesh Format (No geometry)")
-
         if f.IsReading() and (self.StreamInfoOffset == 0 and self.CompositeRef == 0):
             if bpy.context.scene.Hd2ToolPanelSettings.SkipMeshImportErrors:
                 PrettyPrint(f"Skipping mesh import error due to SkipMeshImportErrors setting.", 'warn')
@@ -353,25 +347,26 @@ class StingrayMeshFile:
                 self.StreamInfoArray[stream_idx] = self.StreamInfoArray[stream_idx].Serialize(f, devUnitVersion=self.Version)
 
         # Mesh Info
-        if f.IsReading(): f.seek(self.MeshInfoOffset)
-        else            : self.MeshInfoOffset = f.tell()
-        self.NumMeshes = f.uint32(len(self.MeshInfoArray))
+        if self.MeshInfoOffset != 0:
+            if f.IsReading(): f.seek(self.MeshInfoOffset)
+            else            : self.MeshInfoOffset = f.tell()
+            self.NumMeshes = f.uint32(len(self.MeshInfoArray))
 
-        if f.IsWriting():
-            if not redo_offsets: self.MeshInfoOffsets = [0]*self.NumMeshes
-            self.MeshInfoUnk = [mesh_info.MeshID for mesh_info in self.MeshInfoArray]
-        if f.IsReading():
-            self.MeshInfoOffsets = [0]*self.NumMeshes
-            self.MeshInfoUnk     = [0]*self.NumMeshes
-            self.MeshInfoArray   = [MeshInfo() for n in range(self.NumMeshes)]
-            self.DEV_MeshInfoMap = [n for n in range(len(self.MeshInfoArray))]
+            if f.IsWriting():
+                if not redo_offsets: self.MeshInfoOffsets = [0]*self.NumMeshes
+                self.MeshInfoUnk = [mesh_info.MeshID for mesh_info in self.MeshInfoArray]
+            if f.IsReading():
+                self.MeshInfoOffsets = [0]*self.NumMeshes
+                self.MeshInfoUnk     = [0]*self.NumMeshes
+                self.MeshInfoArray   = [MeshInfo() for n in range(self.NumMeshes)]
+                self.DEV_MeshInfoMap = [n for n in range(len(self.MeshInfoArray))]
 
-        self.MeshInfoOffsets  = [f.uint32(Offset) for Offset in self.MeshInfoOffsets]
-        self.MeshInfoUnk      = [f.uint32(Unk) for Unk in self.MeshInfoUnk]
-        for mesh_idx in range(self.NumMeshes):
-            if f.IsReading(): f.seek(self.MeshInfoOffset+self.MeshInfoOffsets[mesh_idx])
-            else            : self.MeshInfoOffsets[mesh_idx] = f.tell() - self.MeshInfoOffset
-            self.MeshInfoArray[mesh_idx] = self.MeshInfoArray[mesh_idx].Serialize(f)
+            self.MeshInfoOffsets  = [f.uint32(Offset) for Offset in self.MeshInfoOffsets]
+            self.MeshInfoUnk      = [f.uint32(Unk) for Unk in self.MeshInfoUnk]
+            for mesh_idx in range(self.NumMeshes):
+                if f.IsReading(): f.seek(self.MeshInfoOffset+self.MeshInfoOffsets[mesh_idx])
+                else            : self.MeshInfoOffsets[mesh_idx] = f.tell() - self.MeshInfoOffset
+                self.MeshInfoArray[mesh_idx] = self.MeshInfoArray[mesh_idx].Serialize(f)
             
         # Get geometry group
         if f.IsReading() and self.CompositeRef != 0:
@@ -423,11 +418,18 @@ class StingrayMeshFile:
                     Global_MaterialSlotNames[id][self.MaterialIDs[i]].append(self.SectionsIDs[i])
 
         # Unreversed Data
-        if f.IsReading(): UnreversedData2Size = self.EndingOffset-f.tell()
+        if f.IsReading(): 
+            if self.EndingOffset == 0:
+                UnreversedData2Size = len(f.Data)-f.tell()
+            else:
+                UnreversedData2Size = self.EndingOffset-f.tell()
         else: UnreversedData2Size = len(self.UnReversedData2)
         self.UnReversedData2    = f.bytes(self.UnReversedData2, UnreversedData2Size)
-        if f.IsWriting(): self.EndingOffset = f.tell()
-        self.EndingBytes        = f.uint64(self.NumMeshes)
+        if f.IsWriting(): 
+            if self.EndingOffset != 0:
+                self.EndingOffset = f.tell()
+        if self.EndingOffset != 0:
+            self.EndingBytes        = f.uint64(self.NumMeshes)
         if redo_offsets:
             return self
 
@@ -2664,97 +2666,58 @@ def CreateModel(stingray_unit: StingrayMeshFile, id: int, Global_BoneNames: dict
             boneTransforms = {}
             boneMatrices = {}
             doPoseBone = {}
-            if mesh.LodIndex in [-1, 0]:
-                bones = [None] * transform_info.NumTransforms
-                boneParents = [0] * transform_info.NumTransforms
-                for i, transform in enumerate(transform_info.TransformEntries):
-                    boneParent = transform.ParentBone
-                    boneHash = transform_info.NameHashes[i]
-                    if boneHash in Global_BoneNames: # name of bone
-                        boneName = Global_BoneNames[boneHash]
-                    else:
-                        boneName = str(boneHash)
-                    animated = False
-                    ragdoll = False
-                    ragdoll_params = []
-                    if bones_entry and boneName in bones_entry.Names:
+            bones = [None] * transform_info.NumTransforms
+            boneParents = [0] * transform_info.NumTransforms
+            for i, transform in enumerate(transform_info.TransformEntries):
+                boneParent = transform.ParentBone
+                boneHash = transform_info.NameHashes[i]
+                if boneHash in Global_BoneNames: # name of bone
+                    boneName = Global_BoneNames[boneHash]
+                else:
+                    boneName = str(boneHash)
+                animated = False
+                ragdoll = False
+                ragdoll_params = []
+                if bones_entry and boneName in bones_entry.Names:
+                    animated = True
+                    bone_index = bones_entry.Names.index(boneName)
+                    for r in state_machine_entry.ragdolls:
+                        if r.bone_index == bone_index:
+                            ragdoll = True
+                            ragdoll_params = r.params
+                            break
+                try:
+                    b = int(boneName)
+                    if bones_entry and b in bones_entry.BoneHashes:
                         animated = True
-                        bone_index = bones_entry.Names.index(boneName)
-                        for r in state_machine_entry.ragdolls:
-                            if r.bone_index == bone_index:
-                                ragdoll = True
-                                ragdoll_params = r.params
-                                break
-                    try:
-                        b = int(boneName)
-                        if bones_entry and b in bones_entry.BoneHashes:
-                            animated = True
-                    except ValueError:
-                        pass
-                    newBone = armature.edit_bones.get(boneName)
-                    if newBone is None:
-                        newBone = armature.edit_bones.new(boneName)
-                        newBone.tail = 0, 0.05, 0
-                        if bones_entry: newBone['Animated'] = animated
-                        '''
-                        if bones_entry:
-                            newBone['Jiggle'] = ragdoll
-                            if ragdoll:
-                                newBone['Weight'] = ragdoll_params[0]
-                                newBone['Gravity'] = ragdoll_params[1]
-                                newBone['Param 3'] = ragdoll_params[2]
-                                newBone['Param 4'] = ragdoll_params[3]
-                                newBone['Param 5'] = ragdoll_params[4]
-                                newBone['Param 6'] = ragdoll_params[5]
-                                newBone['Param 7'] = ragdoll_params[6]
-                                newBone['Param 8'] = ragdoll_params[7]
-                                newBone['Param 9'] = ragdoll_params[8]
-                        '''
-                        doPoseBone[newBone.name] = True
-                    else:
-                        doPoseBone[newBone.name] = False
-                    bones[i] = newBone
-                    boneParents[i] = boneParent
-                    boneTransforms[newBone.name] = transform_info.Transforms[i]
-                    boneMatrices[newBone.name] = transform_info.TransformMatrices[i]
-            else:
-                b_info = bone_info[mesh.LodIndex]
-                bones = [None] * b_info.NumBones
-                boneParents = [0] * b_info.NumBones
-                for i, bone in enumerate(b_info.Bones): # this is not every bone in the transform_info
-                    boneIndex = b_info.RealIndices[i] # index of bone in transform info
-                    boneParent = transform_info.TransformEntries[boneIndex].ParentBone # index of parent bone in transform info
-                    # index of parent bone in b_info.Bones?
-                    if boneParent in b_info.RealIndices:
-                        boneParentIndex = b_info.RealIndices.index(boneParent)
-                    else:
-                        boneParentIndex = -1
-                    boneHash = transform_info.NameHashes[boneIndex]
-                    if boneHash in Global_BoneNames: # name of bone
-                        boneName = Global_BoneNames[boneHash]
-                    else:
-                        boneName = str(boneHash)
-                    animated = False
-                    if bones_entry and boneName in bones_entry.Names:
-                        animated = True
-                    try:
-                        b = int(boneName)
-                        if bones_entry and b in bones_entry.BoneHashes:
-                            animated = True
-                    except ValueError:
-                        pass
-                    newBone = armature.edit_bones.get(boneName)
-                    if newBone is None:
-                        newBone = armature.edit_bones.new(boneName)
-                        newBone.tail = 0, 0.05, 0
-                        if bones_entry: newBone['Animated'] = animated
-                        doPoseBone[newBone.name] = True
-                    else:
-                        doPoseBone[newBone.name] = False
-                    bones[i] = newBone
-                    boneTransforms[newBone.name] = transform_info.Transforms[boneIndex]
-                    boneMatrices[newBone.name] = transform_info.TransformMatrices[boneIndex]
-                    boneParents[i] = boneParentIndex
+                except ValueError:
+                    pass
+                newBone = armature.edit_bones.get(boneName)
+                if newBone is None:
+                    newBone = armature.edit_bones.new(boneName)
+                    newBone.tail = 0, 0.05, 0
+                    if bones_entry: newBone['Animated'] = animated
+                    '''
+                    if bones_entry:
+                        newBone['Jiggle'] = ragdoll
+                        if ragdoll:
+                            newBone['Weight'] = ragdoll_params[0]
+                            newBone['Gravity'] = ragdoll_params[1]
+                            newBone['Param 3'] = ragdoll_params[2]
+                            newBone['Param 4'] = ragdoll_params[3]
+                            newBone['Param 5'] = ragdoll_params[4]
+                            newBone['Param 6'] = ragdoll_params[5]
+                            newBone['Param 7'] = ragdoll_params[6]
+                            newBone['Param 8'] = ragdoll_params[7]
+                            newBone['Param 9'] = ragdoll_params[8]
+                    '''
+                    doPoseBone[newBone.name] = True
+                else:
+                    doPoseBone[newBone.name] = False
+                bones[i] = newBone
+                boneParents[i] = boneParent
+                boneTransforms[newBone.name] = transform_info.Transforms[i]
+                boneMatrices[newBone.name] = transform_info.TransformMatrices[i]
                     
             # parent all bones
             for i, bone in enumerate(bones):
@@ -2779,15 +2742,6 @@ def CreateModel(stingray_unit: StingrayMeshFile, id: int, Global_BoneNames: dict
                     PrettyPrint(f"Failed setting bone matricies for: {e}. This may be intended", 'warn')
                 
             bpy.ops.object.mode_set(mode='OBJECT')
-            
-            # assign armature modifier to the mesh object
-            modifier = new_object.modifiers.get("ARMATURE")
-            if (modifier == None):
-                modifier = new_object.modifiers.new("Armature", "ARMATURE")
-                modifier.object = skeletonObj
-
-            if bpy.context.scene.Hd2ToolPanelSettings.ParentArmature:
-                new_object.parent = skeletonObj
             
             # select the armature at the end so we can chain import when merging
             for obj in bpy.context.selected_objects:
