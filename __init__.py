@@ -848,7 +848,7 @@ class StreamToc:
             return self.TocDict[TypeID][FileID]
         except KeyError:
             return None
-    def AddEntry(self, NewEntry, override=False):
+    def AddEntry(self, NewEntry, override=False, ReloadUI=True):
         if not override and self.GetEntry(NewEntry.FileID, NewEntry.TypeID) != None:
             raise Exception("Entry with same ID already exists")
         try:
@@ -856,12 +856,12 @@ class StreamToc:
         except KeyError:
             self.TocDict[NewEntry.TypeID] = {}
             self.TocDict[NewEntry.TypeID][NewEntry.FileID] = NewEntry
-        LoadEntryLists()
+        if ReloadUI: LoadEntryLists()
         self.UpdateTypes()
     def RemoveEntry(self, FileID, TypeID):
         try:
             del self.TocDict[TypeID][FileID]
-            LoadEntryLists()
+            if ReloadUI: LoadEntryLists()
             self.UpdateTypes()
         except KeyError:
             pass
@@ -1107,23 +1107,23 @@ class TocManager():
             if Patch.Name == Name:
                 self.SetActivePatch(Patch)
 
-    def AddNewEntryToPatch(self, Entry):
+    def AddNewEntryToPatch(self, Entry, ReloadUI=True):
         if self.ActivePatch == None:
             raise Exception("No patch exists, please create one first")
-        self.ActivePatch.AddEntry(Entry)
+        self.ActivePatch.AddEntry(Entry, ReloadUI=ReloadUI)
         
-    def AddEntryToPatchID(self, Entry, dest_id) -> TocEntry:
+    def AddEntryToPatchID(self, Entry, dest_id, ReloadUI=True) -> TocEntry:
         if self.ActivePatch == None:
             raise Exception("No patch exists, please create one first")
             
         if Entry != None:
             PatchEntry = deepcopy(Entry)
             PatchEntry.FileID = dest_id
-            self.ActivePatch.AddEntry(PatchEntry, override=True)
+            self.ActivePatch.AddEntry(PatchEntry, override=True, ReloadUI=ReloadUI)
             return PatchEntry
         return None
 
-    def AddEntryToPatch(self, FileID, TypeID) -> TocEntry:
+    def AddEntryToPatch(self, FileID, TypeID, ReloadUI=True) -> TocEntry:
         if self.ActivePatch == None:
             raise Exception("No patch exists, please create one first")
 
@@ -1132,13 +1132,13 @@ class TocManager():
             PatchEntry = deepcopy(Entry)
             if PatchEntry.IsSelected:
                 self.SelectEntries([PatchEntry], True)
-            self.ActivePatch.AddEntry(PatchEntry)
+            self.ActivePatch.AddEntry(PatchEntry, ReloadUI=ReloadUI)
             return PatchEntry
         return None
 
-    def RemoveEntryFromPatch(self, FileID, TypeID):
+    def RemoveEntryFromPatch(self, FileID, TypeID, ReloadUI=True):
         if self.ActivePatch != None:
-            self.ActivePatch.RemoveEntry(FileID, TypeID)
+            self.ActivePatch.RemoveEntry(FileID, TypeID, ReloadUI=ReloadUI)
         return None
 
     def GetPatchEntry(self, Entry) -> TocEntry:
