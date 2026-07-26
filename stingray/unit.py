@@ -2085,9 +2085,15 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     #bpy.ops.object.mode_set(mode='OBJECT')
     # get faces
     temp_faces = [[] for n in range(len(object.material_slots))]
+    faces_skipped = 0
     for f in mesh.polygons:
-        temp_faces[f.material_index].append([f.vertices[0], f.vertices[1], f.vertices[2]])
-        materials[f.material_index].NumIndices += 3
+        try:
+            temp_faces[f.material_index].append([f.vertices[0], f.vertices[1], f.vertices[2]])
+            materials[f.material_index].NumIndices += 3
+        except IndexError:
+            faces_skipped += 1
+    if faces_skipped:
+        PrettyPrint(f"Skipping {faces_skipped} faces that were not assigned a material...", "warn")
     for tmp in temp_faces: faces.extend(tmp)
 
     NewMesh = RawMeshClass()
