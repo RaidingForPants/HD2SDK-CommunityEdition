@@ -448,10 +448,14 @@ class StingrayAnimation:
         initial_state.compress_position = 0
         initial_state.compress_rotation = 0
         initial_state.compress_scale = 0
-        if bone.parent:
-            translation, rotation, scale = (bone.parent.matrix.inverted() @ bone.matrix).decompose()
+        if self.is_additive_animation:
+            mat = mathutils.Matrix.Identity(4)
         else:
-            translation, rotation, scale = bone.matrix.decompose()
+            if bone.parent is not None:
+                mat = (bone.parent.matrix.inverted() @ bone.matrix)
+            else:
+                mat = bone.matrix
+        translation, rotation, scale = mat.decompose()
         initial_state.position = translation.to_tuple()
         initial_state.rotation = (rotation[1], rotation[2], rotation[3], rotation[0])
         initial_state.scale = [1, 1, 1] if not self.is_additive_animation else [0, 0, 0]
