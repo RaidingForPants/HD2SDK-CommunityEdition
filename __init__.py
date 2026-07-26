@@ -858,7 +858,7 @@ class StreamToc:
             self.TocDict[NewEntry.TypeID][NewEntry.FileID] = NewEntry
         if ReloadUI: LoadEntryLists()
         self.UpdateTypes()
-    def RemoveEntry(self, FileID, TypeID):
+    def RemoveEntry(self, FileID, TypeID, ReloadUI=True):
         try:
             del self.TocDict[TypeID][FileID]
             if ReloadUI: LoadEntryLists()
