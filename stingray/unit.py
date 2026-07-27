@@ -1809,13 +1809,14 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                     bone_data.BoneHashes.pop(bone_index)
                     bone_data.Names.pop(bone_index)
                 bone_data.NumNames -= len(removed_bones)
-                for blend_mask in state_machine_data.blend_masks:
-                    blend_mask.bone_count -= len(removed_bones)
-                    for bone_index in removed_bone_indices:
-                        try:
-                            blend_mask.bone_weights.pop(bone_index)
-                        except IndexError: # happens when removing a custom animated bone
-                            pass
+                if state_machine_data:
+                    for blend_mask in state_machine_data.blend_masks:
+                        blend_mask.bone_count -= len(removed_bones)
+                        for bone_index in removed_bone_indices:
+                            try:
+                                blend_mask.bone_weights.pop(bone_index)
+                            except IndexError: # happens when removing a custom animated bone
+                                pass
             
             # Add new animated bones
             if added_bones:
@@ -1829,19 +1830,20 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                     
             # remove and add bones from animations
             if added_bones or removed_bones:
-                for animation in state_machine_data.animation_ids:
-                    animation_data = Global_TocManager.GetEntry(animation, AnimationID, IgnorePatch=False, SearchAll=True)
-                    if not animation_data.IsLoaded:
-                        animation_data.Load(False, False)
-                    animation_data.LoadedData.remove_bone_list(removed_bone_indices)
-                    for bone in added_bones:
-                        animation_data.LoadedData.add_bone(bone)
-                    animation_data.LoadedData.finish_bone_update()
-                    Global_TocManager.Save(animation, AnimationID)
+                if state_machine_data:
+                    for animation in state_machine_data.animation_ids:
+                        animation_data = Global_TocManager.GetEntry(animation, AnimationID, IgnorePatch=False, SearchAll=True)
+                        if not animation_data.IsLoaded:
+                            animation_data.Load(False, False)
+                        animation_data.LoadedData.remove_bone_list(removed_bone_indices)
+                        for bone in added_bones:
+                            animation_data.LoadedData.add_bone(bone)
+                        animation_data.LoadedData.finish_bone_update()
+                        Global_TocManager.Save(animation, AnimationID)
                     
             if added_bones or removed_bones:
-                bone_entry.Save()
-                state_machine_entry.Save()
+                if bone_entry: bone_entry.Save()
+                if state_machine_entry: state_machine_entry.Save()
                     
         # --- END ANIMATED BONE DATA ---
         
