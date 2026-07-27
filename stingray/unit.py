@@ -1797,50 +1797,51 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
         
         # --- MAKE CHANGES TO ANIMATED BONE DATA ---
         
-        added_bones = [bone for bone in armature_obj.data.edit_bones if bone.get('Animated', False) and compute_bone_name_hash(bone.name) not in bone_data.BoneHashes]
-        removed_bones = [bone for bone in armature_obj.data.edit_bones if not bone.get('Animated', False) and compute_bone_name_hash(bone.name) in bone_data.BoneHashes]
-        removed_bone_indices = [bone_data.BoneHashes.index(compute_bone_name_hash(bone.name)) for bone in removed_bones]
-        removed_bone_indices.sort(reverse=True)
-        
-        # Remove deleted animated bones
-        if removed_bones:
-            for bone_index in removed_bone_indices:
-                bone_data.BoneHashes.pop(bone_index)
-                bone_data.Names.pop(bone_index)
-            bone_data.NumNames -= len(removed_bones)
-            for blend_mask in state_machine_data.blend_masks:
-                blend_mask.bone_count -= len(removed_bones)
+        if bone_data:
+            added_bones = [bone for bone in armature_obj.data.edit_bones if bone.get('Animated', False) and compute_bone_name_hash(bone.name) not in bone_data.BoneHashes]
+            removed_bones = [bone for bone in armature_obj.data.edit_bones if not bone.get('Animated', False) and compute_bone_name_hash(bone.name) in bone_data.BoneHashes]
+            removed_bone_indices = [bone_data.BoneHashes.index(compute_bone_name_hash(bone.name)) for bone in removed_bones]
+            removed_bone_indices.sort(reverse=True)
+            
+            # Remove deleted animated bones
+            if removed_bones:
                 for bone_index in removed_bone_indices:
-                    try:
-                        blend_mask.bone_weights.pop(bone_index)
-                    except IndexError: # happens when removing a custom animated bone
-                        pass
-        
-        # Add new animated bones
-        if added_bones:
-            bone_data.BoneHashes.extend([compute_bone_name_hash(bone.name) for bone in added_bones])
-            bone_data.Names.extend([bone.name for bone in added_bones])
-            bone_data.NumNames += len(added_bones)
-            if state_machine_data:
+                    bone_data.BoneHashes.pop(bone_index)
+                    bone_data.Names.pop(bone_index)
+                bone_data.NumNames -= len(removed_bones)
                 for blend_mask in state_machine_data.blend_masks:
-                    blend_mask.bone_count += len(added_bones)
-                    blend_mask.bone_weights.extend([0.0 for bone in added_bones])
-                
-        # remove and add bones from animations
-        if added_bones or removed_bones:
-            for animation in state_machine_data.animation_ids:
-                animation_data = Global_TocManager.GetEntry(animation, AnimationID, IgnorePatch=False, SearchAll=True)
-                if not animation_data.IsLoaded:
-                    animation_data.Load(False, False)
-                animation_data.LoadedData.remove_bone_list(removed_bone_indices)
-                for bone in added_bones:
-                    animation_data.LoadedData.add_bone(bone)
-                animation_data.LoadedData.finish_bone_update()
-                Global_TocManager.Save(animation, AnimationID)
-                
-        if added_bones or removed_bones:
-            bone_entry.Save()
-            state_machine_entry.Save()
+                    blend_mask.bone_count -= len(removed_bones)
+                    for bone_index in removed_bone_indices:
+                        try:
+                            blend_mask.bone_weights.pop(bone_index)
+                        except IndexError: # happens when removing a custom animated bone
+                            pass
+            
+            # Add new animated bones
+            if added_bones:
+                bone_data.BoneHashes.extend([compute_bone_name_hash(bone.name) for bone in added_bones])
+                bone_data.Names.extend([bone.name for bone in added_bones])
+                bone_data.NumNames += len(added_bones)
+                if state_machine_data:
+                    for blend_mask in state_machine_data.blend_masks:
+                        blend_mask.bone_count += len(added_bones)
+                        blend_mask.bone_weights.extend([0.0 for bone in added_bones])
+                    
+            # remove and add bones from animations
+            if added_bones or removed_bones:
+                for animation in state_machine_data.animation_ids:
+                    animation_data = Global_TocManager.GetEntry(animation, AnimationID, IgnorePatch=False, SearchAll=True)
+                    if not animation_data.IsLoaded:
+                        animation_data.Load(False, False)
+                    animation_data.LoadedData.remove_bone_list(removed_bone_indices)
+                    for bone in added_bones:
+                        animation_data.LoadedData.add_bone(bone)
+                    animation_data.LoadedData.finish_bone_update()
+                    Global_TocManager.Save(animation, AnimationID)
+                    
+            if added_bones or removed_bones:
+                bone_entry.Save()
+                state_machine_entry.Save()
                     
         # --- END ANIMATED BONE DATA ---
         
