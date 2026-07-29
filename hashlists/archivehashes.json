@@ -676,17 +676,27 @@
 
     "Mag": {
         "7be04adb392a3045": "AR-2 Coyote Mag",
-        "272519d2e9bf5324": "AR-23 Liberator Drum",
+        "3e98cd4b147320f3": "AR-23 Liberator Standard Mag",
+        "57240a76af850923": "AR-23 Liberator Extended Mag",
+        "272519d2e9bf5324": "AR-23 Liberator Drum Mag",
         "7d678bb75cfb937b": "AR-23 Liberator 45-Round Ranger",
-        "c7c2d638edffd06d": "AR-32 Extended Mag",
+        "c7c2d638edffd06d": "AR-32 Pacifier Extended Mag",
         "ab37d0554198acc8": "JAR-5 Dominator",
-        "9b856579552160e5": "MP-98 Knight",
+        "9b856579552160e5": "MP-98 Knight Standard Mag",
+        "5354a9ac5770888c": "MP-98 Knight Extended Mag",
         "bf2250de0b17285c": "P-2 Peacemaker",
         "7b523d4ef1c8f4ee": "PLAS-15 Loyalist Extended",
         "515ddabd01bd0c64": "PLAS-15 Loyalist Standard",
         "b15cd2256a2e677b": "P-19 Redeemer",
         "4911594c67c24c66": "R-63 Diligence 20-round",
-        "c97c859c01d50fcf": "SMG-37 Defender"
+        "d85cf8192edbddc1": "SMG-37 Defender Standard Magazine",
+        "c97c859c01d50fcf": "SMG-37 Defender Extended Mag",
+        "661c5c71cc017b97": "SMG-37 Defender Drum Magazine",
+        "e4aca30d86b21463": "R-72 Censor Extended Mag",
+        "b9c02bb092fca9d1": "High-Capacity Heatsink",
+        "187866959c3bb809": "High-Dissipation Heatsink",
+        "59e86f7c0601a2e2": "SMG-72 Pummeler SMG Standard Magazine",
+        "9a58aa87e9da0172": "SMG-72 Pummeler SMG Drum Magazine"
     },
 
     "Scope": {
