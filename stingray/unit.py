@@ -2367,11 +2367,6 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                     if bones_entry and boneName in bones_entry.Names:
                         animated = True
                         bone_index = bones_entry.Names.index(boneName)
-                        for r in state_machine_entry.ragdolls:
-                            if r.bone_index == bone_index:
-                                ragdoll = True
-                                ragdoll_params = r.params
-                                break
                     try:
                         b = int(boneName)
                         if bones_entry and b in bones_entry.BoneHashes:
@@ -2383,20 +2378,6 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                         newBone = armature.edit_bones.new(boneName)
                         newBone.tail = 0, 0.05, 0
                         if bones_entry: newBone['Animated'] = animated
-                        '''
-                        if bones_entry:
-                            newBone['Jiggle'] = ragdoll
-                            if ragdoll:
-                                newBone['Weight'] = ragdoll_params[0]
-                                newBone['Gravity'] = ragdoll_params[1]
-                                newBone['Param 3'] = ragdoll_params[2]
-                                newBone['Param 4'] = ragdoll_params[3]
-                                newBone['Param 5'] = ragdoll_params[4]
-                                newBone['Param 6'] = ragdoll_params[5]
-                                newBone['Param 7'] = ragdoll_params[6]
-                                newBone['Param 8'] = ragdoll_params[7]
-                                newBone['Param 9'] = ragdoll_params[8]
-                        '''
                         doPoseBone[newBone.name] = True
                     else:
                         doPoseBone[newBone.name] = False
