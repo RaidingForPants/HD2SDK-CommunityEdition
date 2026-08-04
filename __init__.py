@@ -1718,7 +1718,8 @@ def LoadStingrayUnit(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject, 
     toc  = MemoryStream(TocData)
     gpu  = MemoryStream(GpuData)
         
-    
+    bone_data = None
+    state_machine_data = None
     StingrayMesh = StingrayMeshFile()
     StingrayMesh.NameHash = int(ID)
     StingrayMesh.LoadMaterialSlotNames = LoadMaterialSlotNames
@@ -1729,8 +1730,9 @@ def LoadStingrayUnit(ID, TocData, GpuData, StreamData, Reload, MakeBlendObject, 
     state_machine_entry = Global_TocManager.GetEntry(StingrayMesh.StateMachineRef, StateMachineID, SearchAll=True, IgnorePatch=False)
     if state_machine_entry and not state_machine_entry.IsLoaded:
         state_machine_entry.Load(False, False)
-    if MakeBlendObject and bones_entry and state_machine_entry: CreateModel(StingrayMesh, str(ID), Global_BoneNames, bones_entry.LoadedData, state_machine_entry.LoadedData)
-    elif MakeBlendObject: CreateModel(StingrayMesh, str(ID), Global_BoneNames, None, None)
+    if bones_entry: bone_data = bones_entry.LoadedData
+    if state_machine_entry: state_machine_data = state_machine_entry.LoadedData
+    if MakeBlendObject: CreateModel(StingrayMesh, str(ID), Global_BoneNames, bone_data, state_machine_data)
     return StingrayMesh
 
 def SaveStingrayUnit(self, ID, TocData, GpuData, StreamData, StingrayMesh, BlenderOpts=None):
