@@ -110,6 +110,8 @@
         "1a204afc2362648b": "SR-18 Roadblock",
         "082f22454170efd6": "SR-24 Street Scout",
         "b186eae3f2b61509": "SR-64 Cinderblock",
+        "1434ec7cf0edf1bc": "TG-8 Sharpshooter",
+        "bbbb8499544b83ef": "TG-122 Demo-Trooper",
         "7dc940635e3dd573": "TR-7 Ambassador of the Brand",
         "c04df62c527e2761": "TR-9 Cavalier of Democracy",
         "4574fd34bddba5c4": "TR-40 Gold Eagle",
@@ -226,6 +228,8 @@
         "c7b0eaff041030c2": "SR-18 Roadblock",
         "b68f33f2cdd058da": "SR-24 Street Scout",
         "84fd7aab7cf6f62d": "SR-64 Cinderblock",
+        "bf06d78a228c3904": "TG-8 Sharpshooter",
+        "8517a93d6e19a56e": "TG-122 Demo-Trooper",
         "a0ce7d80e81fc62e": "TR-7 Ambassador of the Brand",
         "7cec1f264535f3c8": "TR-9 Cavalier of Democracy",
         "c19663a7f34f88fc": "TR-40 Gold Eagle",
@@ -417,7 +421,9 @@
         "dd43ebba60a66968": "Leviathan",
         "b97df541a966620a": "Gatekeeper",
         "687d548654b91be6": "Veracitor",
-        "864114866d6b24eb": "Obtruder"
+        "864114866d6b24eb": "Obtruder",
+        "6a9745893ec68156": "Crusher",
+        "8cc398a6c1e8c051": "Wretch"
     },
 
 	"Automaton": {
@@ -498,7 +504,8 @@
     },
 
     "NPC": {
-        "131fe264b7380717": "SEAF Solider"
+        "792b2a2ba11ae85d": "SEAF Soldier",
+        "131fe264b7380717": "SEAF Solider [OLD]"
     },
 
     "Vehicle": {
@@ -526,6 +533,7 @@
         "2cb3f69ab9bc1297": "G-109 Urchin",
         "dfb81f9917285965": "G-123 Thermite",
         "1721eee4581a9c54": "G-142 PyroTech",
+        "cfa471cb7c3a2d94": "G/40-K Melta Mine",
         "f111fa26003c0de9": "G/SH-39 Shield",
         "3bf0844097ab595f": "K-2 Throwing Knife",
         "fae34acb79502f53": "TM-01 Lure Mine"
@@ -598,6 +606,7 @@
         "7f927f50fa6c50e8": "LAS-17 Double-Edge Sickle",
         "c51f160470b34ae3": "PLAS-1 Scorcher & PLAS-101 Purifier",
         "351506bb55187cf9": "PLAS-39 Accelerator",
+        "0cbb8fc14f7d3433": "R/40-K Hot-Shot Marksman Rifle",
         "ca8d89f4fb0ce5ef": "SG-8P Punisher Plasma"
     },
 
@@ -636,6 +645,7 @@
         "58038f21c4334481": "P-69 Veto",
         "5d5c93ef05a46880": "P-92 Warrant",
         "b47514ae19a494f0": "P-113 Verdict",
+        "9514615d563612f1": "P/40-K Bolt Pistol",
         "2a5298e1c2f70c82": "M6C SOCOM Pistol"
     },
 
@@ -668,7 +678,8 @@
         "70d708e5fd627493": "S-11 Speargun",
         "93fa804787551c15": "SH-51 Directional Shield",
         "5795e99a988d10b7": "StA-X3 W.A.S.P. Launcher",
-        "750605cfc0173701": "TX-41 Sterilizer"
+        "750605cfc0173701": "TX-41 Sterilizer",
+        "ae4f2e79b546847c": "40-K Meltagun"
     },
 
     "Unreleased": {
