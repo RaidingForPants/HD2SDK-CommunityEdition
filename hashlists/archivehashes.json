@@ -713,7 +713,10 @@
         "b9c02bb092fca9d1": "High-Capacity Heatsink",
         "187866959c3bb809": "High-Dissipation Heatsink",
         "59e86f7c0601a2e2": "SMG-72 Pummeler SMG Standard Magazine",
-        "9a58aa87e9da0172": "SMG-72 Pummeler SMG Drum Magazine"
+        "9a58aa87e9da0172": "SMG-72 Pummeler SMG Drum Magazine",
+        "5e264395c66c0013":	"SMG/FLAM-34 Stoker Standard Mag",
+        "1b1fcc0e025c1f7d":	"SMG/FLAM-34 Stoker Extended Mag",
+        "97856895ea7a7b96":	"SMG/FLAM-34 Stoker Drum Mag"
     },
 
     "Scope": {
