@@ -1262,6 +1262,7 @@ class Light:
     DISABLED = 0x2
     INDIRECT_LIGHTING = 0x4
     VOLUMETRIC_FOG = 0x10
+    DIRECT_LIGHTING = 0x40
 
     def __init__(self):
         self.name_hash = self.bone_index = self.falloff_start = self.falloff_end = self.start_angle = self.end_angle = self.unk0 = self.flags = self.light_type = 0
@@ -1975,7 +1976,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                 target_light.end_angle = math.pi
             color = blend_light_data.color
             intensity = blend_light_data.energy
-            target_light.flags = target_light.flags & 0b11101110
+            target_light.flags = target_light.flags & 0b10101110
             if blend_light_data.use_shadow:
                 target_light.flags |= Light.CAST_SHADOW
             try:
@@ -1983,7 +1984,11 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                     target_light.flags |= Light.VOLUMETRIC_FOG
             except Exception as e:
                 print(e)
-                    
+            try:
+                if blend_light_data['Direct Lighting']:
+                    target_light.flags |= Light.DIRECT_LIGHTING
+            except Exception as e:
+                print(e)
             target_light.color = [color.r * intensity, color.g*intensity, color.b*intensity]
             if new_light:
                 light_list.lights.append(target_light)
@@ -2522,6 +2527,10 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
                     blend_light['Volumetric'] = True
                 else:
                     blend_light['Volumetric'] = False
+                if light.flags & Light.DIRECT_LIGHTING:
+                    blend_light['Direct Lighting'] = True
+                else:
+                    blend_light['Direct Lighting'] = False
                 blend_light.use_custom_distance = True
                 light_object = bpy.data.objects.new(name = str(light.name_hash), object_data = blend_light)
                 light_object.lock_rotation = (True, True, True)

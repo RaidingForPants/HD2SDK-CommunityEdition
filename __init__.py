@@ -4336,6 +4336,7 @@ class AddLightOperator(Operator):
         blend_light.energy = 1000.0
         blend_light.show_cone = True
         blend_light['Volumetric'] = False
+        blend_light['Direct Lighting'] = True
         
         light_object = bpy.data.objects.new(name = light_name, object_data = blend_light)
         light_object.lock_rotation = (True, True, True)
