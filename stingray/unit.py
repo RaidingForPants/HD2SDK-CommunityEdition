@@ -1913,7 +1913,8 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
                     transform_info.TransformEntries[transform_index].ParentBone = parent_transform_index
                 except ValueError:
                     PrettyPrint(f"Failed to parent bone: {bone.name}.", 'warn')
-                    
+
+        bpy.ops.object.mode_set(mode="OBJECT")
         armature_obj.hide_set(was_hidden)
         for obj in prev_objs:
             obj.select_set(True)
