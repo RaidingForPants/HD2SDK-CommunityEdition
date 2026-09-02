@@ -2245,10 +2245,10 @@ def CreateModel(stingray_unit, id, Global_BoneNames, bones_entry, state_machine_
         # -- || ASSIGN NORMALS || -- #
         if len(mesh.VertexNormals) == len(mesh.VertexPositions):
             # 4.3 compatibility change
-            if bpy.app.version[0] >= 4 and bpy.app.version[1] >= 1:
-                new_mesh.shade_smooth()
-            else:
+            if bpy.app.version[0] == 4 and bpy.app.version[1] == 0:
                 new_mesh.use_auto_smooth = True
+            else:
+                new_mesh.shade_smooth()
             
             new_mesh.polygons.foreach_set('use_smooth',  [True] * len(new_mesh.polygons))
             if not isinstance(mesh.VertexNormals[0], int):

@@ -5,7 +5,7 @@ import bpy
 
 if bpy.app.version[0] == 4 and bpy.app.version[1] == 0:
     from .lz4_310 import block
-elif (bpy.app.version[0] == 4 and bpy.app.version[0] <= 4) or (bpy.app.version[0] == 5 and bpy.app.version[0] == 0):
+elif (bpy.app.version[0] == 4) or (bpy.app.version[0] == 5 and bpy.app.version[1] == 0):
     from .lz4_311 import block
 else:
     from .lz4_313 import block

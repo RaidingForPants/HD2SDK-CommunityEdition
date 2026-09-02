@@ -223,7 +223,7 @@ Global_Materials = (
 def CheckBlenderVersion():
     global OnCorrectBlenderVersion
     BlenderVersion = bpy.app.version
-    OnCorrectBlenderVersion = (BlenderVersion[0] == 4 and BlenderVersion[1] <= 3) or (BlenderVersion[0] == 5 and BlenderVersion[1] <= 2)
+    OnCorrectBlenderVersion = (BlenderVersion[0] == 4) or (BlenderVersion[0] == 5 and BlenderVersion[1] <= 2)
     PrettyPrint(f"Blender Version: {BlenderVersion} Correct Version: {OnCorrectBlenderVersion}")
 
 def CheckAddonUpToDate():
