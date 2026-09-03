@@ -4864,6 +4864,11 @@ class HellDivers2ToolsPanel(Panel):
             row.label(text="Please Use Blender 4.0 to 5.2")
             return
 
+        if bpy.app.version[0] == 5 and bpy.app.version[1] == 1:
+            row.label(text="WARNING: BLENDER 5.1 REDUCES SDK PERFORMANCE!")
+            row = layout.row()
+            row.label(text="For a better experience, please use blender 5.0 or 5.2")
+
 
         row = layout.row()
         row.alignment = 'CENTER'
