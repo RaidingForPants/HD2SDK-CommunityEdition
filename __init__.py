@@ -4846,13 +4846,8 @@ class HellDivers2ToolsPanel(Panel):
                         split.label(text=text)
                         display_weight = round(weight, 2)
                         row = split.row()
-                        op = row.operator("helldiver2.set_blend_mask_weight", icon="CHECKMARK", text="")
-                        op.object_id = str(state_machine_entry.FileID)
-                        op.bone_index = j
-                        op.bone_weight = 1.0
-                        op.blend_mask_index = i
                         
-                        op = row.operator("helldiver2.set_blend_mask_weight", icon="CANCEL", text="")
+                        op = row.operator("helldiver2.set_blend_mask_weight", icon="REMOVE", text="")
                         op.object_id = str(state_machine_entry.FileID)
                         op.bone_index = j
                         op.bone_weight = 0.0
@@ -4862,6 +4857,12 @@ class HellDivers2ToolsPanel(Panel):
                         op.object_id = str(state_machine_entry.FileID)
                         op.bone_index = j
                         op.bone_weight = weight
+                        op.blend_mask_index = i
+
+                        op = row.operator("helldiver2.set_blend_mask_weight", icon="ADD", text="")
+                        op.object_id = str(state_machine_entry.FileID)
+                        op.bone_index = j
+                        op.bone_weight = 1.0
                         op.blend_mask_index = i
                 i -= 1
             
