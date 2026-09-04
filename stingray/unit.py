@@ -1704,7 +1704,7 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
     # get normals, tangents, bitangents
     #mesh.calc_tangents()
     # 4.3 compatibility change
-    if bpy.app.version[0] >= 4 and bpy.app.version[1] == 0:
+    if bpy.app.version[0] == 4 and bpy.app.version[1] == 0:
         if not mesh.has_custom_normals:
             mesh.create_normals_split()
         mesh.calc_normals_split()
