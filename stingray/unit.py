@@ -1923,6 +1923,9 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
 
     # get lights
     if armature_obj is not None:
+        was_hidden = armature_obj.hide_get()
+        armature_obj.hide_set(False)
+        bpy.context.view_layer.objects.active = armature_obj
         bpy.ops.object.mode_set(mode='EDIT')
         for blender_light in [child for child in armature_obj.children if child.type == "LIGHT"]:
             blend_light_data = blender_light.data
@@ -1993,7 +1996,12 @@ def GetMeshData(og_object, Global_TocManager, Global_BoneNames):
             target_light.color = [color.r * intensity, color.g*intensity, color.b*intensity]
             if new_light:
                 light_list.lights.append(target_light)
-        bpy.ops.object.mode_set(mode=prev_mode)  
+        bpy.ops.object.mode_set(mode="OBJECT")
+        armature_obj.hide_set(was_hidden)
+        for obj in prev_objs:
+            obj.select_set(True)
+        bpy.context.view_layer.objects.active = prev_obj
+        bpy.ops.object.mode_set(mode=prev_mode)
     
     # get weights
     vert_idx = 0
