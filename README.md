@@ -25,7 +25,7 @@ Community Edition aims to bring quality of life features to the Helldivers 2 Mod
 The developers of the original version of the tool have stated that they are unlikely to update it. Therefore, this community version of it has been made to bring quality of life features and to fix issues with the base version of the tool.
 
 ## Installation
-Download the [latest release build](https://github.com/Boxofbiscuits97/HD2SDK-CommunityEdition/releases) and install it into [Blender 4.0 to 4.3](https://www.blender.org/download/). 
+Download the [latest release build](https://github.com/Boxofbiscuits97/HD2SDK-CommunityEdition/releases) and install it into [Blender 4.0 to 5.2](https://www.blender.org/download/). 
 - Windows is the only officially supported operating system.
 - Linux has also been reported to work via Wine.
   - To use on linux without wine, extract the v0.4.1 linux build of [this texconv implementation](https://github.com/matyalatte/Texconv-Custom-DLL/releases/tag/v0.4.1) to the `deps` folder in the addon's zip before installing. 
@@ -52,7 +52,7 @@ To get a more curated list of specific guides, join the [Community Discord](http
 ### Getting Started
 1. Assure the **SDK is uninstalled**
 2. Install [Python](https://www.python.org/downloads/) `3.11.9`[^1] or later.
-[^1]: Minimum version used by blender 4.0-4.3, so this or anything newer will work
+[^1]: Minimum version used by blender 4.0-5.2, so this or anything newer will work
 3. [Create a fork of the repository](https://github.com/Boxofbiscuits97/HD2SDK-CommunityEdition/fork)
 4. Copy the link to your fork
 5. Open VSCode and go to the Source Control Tab
