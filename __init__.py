@@ -2369,6 +2369,25 @@ class MaterialTextureEntryOperator(Operator):
     def invoke(self, context, event):
         return {'FINISHED'}
         
+class StateMachineSetWeight(Operator):
+    bl_label = "Set Blend Mask"
+    bl_idname = "helldiver2.set_blend_mask_weight"
+    bl_description = "Sets the weight on the blend mask"
+    
+    object_id: StringProperty()
+    blend_mask_index: bpy.props.IntProperty()
+    bone_index: bpy.props.IntProperty()
+    bone_weight: bpy.props.FloatProperty()
+        
+    def execute(self, context):
+        Entry = Global_TocManager.GetEntry(self.object_id, StateMachineID)
+        if Entry:
+            Entry.LoadedData.blend_masks[self.blend_mask_index].bone_weights[self.bone_index] = self.bone_weight
+        else:
+            self.report({'ERROR'}, f"Could not find entry for ID: {self.object_id}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+        
 class StateMachineBlendMaskWeightOperator(Operator):
     bl_label = "Blend Mask"
     bl_idname = "helldiver2.blend_mask_weight"
@@ -4826,7 +4845,20 @@ class HellDivers2ToolsPanel(Panel):
                                 pass
                         split.label(text=text)
                         display_weight = round(weight, 2)
-                        op = split.operator("helldiver2.blend_mask_weight", text=f"Weight: {display_weight}")
+                        row = split.row()
+                        op = row.operator("helldiver2.set_blend_mask_weight", icon="CHECKMARK", text="")
+                        op.object_id = str(state_machine_entry.FileID)
+                        op.bone_index = j
+                        op.bone_weight = 1.0
+                        op.blend_mask_index = i
+                        
+                        op = row.operator("helldiver2.set_blend_mask_weight", icon="CANCEL", text="")
+                        op.object_id = str(state_machine_entry.FileID)
+                        op.bone_index = j
+                        op.bone_weight = 0.0
+                        op.blend_mask_index = i
+                        
+                        op = row.operator("helldiver2.blend_mask_weight", text=f"Weight: {display_weight}")
                         op.object_id = str(state_machine_entry.FileID)
                         op.bone_index = j
                         op.bone_weight = weight
@@ -5554,6 +5586,7 @@ classes = (
     StateMachineAnimationIDOperator,
     ImportXAMLOperator,
     ExportXAMLOperator,
+    StateMachineSetWeight,
 )
 
 Global_TocManager = TocManager()
