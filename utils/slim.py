@@ -5,8 +5,10 @@ import bpy
 
 if bpy.app.version[0] == 4 and bpy.app.version[1] == 0:
     from .lz4_310 import block
-else:
+elif (bpy.app.version[0] == 4) or (bpy.app.version[0] == 5 and bpy.app.version[1] == 0):
     from .lz4_311 import block
+else:
+    from .lz4_313 import block
 
 def read_int(file):
     return int.from_bytes(file.read(4), "little")

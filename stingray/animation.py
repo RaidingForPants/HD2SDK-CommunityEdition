@@ -1,4 +1,4 @@
-import bpy, bpy_types
+import bpy
 from math import ceil, sqrt, isnan, floor
 import mathutils
 

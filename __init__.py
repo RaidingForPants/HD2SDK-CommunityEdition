@@ -223,7 +223,7 @@ Global_Materials = (
 def CheckBlenderVersion():
     global OnCorrectBlenderVersion
     BlenderVersion = bpy.app.version
-    OnCorrectBlenderVersion = (BlenderVersion[0] == 4 and BlenderVersion[1] <= 3)
+    OnCorrectBlenderVersion = (BlenderVersion[0] == 4) or (BlenderVersion[0] == 5 and BlenderVersion[1] <= 2)
     PrettyPrint(f"Blender Version: {BlenderVersion} Correct Version: {OnCorrectBlenderVersion}")
 
 def CheckAddonUpToDate():
@@ -887,7 +887,7 @@ class TocManager():
         for Archive in self.LoadedArchives:
             if Archive.Path == path:
                 return Archive
-        archiveID = path.replace(Global_gamepath, '')
+        archiveID = os.path.basename(path)
         archiveName = GetArchiveNameFromID(archiveID)
         PrettyPrint(f"Loading Archive: {archiveID} {archiveName}")
         toc = StreamToc()
@@ -1927,9 +1927,10 @@ class ChangeFilepathOperator(Operator, ImportHelper):
 
     filter_glob: StringProperty(options={'HIDDEN'}, default='')
 
-    def __init__(self):
+    def invoke(self, context, event):
         global Global_gamepath
         self.filepath = bpy.path.abspath(Global_gamepath)
+        return super().invoke(context, event)
         
     def execute(self, context):
         global Global_gamepath
@@ -1958,10 +1959,11 @@ class ChangeSearchpathOperator(Operator, ImportHelper):
 
     filter_glob: StringProperty(options={'HIDDEN'}, default='')
 
-    def __init__(self):
+    def invoke(self, context, event):
         global Global_searchpath
         self.filepath = bpy.path.abspath(Global_searchpath)
-        
+        return super().invoke(context, event)
+
     def execute(self, context):
         global Global_searchpath
         Global_searchpath = self.filepath
@@ -1997,8 +1999,10 @@ class LoadArchiveOperator(Operator, ImportHelper):
     is_patch: BoolProperty(name="is_patch", default=False, options={'HIDDEN'})
     #files = CollectionProperty(name='File paths', type=bpy.types.PropertyGroup)
 
-    def __init__(self):
+    def invoke(self, context, event):
+        global Global_gamepath
         self.filepath = bpy.path.abspath(Global_gamepath)
+        return super().invoke(context, event)
 
     def execute(self, context):
         # Sanitize path by removing any provided extension, so the correct TOC file is loaded
@@ -2363,6 +2367,25 @@ class MaterialTextureEntryOperator(Operator):
         return{'FINISHED'}
 
     def invoke(self, context, event):
+        return {'FINISHED'}
+        
+class StateMachineSetWeight(Operator):
+    bl_label = "Set Blend Mask"
+    bl_idname = "helldiver2.set_blend_mask_weight"
+    bl_description = "Sets the weight on the blend mask"
+    
+    object_id: StringProperty()
+    blend_mask_index: bpy.props.IntProperty()
+    bone_index: bpy.props.IntProperty()
+    bone_weight: bpy.props.FloatProperty()
+        
+    def execute(self, context):
+        Entry = Global_TocManager.GetEntry(self.object_id, StateMachineID)
+        if Entry:
+            Entry.LoadedData.blend_masks[self.blend_mask_index].bone_weights[self.bone_index] = self.bone_weight
+        else:
+            self.report({'ERROR'}, f"Could not find entry for ID: {self.object_id}")
+            return {'CANCELLED'}
         return {'FINISHED'}
         
 class StateMachineBlendMaskWeightOperator(Operator):
@@ -3020,6 +3043,7 @@ class BatchSaveStingrayUnitOperator(Operator):
         if errors:
             self.report({'ERROR'}, f"Errors occurred while saving units. Click here to view.")
         PrettyPrint(f"Time to save units: {time.time()-start}")
+        bpy.ops.object.select_all(action='DESELECT')
         return{'FINISHED'}
 
 def SaveMeshMaterials(objects):
@@ -4821,7 +4845,20 @@ class HellDivers2ToolsPanel(Panel):
                                 pass
                         split.label(text=text)
                         display_weight = round(weight, 2)
-                        op = split.operator("helldiver2.blend_mask_weight", text=f"Weight: {display_weight}")
+                        row = split.row()
+                        op = row.operator("helldiver2.set_blend_mask_weight", icon="CHECKMARK", text="")
+                        op.object_id = str(state_machine_entry.FileID)
+                        op.bone_index = j
+                        op.bone_weight = 1.0
+                        op.blend_mask_index = i
+                        
+                        op = row.operator("helldiver2.set_blend_mask_weight", icon="CANCEL", text="")
+                        op.object_id = str(state_machine_entry.FileID)
+                        op.bone_index = j
+                        op.bone_weight = 0.0
+                        op.blend_mask_index = i
+                        
+                        op = row.operator("helldiver2.blend_mask_weight", text=f"Weight: {display_weight}")
                         op.object_id = str(state_machine_entry.FileID)
                         op.bone_index = j
                         op.bone_weight = weight
@@ -4856,8 +4893,13 @@ class HellDivers2ToolsPanel(Panel):
         if not OnCorrectBlenderVersion:
             row.label(text="Using Incorrect Blender Version!")
             row = layout.row()
-            row.label(text="Please Use Blender 4.0.X to 4.3.X")
+            row.label(text="Please Use Blender 4.0 to 5.2")
             return
+
+        if bpy.app.version[0] == 5 and bpy.app.version[1] == 1:
+            row.label(text="WARNING: BLENDER 5.1 REDUCES SDK PERFORMANCE!")
+            row = layout.row()
+            row.label(text="For a better experience, please use blender 5.0 or 5.2")
 
 
         row = layout.row()
@@ -5544,6 +5586,7 @@ classes = (
     StateMachineAnimationIDOperator,
     ImportXAMLOperator,
     ExportXAMLOperator,
+    StateMachineSetWeight,
 )
 
 Global_TocManager = TocManager()
@@ -5555,12 +5598,6 @@ class DotDict(dict):
         
     def __setattr__(self, name, value):
         dict.__setitem__(self, name, value)
-    
-def SetSelected(t):
-    def wrapper(scene, value):
-        scene[f"index_{t}_dummy"] = 5000000
-    return wrapper
-
 
 def register():
     if not os.path.exists(Global_texconvpath): raise Exception("Texconv is not found, please install Texconv in /deps/")
@@ -5586,7 +5623,7 @@ def register():
         setattr(bpy.types.Scene, f"list_{t}", CollectionProperty(type = ListItem))
         setattr(bpy.types.Scene, f"index_{t}", IntProperty(name = f"index_{t}", default = 0))
         setattr(bpy.types.Scene, f"filter_{t}", StringProperty(name = f"filter_{t}", default = ""))
-        setattr(bpy.types.Scene, f"index_{t}_dummy", IntProperty(name = f"index_{t}_dummy", default = 5000000, set=SetSelected(t)))
+        setattr(bpy.types.Scene, f"index_{t}_dummy", IntProperty(name = f"index_{t}_dummy", default = 5000000))
     bpy.types.Scene.new_id_entry = StringProperty(name="new_id_entry", default="")
 
 def unregister():
@@ -5599,6 +5636,8 @@ def unregister():
     for t in Global_TypeIDs:
         delattr(bpy.types.Scene, f"list_{t}")
         delattr(bpy.types.Scene, f"index_{t}")
+        delattr(bpy.types.Scene, f"filter_{t}")
+        delattr(bpy.types.Scene, f"index_{t}_dummy")
     bpy.utils.unregister_class(MY_UL_List)
     bpy.utils.unregister_class(ListItem)
 
